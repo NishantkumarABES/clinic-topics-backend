@@ -7,7 +7,7 @@ from datetime import timedelta
 from apps.accounts.constants import UserState, UserRole
 from apps.profiles.constants import DoctorVerificationStatus
 from apps.accounts.models import User, AuthProvider, PhoneOTP, PasswordResetToken, EmailOTP
-from config.settings.base import FRONTEND_BASE_URL, DEFAULT_FROM_EMAIL, OTP_EXPIRY_MINUTES
+from config.settings.base import OTP_EXPIRY_MINUTES
 
 def assert_identity_available(email=None, phone=None):
     qs = User.objects.exclude(state=UserState.DELETED)
