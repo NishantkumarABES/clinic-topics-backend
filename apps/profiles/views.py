@@ -1,0 +1,441 @@
+from django.core.exceptions import ObjectDoesNotExist
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework import status
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+
+from apps.profiles.models import DoctorProfile
+from apps.profiles.serializers import (
+    DoctorProfileSerializer, PatientProfileSerializer, DoctorOverviewSerializer, DoctorProfessionalSerializer, DoctorLicenseSerializer, 
+    DoctorPracticeSerializer, DoctorAvailabilitySerializer, DoctorAboutSerializer, PatientMedicalSerializer, PatientProfileSerializer, 
+    PatientEmergencySerializer, PatientInsuranceSerializer, PatientPersonalSerializer
+)
+from core.permissions import IsDoctor, IsPatient, IsAdmin
+from apps.accounts.services import activate_user_if_eligible
+from apps.accounts.constants import UserState
+from apps.profiles.services import update_doctor_section_completion, update_patient_section_completion
+
+
+# Doctor profile APIs view
+class DoctorProfileView(APIView):
+    permission_classes = [IsDoctor]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        responses={200: DoctorProfileSerializer, 404: "Profile not created"}
+    )
+    def get(self, request):
+        try:
+            profile = request.user.doctor_profile
+        except ObjectDoesNotExist:
+            return Response(
+                {"detail": "Doctor profile not created"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = DoctorProfileSerializer(profile)
+        return Response(serializer.data)
+
+    @swagger_auto_schema(
+        request_body=DoctorProfileSerializer,
+        responses={201: "Doctor profile created"}
+    )
+    def post(self, request):
+        if not request.user.terms_accepted:
+            return Response(
+                {"detail": "Accept terms and conditions first"},
+                status=403
+            )
+        
+        if not request.user.is_profile_complete():
+            return Response(
+                {
+                    "detail": "Complete user profile before creating doctor profile"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if hasattr(request.user, "doctor_profile"):
+            return Response(
+                {"detail": "Doctor profile already exists"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = DoctorProfileSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        profile = serializer.save(user=request.user)
+
+        activate_user_if_eligible(request.user)
+
+        return Response(
+            {
+                "message": "Doctor profile created",
+                "verification_status": profile.verification_status
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    @swagger_auto_schema(
+        request_body=DoctorProfileSerializer,
+        responses={200: "Doctor profile updated"}
+    )
+    def patch(self, request):
+        try:
+            profile = request.user.doctor_profile
+        except ObjectDoesNotExist:
+            return Response(
+                {"detail": "Doctor profile not created"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = DoctorProfileSerializer(
+            profile, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "Doctor profile updated"})
+
+class DoctorSectionUpdateMixin:
+    section_name = None
+    serializer_class = None
+
+    @swagger_auto_schema(
+        request_body=serializer_class,
+        responses={200: "Section updated"}
+    )
+    def patch(self, request):
+        profile = request.user.doctor_profile
+
+        if profile.is_section_locked(self.section_name):
+            return Response(
+                {"detail": "This section is locked by admin"},
+                status=403
+            )
+
+        serializer = self.serializer_class(
+            profile, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        update_doctor_section_completion(profile, self.section_name)
+
+        return Response({"message": f"{self.section_name} updated"})
+
+class DoctorOverviewUpdateView(APIView, DoctorSectionUpdateMixin):
+    permission_classes = [IsDoctor]
+    section_name = "overview"
+    serializer_class = DoctorOverviewSerializer
+
+class DoctorProfessionalUpdateView(APIView, DoctorSectionUpdateMixin):
+    permission_classes = [IsDoctor]
+    section_name = "professional"
+    serializer_class = DoctorProfessionalSerializer
+
+class DoctorLicenseUpdateView(APIView, DoctorSectionUpdateMixin):
+    permission_classes = [IsDoctor]
+    section_name = "license"
+    serializer_class = DoctorLicenseSerializer
+
+class DoctorPracticeUpdateView(APIView, DoctorSectionUpdateMixin):
+    permission_classes = [IsDoctor]
+    section_name = "practice"
+    serializer_class = DoctorPracticeSerializer
+
+class DoctorAvailabilityUpdateView(APIView, DoctorSectionUpdateMixin):
+    permission_classes = [IsDoctor]
+    section_name = "availability"
+    serializer_class = DoctorAvailabilitySerializer
+
+class DoctorAboutUpdateView(APIView, DoctorSectionUpdateMixin):
+    permission_classes = [IsDoctor]
+    section_name = "about"
+    serializer_class = DoctorAboutSerializer
+    
+class DoctorLicenseUploadView(APIView):
+    permission_classes = [IsDoctor]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def patch(self, request):
+        profile = request.user.doctor_profile
+
+        if "license_document" not in request.FILES:
+            return Response(
+                {"detail": "License document is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        profile.license_document = request.FILES["license_document"]
+        profile.save(update_fields=["license_document"])
+
+        return Response({"message": "License uploaded successfully"})
+
+    permission_classes = [IsDoctor]
+    parser_classes = [MultiPartParser, FormParser]
+    
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                name="license_document",
+                in_=openapi.IN_FORM,
+                type=openapi.TYPE_FILE,
+                description="Doctor license document",
+                required=True
+            )
+        ],
+        responses={200: openapi.Response("License uploaded", openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={"message": openapi.Schema(type=openapi.TYPE_STRING)}
+        ))}
+    )
+    def patch(self, request):
+        profile = request.user.doctor_profile
+
+        if "license_document" not in request.FILES:
+            return Response(
+                {"detail": "No document provided"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        profile.license_document = request.FILES["license_document"]
+        profile.save(update_fields=["license_document"])
+
+        return Response({"message": "License uploaded"})
+
+class DoctorVerificationStatusView(APIView):
+    permission_classes = [IsDoctor]
+    @swagger_auto_schema(
+        responses={200: openapi.Response("Verification status", openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "verification_status": openapi.Schema(type=openapi.TYPE_STRING),
+                "user_state": openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        ))}
+    )
+    def get(self, request):
+        try:
+            profile = request.user.doctor_profile
+        except ObjectDoesNotExist:
+            return Response(
+                {"detail": "Doctor profile not created"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response({
+            "verification_status": profile.verification_status,
+            "user_state": request.user.state
+        })
+
+
+# Patient profile APIs view
+class PatientProfileView(APIView):
+    permission_classes = [IsAuthenticated, IsPatient]
+
+    @swagger_auto_schema(
+        responses={200: PatientProfileSerializer, 404: "Profile not created"}
+    )
+    def get(self, request):
+        try:
+            profile = request.user.patient_profile
+        except ObjectDoesNotExist:
+            return Response(
+                {"detail": "Patient profile not created"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = PatientProfileSerializer(profile)
+        return Response(serializer.data)
+
+    @swagger_auto_schema(
+        request_body=PatientProfileSerializer,
+        responses={201: "Patient profile created"}
+    )
+    def post(self, request):
+        if not request.user.terms_accepted:
+            return Response(
+                {"detail": "Accept terms and conditions first"},
+                status=403
+            )
+
+        if not request.user.is_profile_complete():
+            return Response(
+                {
+                    "detail": "Complete user profile before creating patient profile"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if hasattr(request.user, "patient_profile"):
+            return Response(
+                {"detail": "Patient profile already exists"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = PatientProfileSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        profile = serializer.save(user=request.user)
+
+        # Attempt lifecycle activation
+        activate_user_if_eligible(request.user)
+
+        return Response(
+            {
+                "message": "Patient profile created",
+                "state": request.user.state
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+    @swagger_auto_schema(
+        request_body=PatientProfileSerializer,
+        responses={200: "Patient profile updated"}
+    )
+    def patch(self, request):
+        try:
+            profile = request.user.patient_profile
+        except ObjectDoesNotExist:
+            return Response(
+                {"detail": "Patient profile not created"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = PatientProfileSerializer(
+            profile,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({"message": "Patient profile updated"})
+
+class PatientSectionUpdateMixin:
+    section_name = None
+    serializer_class = None
+
+    def patch(self, request):
+        profile = request.user.patient_profile
+
+        serializer = self.serializer_class(
+            profile, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        update_patient_section_completion(profile, self.section_name)
+
+        return Response({"message": f"{self.section_name} updated"})
+
+class PatientMedicalUpdateView(APIView, PatientSectionUpdateMixin):
+    permission_classes = [IsPatient]
+    section_name = "medical"
+    serializer_class = PatientMedicalSerializer
+
+class PatientPersonalUpdateView(APIView, PatientSectionUpdateMixin):
+    permission_classes = [IsPatient]
+    section_name = "personal"
+    serializer_class = PatientPersonalSerializer
+
+class PatientEmergencyUpdateView(APIView, PatientSectionUpdateMixin):
+    permission_classes = [IsPatient]
+    section_name = "emergency"
+    serializer_class = PatientEmergencySerializer
+
+class PatientInsuranceUpdateView(APIView, PatientSectionUpdateMixin):
+    permission_classes = [IsPatient]
+    section_name = "insurance"
+    serializer_class = PatientInsuranceSerializer
+    
+
+# ADMIN APIs view
+class AdminDoctorPendingListView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        profiles = DoctorProfile.objects.filter(
+            verification_status="pending"
+        ).select_related("user")
+
+        data = []
+        for p in profiles:
+            data.append({
+                "user_id": str(p.user.id),
+                "email": p.user.email,
+                "full_name": p.user.full_name,
+                "license_uploaded": bool(p.license_document),
+                "created_at": p.created_at,
+            })
+
+        return Response(data)
+
+class AdminDoctorApproveView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, user_id):
+        try:
+            profile = DoctorProfile.objects.select_related("user").get(
+                user_id=user_id
+            )
+        except DoctorProfile.DoesNotExist:
+            return Response(
+                {"detail": "Doctor profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if not profile.license_document:
+            return Response(
+                {"detail": "License document not uploaded"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        profile.verification_status = "approved"
+        profile.save(update_fields=["verification_status"])
+
+        user = profile.user
+        user.state = UserState.ACTIVE
+        user.save(update_fields=["state"])
+
+        return Response({"message": "Doctor approved"})
+
+class AdminDoctorRejectView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, user_id):
+        try:
+            profile = DoctorProfile.objects.select_related("user").get(
+                user_id=user_id
+            )
+        except DoctorProfile.DoesNotExist:
+            return Response(
+                {"detail": "Doctor profile not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        profile.verification_status = "rejected"
+        profile.save(update_fields=["verification_status"])
+
+        user = profile.user
+        user.state = UserState.REJECTED
+        user.save(update_fields=["state"])
+
+        return Response({"message": "Doctor rejected"})
+
+class AdminDoctorSectionLockView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, user_id):
+        section = request.data.get("section")
+
+        profile = DoctorProfile.objects.get(user_id=user_id)
+        if section not in profile.locked_sections:
+            profile.locked_sections.append(section)
+            profile.save(update_fields=["locked_sections"])
+
+        return Response({"message": f"{section} locked"})
