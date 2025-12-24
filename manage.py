@@ -1,10 +1,11 @@
 import os, sys
-# from dotenv import load_dotenv, find_dotenv 
-# load_dotenv(find_dotenv(".env", raise_error_if_not_found=True), override=True)
+from dotenv import load_dotenv, find_dotenv 
+load_dotenv(find_dotenv("secrets/.env", raise_error_if_not_found=True), override=True)
 
+SETTINGS_MODULE = os.getenv('DJANGO_SETTINGS_MODULE', 'config.settings.dev')
 
 def main():
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.dev')
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', SETTINGS_MODULE)
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
