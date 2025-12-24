@@ -15,5 +15,6 @@ DATABASES["default"] = dj_database_url.parse(
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
+    "clinic-topics-backend.onrender.com",
 ]
 
