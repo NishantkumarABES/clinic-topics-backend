@@ -1,6 +1,6 @@
 import os, sys
-from dotenv import load_dotenv, find_dotenv
-load_dotenv(find_dotenv(".env", raise_error_if_not_found=True), override=True)
+# from dotenv import load_dotenv, find_dotenv 
+# load_dotenv(find_dotenv(".env", raise_error_if_not_found=True), override=True)
 
 
 def main():
