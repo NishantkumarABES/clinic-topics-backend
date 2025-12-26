@@ -1,7 +1,9 @@
+import os
 from pathlib import Path
 from datetime import timedelta
 
 DEBUG = True
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
@@ -112,7 +114,7 @@ ALLOWED_HOSTS = [
     "127.0.0.1",
 ]
 
-SECRET_KEY = '1a413abfe291925267aac9380900b3cab0e6b6d16d44815219f29db411d97091'
+
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 

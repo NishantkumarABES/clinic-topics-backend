@@ -1,13 +1,15 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from drf_yasg.utils import swagger_auto_schema
 
 from apps.profiles.models import DoctorProfile
 from apps.appointments.serializers import DoctorListSerializer, DoctorDetailSerializer
 
 class DoctorListView(APIView):
     permission_classes = [AllowAny]
-
+    
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         qs = DoctorProfile.objects.filter(
             verification_status="approved",
@@ -45,6 +47,7 @@ class DoctorListView(APIView):
 class DoctorDetailView(APIView):
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request, doctor_id):
         try:
             doctor = DoctorProfile.objects.get(

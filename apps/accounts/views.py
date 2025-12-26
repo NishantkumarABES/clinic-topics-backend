@@ -7,6 +7,8 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
+from drf_spectacular.utils import extend_schema
 
 from apps.accounts.serializers import (
     EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer, DoctorRegistrationSerializer, 
@@ -29,7 +31,18 @@ class EmailOTPRequestView(APIView):
 
     @swagger_auto_schema(
         request_body=EmailOTPRequestSerializer,
-        responses={200: "EmailOTPRequestResponseSerializer data"},
+        responses={
+            200: openapi.Response(
+                    description="success",
+                    schema=openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                            "testing-otp": openapi.Schema(type=openapi.TYPE_STRING),
+                        },
+                    ),
+                ),
+        },
     )
     def post(self, request):
         serializer = EmailOTPRequestSerializer(data=request.data)
@@ -44,7 +57,35 @@ class EmailOTPVerifyView(APIView):
 
     @swagger_auto_schema(
         request_body=EmailOTPVerifySerializer,
-        responses={200: "EmailOTPVerifyResponseSerializer data"},
+        responses={
+            200: openapi.Response(
+                description="Email verified successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Invalid OTP",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            404: openapi.Response(
+                description="User not found",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def post(self, request):
         serializer = EmailOTPVerifySerializer(data=request.data)
@@ -71,7 +112,27 @@ class PhoneOTPRequestView(APIView):
     permission_classes = [AllowAny]
     @swagger_auto_schema(
         request_body=PhoneOTPRequestSerializer,
-        responses={200: "PhoneOTPRequestResponseSerializer data"},
+        responses={
+            200: openapi.Response(
+                description="OTP sent successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                        "testing-otp": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            429: openapi.Response(
+                description="Too many requests",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     
     def post(self, request):
@@ -96,7 +157,35 @@ class PhoneOTPVerifyView(APIView):
 
     @swagger_auto_schema(
         request_body=PhoneOTPVerifySerializer,
-        responses={200: "PhoneOTPVerifyResponseSerializer data"},
+        responses={
+            200: openapi.Response(
+                description="Phone verified successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Invalid OTP",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            404: openapi.Response(
+                description="User not found",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def post(self, request):
         serializer = PhoneOTPVerifySerializer(data=request.data)
@@ -127,7 +216,28 @@ class DoctorRegistrationView(APIView):
 
     @swagger_auto_schema(
         request_body=DoctorRegistrationSerializer,
-        responses={201: "RegistrationResponseSerializer data"},
+        responses={
+            201: openapi.Response(
+                description="Doctor registered successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "id": openapi.Schema(type=openapi.TYPE_STRING),
+                        "role": openapi.Schema(type=openapi.TYPE_STRING),
+                        "state": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Validation error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def post(self, request):
         serializer = DoctorRegistrationSerializer(data=request.data)
@@ -158,7 +268,28 @@ class PatientRegistrationView(APIView):
 
     @swagger_auto_schema(
         request_body=PatientRegistrationSerializer,
-        responses={201: "RegistrationResponseSerializer data"},
+        responses={
+            201: openapi.Response(
+                description="Patient registered successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "id": openapi.Schema(type=openapi.TYPE_STRING),
+                        "role": openapi.Schema(type=openapi.TYPE_STRING),
+                        "state": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Validation error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def post(self, request):
         if request.data.get("role") and request.data.get("role") != UserRole.PATIENT:
@@ -195,7 +326,27 @@ class EmailLoginView(APIView):
 
     @swagger_auto_schema(
         request_body=EmailLoginSerializer,
-        responses={200: "EmailLoginResponseSerializer data"},
+        responses={
+            200: openapi.Response(
+                description="Login successful",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "access": openapi.Schema(type=openapi.TYPE_STRING, description="Access token"),
+                        "refresh": openapi.Schema(type=openapi.TYPE_STRING, description="Refresh token"),
+                        "user": openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                "id": openapi.Schema(type=openapi.TYPE_STRING),
+                                "role": openapi.Schema(type=openapi.TYPE_STRING),
+                                "state": openapi.Schema(type=openapi.TYPE_STRING),
+                                "onboarding_complete": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                            },
+                        ),
+                    },
+                ),
+            ),
+        },
     )
     def post(self, request):
         serializer = EmailLoginSerializer(data=request.data)
@@ -229,7 +380,27 @@ class SocialLoginView(APIView):
     permission_classes = [AllowAny]
     @swagger_auto_schema(
         request_body=SocialLoginSerializer,
-        responses={200: "SocialLoginResponseSerializer data"},
+        responses={
+            200: openapi.Response(
+                description="Social login successful",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "access": openapi.Schema(type=openapi.TYPE_STRING, description="Access token"),
+                        "refresh": openapi.Schema(type=openapi.TYPE_STRING, description="Refresh token"),
+                        "user": openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                "id": openapi.Schema(type=openapi.TYPE_STRING),
+                                "role": openapi.Schema(type=openapi.TYPE_STRING),
+                                "state": openapi.Schema(type=openapi.TYPE_STRING),
+                                "onboarding_complete": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                            },
+                        ),
+                    },
+                ),
+            ),
+        },
     )
 
     def post(self, request):
@@ -271,9 +442,20 @@ class SocialLoginView(APIView):
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(exclude=True)
     @swagger_auto_schema(
         request_body=PasswordResetRequestSerializer,
-        responses={200: "Reset email sent"}
+        responses={
+            200: openapi.Response(
+                description="Password reset email sent",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def post(self, request):
         serializer = PasswordResetRequestSerializer(data=request.data)
@@ -300,9 +482,20 @@ class PasswordResetRequestView(APIView):
 class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
     
+    @extend_schema(exclude=True)
     @swagger_auto_schema(
         request_body=PasswordResetConfirmSerializer,
-        responses={200: "Password reset successful"}
+        responses={
+            200: openapi.Response(
+                description="Password reset successful",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def post(self, request):
         serializer = PasswordResetConfirmSerializer(data=request.data)
@@ -324,6 +517,35 @@ class PasswordResetConfirmView(APIView):
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "refresh": openapi.Schema(type=openapi.TYPE_STRING, description="Refresh token"),
+            },
+            required=["refresh"],
+        ),
+        responses={
+            200: openapi.Response(
+                description="Logged out successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Refresh token required",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
     def post(self, request):
         refresh_token = request.data.get("refresh")
         if not refresh_token:
@@ -338,6 +560,30 @@ class LogoutView(APIView):
 class DeactivateAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(exclude=True)
+    @swagger_auto_schema(
+        auto_schema=None,
+        responses={
+            200: openapi.Response(
+                description="Account deactivated successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Account already deactivated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
     def post(self, request):
         user = request.user
 
@@ -356,6 +602,30 @@ class DeactivateAccountView(APIView):
 class ReactivateAccountView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(exclude=True)
+    @swagger_auto_schema(
+        auto_schema=None,
+        responses={
+            200: openapi.Response(
+                description="Account reactivated successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Account is not deactivated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
     def post(self, request):
         user = request.user
 
@@ -373,7 +643,30 @@ class ReactivateAccountView(APIView):
 
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
-    
+    @extend_schema(exclude=True)
+    @swagger_auto_schema(
+        auto_schema=None,
+        responses={
+            200: openapi.Response(
+                description="Account deleted permanently",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Account already deleted",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
     def post(self, request):
         user = request.user
 

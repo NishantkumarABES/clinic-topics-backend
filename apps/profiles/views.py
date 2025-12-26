@@ -25,7 +25,21 @@ class DoctorProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser]
 
     @swagger_auto_schema(
-        responses={200: DoctorProfileSerializer, 404: "Profile not created"}
+        responses={
+            200: openapi.Response(
+                description="Doctor profile retrieved successfully",
+                schema=DoctorProfileSerializer,
+            ),
+            404: openapi.Response(
+                description="Profile not created",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def get(self, request):
         try:
@@ -41,7 +55,36 @@ class DoctorProfileView(APIView):
 
     @swagger_auto_schema(
         request_body=DoctorProfileSerializer,
-        responses={201: "Doctor profile created"}
+        responses={
+            201: openapi.Response(
+                description="Doctor profile created",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        "verification_status": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Bad request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            403: openapi.Response(
+                description="Terms not accepted",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def post(self, request):
         if not request.user.terms_accepted:
@@ -81,7 +124,26 @@ class DoctorProfileView(APIView):
 
     @swagger_auto_schema(
         request_body=DoctorProfileSerializer,
-        responses={200: "Doctor profile updated"}
+        responses={
+            200: openapi.Response(
+                description="Doctor profile updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            404: openapi.Response(
+                description="Profile not created",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def patch(self, request):
         try:
@@ -104,10 +166,31 @@ class DoctorSectionUpdateMixin:
     section_name = None
     serializer_class = None
 
-    @swagger_auto_schema(
-        request_body=serializer_class,
-        responses={200: "Section updated"}
-    )
+    def get_swagger_schema(self):
+        return swagger_auto_schema(
+            request_body=self.serializer_class,
+            responses={
+                200: openapi.Response(
+                    description="Section updated",
+                    schema=openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        },
+                    ),
+                ),
+                403: openapi.Response(
+                    description="Section locked by admin",
+                    schema=openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                        },
+                    ),
+                ),
+            },
+        )
+
     def patch(self, request):
         profile = request.user.doctor_profile
 
@@ -132,52 +215,191 @@ class DoctorOverviewUpdateView(APIView, DoctorSectionUpdateMixin):
     section_name = "overview"
     serializer_class = DoctorOverviewSerializer
 
+    @swagger_auto_schema(
+        request_body=DoctorOverviewSerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            403: openapi.Response(
+                description="Section locked by admin",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
+
 class DoctorProfessionalUpdateView(APIView, DoctorSectionUpdateMixin):
     permission_classes = [IsDoctor]
     section_name = "professional"
     serializer_class = DoctorProfessionalSerializer
+
+    @swagger_auto_schema(
+        request_body=DoctorProfessionalSerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            403: openapi.Response(
+                description="Section locked by admin",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
 
 class DoctorLicenseUpdateView(APIView, DoctorSectionUpdateMixin):
     permission_classes = [IsDoctor]
     section_name = "license"
     serializer_class = DoctorLicenseSerializer
 
+    @swagger_auto_schema(
+        request_body=DoctorLicenseSerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            403: openapi.Response(
+                description="Section locked by admin",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
+
 class DoctorPracticeUpdateView(APIView, DoctorSectionUpdateMixin):
     permission_classes = [IsDoctor]
     section_name = "practice"
     serializer_class = DoctorPracticeSerializer
+
+    @swagger_auto_schema(
+        request_body=DoctorPracticeSerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            403: openapi.Response(
+                description="Section locked by admin",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
 
 class DoctorAvailabilityUpdateView(APIView, DoctorSectionUpdateMixin):
     permission_classes = [IsDoctor]
     section_name = "availability"
     serializer_class = DoctorAvailabilitySerializer
 
+    @swagger_auto_schema(
+        request_body=DoctorAvailabilitySerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            403: openapi.Response(
+                description="Section locked by admin",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
+
 class DoctorAboutUpdateView(APIView, DoctorSectionUpdateMixin):
     permission_classes = [IsDoctor]
     section_name = "about"
     serializer_class = DoctorAboutSerializer
+
+    @swagger_auto_schema(
+        request_body=DoctorAboutSerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            403: openapi.Response(
+                description="Section locked by admin",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
     
 class DoctorLicenseUploadView(APIView):
     permission_classes = [IsDoctor]
     parser_classes = [MultiPartParser, FormParser]
 
-    def patch(self, request):
-        profile = request.user.doctor_profile
-
-        if "license_document" not in request.FILES:
-            return Response(
-                {"detail": "License document is required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        profile.license_document = request.FILES["license_document"]
-        profile.save(update_fields=["license_document"])
-
-        return Response({"message": "License uploaded successfully"})
-
-    permission_classes = [IsDoctor]
-    parser_classes = [MultiPartParser, FormParser]
-    
     @swagger_auto_schema(
         manual_parameters=[
             openapi.Parameter(
@@ -188,10 +410,26 @@ class DoctorLicenseUploadView(APIView):
                 required=True
             )
         ],
-        responses={200: openapi.Response("License uploaded", openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={"message": openapi.Schema(type=openapi.TYPE_STRING)}
-        ))}
+        responses={
+            200: openapi.Response(
+                description="License uploaded",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="No document provided",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def patch(self, request):
         profile = request.user.doctor_profile
@@ -210,13 +448,27 @@ class DoctorLicenseUploadView(APIView):
 class DoctorVerificationStatusView(APIView):
     permission_classes = [IsDoctor]
     @swagger_auto_schema(
-        responses={200: openapi.Response("Verification status", openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "verification_status": openapi.Schema(type=openapi.TYPE_STRING),
-                "user_state": openapi.Schema(type=openapi.TYPE_STRING),
-            }
-        ))}
+        responses={
+            200: openapi.Response(
+                description="Verification status",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "verification_status": openapi.Schema(type=openapi.TYPE_STRING),
+                        "user_state": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            404: openapi.Response(
+                description="Profile not created",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def get(self, request):
         try:
@@ -238,7 +490,21 @@ class PatientProfileView(APIView):
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
-        responses={200: PatientProfileSerializer, 404: "Profile not created"}
+        responses={
+            200: openapi.Response(
+                description="Patient profile retrieved successfully",
+                schema=PatientProfileSerializer,
+            ),
+            404: openapi.Response(
+                description="Profile not created",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def get(self, request):
         try:
@@ -254,7 +520,36 @@ class PatientProfileView(APIView):
 
     @swagger_auto_schema(
         request_body=PatientProfileSerializer,
-        responses={201: "Patient profile created"}
+        responses={
+            201: openapi.Response(
+                description="Patient profile created",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        "state": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="Bad request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            403: openapi.Response(
+                description="Terms not accepted",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def post(self, request):
         if not request.user.terms_accepted:
@@ -295,7 +590,26 @@ class PatientProfileView(APIView):
 
     @swagger_auto_schema(
         request_body=PatientProfileSerializer,
-        responses={200: "Patient profile updated"}
+        responses={
+            200: openapi.Response(
+                description="Patient profile updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            404: openapi.Response(
+                description="Profile not created",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
     )
     def patch(self, request):
         try:
@@ -320,6 +634,22 @@ class PatientSectionUpdateMixin:
     section_name = None
     serializer_class = None
 
+    def get_swagger_schema(self):
+        return swagger_auto_schema(
+            request_body=self.serializer_class,
+            responses={
+                200: openapi.Response(
+                    description="Section updated",
+                    schema=openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        },
+                    ),
+                ),
+            },
+        )
+
     def patch(self, request):
         profile = request.user.patient_profile
 
@@ -338,26 +668,114 @@ class PatientMedicalUpdateView(APIView, PatientSectionUpdateMixin):
     section_name = "medical"
     serializer_class = PatientMedicalSerializer
 
+    @swagger_auto_schema(
+        request_body=PatientMedicalSerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
+
 class PatientPersonalUpdateView(APIView, PatientSectionUpdateMixin):
     permission_classes = [IsPatient]
     section_name = "personal"
     serializer_class = PatientPersonalSerializer
+
+    @swagger_auto_schema(
+        request_body=PatientPersonalSerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
 
 class PatientEmergencyUpdateView(APIView, PatientSectionUpdateMixin):
     permission_classes = [IsPatient]
     section_name = "emergency"
     serializer_class = PatientEmergencySerializer
 
+    @swagger_auto_schema(
+        request_body=PatientEmergencySerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
+
 class PatientInsuranceUpdateView(APIView, PatientSectionUpdateMixin):
     permission_classes = [IsPatient]
     section_name = "insurance"
     serializer_class = PatientInsuranceSerializer
+
+    @swagger_auto_schema(
+        request_body=PatientInsuranceSerializer,
+        responses={
+            200: openapi.Response(
+                description="Section updated",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def patch(self, request):
+        return super().patch(request)
     
 
 # ADMIN APIs view
 class AdminDoctorPendingListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response(
+                description="List of pending doctor profiles",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Schema(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            "user_id": openapi.Schema(type=openapi.TYPE_STRING),
+                            "email": openapi.Schema(type=openapi.TYPE_STRING),
+                            "full_name": openapi.Schema(type=openapi.TYPE_STRING),
+                            "license_uploaded": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                            "created_at": openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME),
+                        },
+                    ),
+                ),
+            ),
+        },
+    )
     def get(self, request):
         profiles = DoctorProfile.objects.filter(
             verification_status="pending"
@@ -378,6 +796,37 @@ class AdminDoctorPendingListView(APIView):
 class AdminDoctorApproveView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response(
+                description="Doctor approved",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            400: openapi.Response(
+                description="License document not uploaded",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            404: openapi.Response(
+                description="Doctor profile not found",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
     def post(self, request, user_id):
         try:
             profile = DoctorProfile.objects.select_related("user").get(
@@ -407,6 +856,28 @@ class AdminDoctorApproveView(APIView):
 class AdminDoctorRejectView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response(
+                description="Doctor rejected",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+            404: openapi.Response(
+                description="Doctor profile not found",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
     def post(self, request, user_id):
         try:
             profile = DoctorProfile.objects.select_related("user").get(
@@ -430,6 +901,26 @@ class AdminDoctorRejectView(APIView):
 class AdminDoctorSectionLockView(APIView):
     permission_classes = [IsAdmin]
 
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "section": openapi.Schema(type=openapi.TYPE_STRING, description="Section name to lock"),
+            },
+            required=["section"],
+        ),
+        responses={
+            200: openapi.Response(
+                description="Section locked",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
     def post(self, request, user_id):
         section = request.data.get("section")
 

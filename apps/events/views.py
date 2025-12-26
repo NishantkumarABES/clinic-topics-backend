@@ -10,6 +10,7 @@ from apps.events.serializers import EventListSerializer, EventDetailSerializer
 class EventListView(APIView):
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         events = Event.objects.filter(is_active=True)
 
@@ -28,6 +29,7 @@ class EventListView(APIView):
 class EventDetailView(APIView):
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request, event_id):
         try:
             event = Event.objects.get(id=event_id, is_active=True)
@@ -40,6 +42,7 @@ class EventDetailView(APIView):
 class EventRegisterView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(auto_schema=None)
     def post(self, request, event_id):
         try:
             event = Event.objects.get(id=event_id, is_active=True)

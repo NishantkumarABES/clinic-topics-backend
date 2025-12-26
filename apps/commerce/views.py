@@ -14,7 +14,7 @@ from apps.commerce.serializers import (
 class CategoryListView(APIView):
     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(responses={200: CategorySerializer(many=True)})
+    @swagger_auto_schema(responses={200: CategorySerializer(many=True)}, auto_schema=None)
     def get(self, request):
         categories = Category.objects.filter(is_active=True, parent__isnull=True)
         serializer = CategorySerializer(categories, many=True)
@@ -23,7 +23,7 @@ class CategoryListView(APIView):
 class ProductListView(APIView):
     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(responses={200: ProductListSerializer(many=True)})
+    @swagger_auto_schema(auto_schema=None, responses={200: ProductListSerializer(many=True)})
     def get(self, request):
         queryset = Product.objects.filter(is_active=True)
 
@@ -42,7 +42,7 @@ class ProductListView(APIView):
 class ProductDetailView(APIView):
     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(responses={200: ProductDetailSerializer()})
+    @swagger_auto_schema(auto_schema=None, responses={200: ProductDetailSerializer()})
     def get(self, request, product_id):
         try:
             product = Product.objects.get(id=product_id, is_active=True)
@@ -58,7 +58,7 @@ class ProductDetailView(APIView):
 class CartDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: CartSerializer()})
+    @swagger_auto_schema(auto_schema=None, responses={200: CartSerializer()})
     def get(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         serializer = CartSerializer(cart)
@@ -67,7 +67,7 @@ class CartDetailView(APIView):
 class AddToCartView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(request_body=AddToCartSerializer(), responses={201: "Item added to cart"})
+    @swagger_auto_schema(auto_schema=None, request_body=AddToCartSerializer(), responses={201: "Item added to cart"})
     def post(self, request):
         serializer = AddToCartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -91,7 +91,7 @@ class AddToCartView(APIView):
 class UpdateCartItemView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(request_body=AddToCartSerializer(), responses={200: "Cart updated"})
+    @swagger_auto_schema(auto_schema=None, request_body=AddToCartSerializer(), responses={200: "Cart updated"})
     def patch(self, request, item_id):
         try:
             item = CartItem.objects.get(id=item_id, cart__user=request.user)
@@ -116,7 +116,7 @@ class UpdateCartItemView(APIView):
 class RemoveCartItemView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: "Item removed"})
+    @swagger_auto_schema(auto_schema=None, responses={200: "Item removed"})
     def delete(self, request, item_id):
         CartItem.objects.filter(
             id=item_id, cart__user=request.user
@@ -126,11 +126,13 @@ class RemoveCartItemView(APIView):
 class AddressListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(responses={200: AddressSerializer(many=True)}, auto_schema=None)
     def get(self, request):
         addresses = Address.objects.filter(user=request.user)
         serializer = AddressSerializer(addresses, many=True)
         return Response(serializer.data)
-
+    
+    @swagger_auto_schema(auto_schema=None, request_body=AddressSerializer(), responses={201: AddressSerializer()})
     def post(self, request):
         serializer = AddressSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -144,7 +146,7 @@ class AddressListCreateView(APIView):
 class AddressDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: AddressSerializer()})
+    @swagger_auto_schema(auto_schema=None, responses={200: AddressSerializer()})
     def patch(self, request, address_id):
         try:
             address = Address.objects.get(id=address_id, user=request.user)
@@ -162,7 +164,8 @@ class AddressDetailView(APIView):
         serializer.save()
         return Response(serializer.data)
 
-    @swagger_auto_schema(responses={200: AddressSerializer()})
+
+    @swagger_auto_schema(auto_schema=None, responses={200: AddressSerializer()})
     def delete(self, request, address_id):
         Address.objects.filter(
             id=address_id, user=request.user
@@ -173,7 +176,7 @@ class PrescriptionUploadView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
-    @swagger_auto_schema(request_body=PrescriptionUploadSerializer(), responses={201: "Prescription uploaded"})
+    @swagger_auto_schema(auto_schema=None, request_body=PrescriptionUploadSerializer(), responses={201: "Prescription uploaded"})
     def post(self, request):
         serializer = PrescriptionUploadSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -191,7 +194,7 @@ class PrescriptionUploadView(APIView):
 class PrescriptionListView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: PrescriptionUploadSerializer(many=True)})
+    @swagger_auto_schema(auto_schema=None, responses={200: PrescriptionUploadSerializer(many=True)})
     def get(self, request):
         prescriptions = Prescription.objects.filter(user=request.user)
         serializer = PrescriptionUploadSerializer(prescriptions, many=True)
@@ -200,7 +203,7 @@ class PrescriptionListView(APIView):
 class AttachPrescriptionToCartItemView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(request_body=AttachPrescriptionSerializer(), responses={200: "Prescription attached"})
+    @swagger_auto_schema(auto_schema=None, request_body=AttachPrescriptionSerializer(), responses={200: "Prescription attached"})
     def post(self, request):
         serializer = AttachPrescriptionSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
