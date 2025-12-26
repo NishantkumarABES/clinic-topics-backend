@@ -20,4 +20,6 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
+    "clinic-topics-backend.onrender.com",
+    "*.ngrok-free.app",
 ]

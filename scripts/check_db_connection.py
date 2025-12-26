@@ -3,12 +3,12 @@ import psycopg2
 from psycopg2 import OperationalError
 
 db_config = {
-        "dbname": "clinic_topics",
-        "user": "postgres-render",
-        "password": "oRF5IVpoP8MK4fnyEbwPsjw35z281Q0g",
-        "host": "dpg-d55ufc63jp1c73a3oa4g-a",
-        "port": 5432,
-    }
+    "dbname": "clinic_topics",
+    "user": "postgres-render",
+    "password": "oRF5IVpoP8MK4fnyEbwPsjw35z281Q0g",
+    "host": "dpg-d55ufc63jp1c73a3oa4g-a",
+    "port": 5432,
+}
 
 def check_db_connection():
     conn = None

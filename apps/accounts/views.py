@@ -60,8 +60,6 @@ class EmailOTPVerifyView(APIView):
                     status=400
                 )
             otp_obj.mark_as_used()
-            User.is_email_verified = True
-            User.save(update_fields=["is_email_verified"])
             return Response({"detail": "Email verified successfully"})
         except User.DoesNotExist:
             return Response(
@@ -107,7 +105,6 @@ class PhoneOTPVerifyView(APIView):
         is_valid = serializer.validated_data["is_valid"]
         otp_obj = serializer.validated_data["otp_obj"]
         
-
         try:
             if not is_valid:
                 return Response(
@@ -115,8 +112,6 @@ class PhoneOTPVerifyView(APIView):
                     status=400
                 )
             otp_obj.mark_as_used()
-            User.is_phone_verified = True
-            User.save(update_fields=["is_phone_verified"])
             return Response({"detail": "Phone verified successfully"})
 
         except User.DoesNotExist:
