@@ -9,29 +9,22 @@ logger = logging.getLogger(__name__)
 
 
 class CreateDummyDatabase:
-    def __init__(self, dbconfig=None, superuser_email=None, superuser_password=None):
-        self.db_config = dbconfig or {
-            "dbname": "clinic_topics",
-            "user": "postgres",
-            "password": "admin",
-            "host": "localhost",
-            "port": 5432,
-        }
+    def __init__(self, db_url=None, superuser_email=None, superuser_password=None):
+        DB_URL = db_url or "postgresql://postgres:admin@localhost:5432/clinic_topics"
+        self.conn = psycopg2.connect(DB_URL)
         self.superuser_email = superuser_email or "nishant.kumar@qsstechnosoft.com"
         self.superuser_password = superuser_password or "Admin@123"
         self.superuser_phone = "0000000000"
         self.create_superuser()
     
     def create_superuser(self):
-        conn = psycopg2.connect(**self.db_config)
-        conn.autocommit = True
-        cur = conn.cursor()
+        self.conn.autocommit = True
+        cur = self.conn.cursor()
         now = datetime.now(timezone.utc)
         cur.execute(IS_SUPERUSER_EXISTS_SQL)
         if cur.fetchone()[0]:
             logger.info("Superuser already exists. Skipping creation.")
             cur.close()
-            conn.close()
             return
 
         data = {
@@ -49,14 +42,13 @@ class CreateDummyDatabase:
         }
 
         cur.execute(INSERT_USER_SQL, data)
-        logger.info(f"Superuser created: {self.superuser_email}")
         cur.close()
-        conn.close()
+        logger.info(f"Superuser created: {self.superuser_email}")
+        
     
     def create_admin_user(self, email, phone, full_name, password):
-        conn = psycopg2.connect(**self.db_config)
-        conn.autocommit = True
-        cur = conn.cursor()
+        self.conn.autocommit = True
+        cur = self.conn.cursor()
         now = datetime.now(timezone.utc)
 
         data = {
@@ -76,15 +68,15 @@ class CreateDummyDatabase:
         cur.execute(INSERT_USER_SQL, data)
         logger.info(f"Admin user created: {email}")
         cur.close()
-        conn.close()
+        
 
     def create_system_user(
             self, email, phone, full_name, password, role, is_email_verified, is_phone_verified,
             gender, date_of_birth, created_at=None, updated_at=None,
         ):
-        conn = psycopg2.connect(**self.db_config)
-        conn.autocommit = True
-        cur = conn.cursor()
+        
+        self.conn.autocommit = True
+        cur = self.conn.cursor()
         if created_at is None:
             created_at = datetime.now(timezone.utc)
         if updated_at is None:
@@ -105,22 +97,26 @@ class CreateDummyDatabase:
 
         cur.execute(INSERT_USER_SQL, data)
         cur.close()
-        conn.close()
+    
+    def close_connection(self):
+        self.conn.close()
 
 
-dummy_db = CreateDummyDatabase()
+
+RENDER_DB_URL = "postgresql://postgres_render:oRF5IVpoP8MK4fnyEbwPsjw35z281Q0g@dpg-d55ufc63jp1c73a3oa4g-a.oregon-postgres.render.com/clinic_topics"
+dummy_db = CreateDummyDatabase(RENDER_DB_URL)
 # dummy_db.create_admin_user(
-#     email="clinic_topics@admin.com",
+#     email="admin@clinic.topics.com",
 #     phone="0000000001",
 #     full_name="Clinic Topics Admin",
 #     password="Admin@123"
 # )
 
-dummy_user_data = generate_dummy_users_data(size=1357, previous_months=3)
+dummy_user_data = generate_dummy_users_data(size=234, previous_months=3)
 for user in tqdm(dummy_user_data, desc="Creating dummy users"):
     dummy_db.create_system_user(**user)
-
-
+logger.info("Dummy database creation completed.")
+dummy_db.close_connection()
 
 
 

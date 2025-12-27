@@ -52,7 +52,7 @@ def generate_dummy_users_data(size: int, previous_months: int = 3) -> List[Dict]
             "email": email, "phone": phone,
             "full_name": fake.name(),
             "password": make_django_password(fake.password(length=12)),
-            "role": random.choice(ROLES, weights=[0.7, 0.3]),
+            "role": random.choices(ROLES, weights=[0.7, 0.3], k=1)[0],
             "is_email_verified": random.choice([True, False]),
             "is_phone_verified": random.choice([True, False]),
             "gender": gender, "date_of_birth": date_of_birth,
