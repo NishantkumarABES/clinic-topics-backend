@@ -18,6 +18,8 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
     "clinic-topics-backend.onrender.com",
+    "*.onrender.com",
+    "*.ngrok-free.app",
 ]
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
