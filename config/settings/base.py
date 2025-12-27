@@ -10,7 +10,29 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",    
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "https://admin-panel-frontend-2yrl.onrender.com"
 ]
+
+CORS_ALLOW_HEADERS = [
+    "authorization",
+    "content-type",
+    "accept",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+]
+
+CORS_ALLOW_METHODS = [
+    "DELETE",
+    "GET",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
+]
+
+CORS_ALLOW_CREDENTIALS = True
 
 INSTALLED_APPS = [
     "django.contrib.admin",
