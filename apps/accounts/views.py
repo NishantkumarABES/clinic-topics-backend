@@ -50,7 +50,7 @@ class EmailOTPRequestView(APIView):
 
         email = serializer.validated_data["email"]
         otp = send_email_otp(email)
-        return Response({"detail": "OTP sent to email", "testing-otp": otp})
+        return Response({"detail": "OTP sent to email", "testing-otp": otp, "success": True})
 
 class EmailOTPVerifyView(APIView):
     permission_classes = [AllowAny]
@@ -139,7 +139,7 @@ class PhoneOTPRequestView(APIView):
 
         if not can_resend_otp(phone):
             return Response(
-                {"detail": "Please wait before requesting another OTP"},
+                {"detail": "Please wait before requesting another OTP", "success": False},
                 status=429
             )
         
@@ -149,7 +149,7 @@ class PhoneOTPRequestView(APIView):
         phone = serializer.validated_data["phone"]
         otp = send_phone_otp(phone)
 
-        return Response({"detail": "OTP sent", "testing-otp": otp})
+        return Response({"detail": "OTP sent", "testing-otp": otp, "success": True})
 
 class PhoneOTPVerifyView(APIView):
     permission_classes = [AllowAny]
@@ -244,17 +244,18 @@ class DoctorRegistrationView(APIView):
         is_phone_verified = serializer.validated_data.get("is_phone_verified", False)
         if not (is_email_verified or is_phone_verified):
             return Response(
-                {"detail": "Email or phone must be verified to register as a doctor"},
+                {"detail": "Email or phone must be verified to register as a doctor", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         user = serializer.save(role=UserRole.DOCTOR)
-        
+
         return Response(
             {
                 "id": str(user.id),
                 "role": user.role,
                 "state": user.state,
+                "success": True
             },
             status=status.HTTP_201_CREATED
         )
@@ -292,7 +293,7 @@ class PatientRegistrationView(APIView):
     def post(self, request):
         if request.data.get("role") and request.data.get("role") != UserRole.PATIENT:
             return Response(
-                {"detail": "Invalid role for this endpoint"},
+                {"detail": "Invalid role for this endpoint", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -302,7 +303,7 @@ class PatientRegistrationView(APIView):
         is_phone_verified = serializer.validated_data.get("is_phone_verified", False)
         if not (is_email_verified or is_phone_verified):
             return Response(
-                {"detail": "Email or phone must be verified to register as a patient"},
+                {"detail": "Email or phone must be verified to register as a patient", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -313,7 +314,8 @@ class PatientRegistrationView(APIView):
             {
                 "id": str(user.id),
                 "role": user.role,
-                "state": user.state
+                "state": user.state,
+                "success": True
             },
             status=status.HTTP_201_CREATED
         )
@@ -352,7 +354,7 @@ class EmailLoginView(APIView):
         user = serializer.validated_data["user"]
         if not user:
             return Response(
-                {"error": serializer.validated_data.get("error")}
+                {"error": serializer.validated_data.get("error"), "success": False}
             )
 
         remember_me = request.data.get("remember_me", False)
@@ -370,7 +372,8 @@ class EmailLoginView(APIView):
                     hasattr(user, "doctor_profile") if user.role == "doctor" else
                     hasattr(user, "patient_profile")
                 )
-            }
+            },
+            "success": True
         })
 
 
@@ -434,7 +437,8 @@ class SocialLoginView(APIView):
                     if user.role == UserRole.DOCTOR
                     else hasattr(user, "patient_profile")
                 )
-            }
+            },
+            "success": True
         })
 
 class PasswordResetRequestView(APIView):
@@ -474,7 +478,8 @@ class PasswordResetRequestView(APIView):
             pass
 
         return Response({
-            "detail": "If the email exists, a password reset link has been sent."
+            "detail": "If the email exists, a password reset link has been sent.",
+            "success": True
         })
 
 class PasswordResetConfirmView(APIView):
@@ -509,7 +514,7 @@ class PasswordResetConfirmView(APIView):
         reset_token.is_used = True
         reset_token.save(update_fields=["is_used"])
 
-        return Response({"detail": "Password reset successful"})
+        return Response({"detail": "Password reset successful", "success": True})
 
 
 class LogoutView(APIView):
@@ -547,12 +552,12 @@ class LogoutView(APIView):
     def post(self, request):
         refresh_token = request.data.get("refresh")
         if not refresh_token:
-            return Response({"detail": "Refresh token required"}, status=400)
+            return Response({"detail": "Refresh token required", "success": False}, status=400)
 
         token = RefreshToken(refresh_token)
         token.blacklist()
 
-        return Response({"detail": "Logged out successfully"})
+        return Response({"detail": "Logged out successfully", "success": True})
 
 
 class DeactivateAccountView(APIView):
@@ -587,7 +592,7 @@ class DeactivateAccountView(APIView):
 
         if user.state == UserState.DEACTIVATED:
             return Response(
-                {"detail": "Account already deactivated"},
+                {"detail": "Account already deactivated", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -595,7 +600,7 @@ class DeactivateAccountView(APIView):
         user.deactivated_at = timezone.now()
         user.save(update_fields=["state", "deactivated_at"])
 
-        return Response({"message": "Account deactivated"})
+        return Response({"message": "Account deactivated", "success": True})
 
 class ReactivateAccountView(APIView):
     permission_classes = [IsAuthenticated]
@@ -629,7 +634,7 @@ class ReactivateAccountView(APIView):
 
         if user.state != UserState.DEACTIVATED:
             return Response(
-                {"detail": "Account is not deactivated"},
+                {"detail": "Account is not deactivated", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -637,7 +642,7 @@ class ReactivateAccountView(APIView):
         user.deactivated_at = None
         user.save(update_fields=["state", "deactivated_at"])
 
-        return Response({"message": "Account reactivated"})
+        return Response({"message": "Account reactivated", "success": True})
 
 class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
@@ -670,14 +675,14 @@ class DeleteAccountView(APIView):
 
         if user.state == UserState.DELETED:
             return Response(
-                {"detail": "Account already deleted"},
+                {"detail": "Account already deleted", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         anonymize_user(user)
 
         return Response(
-            {"message": "Account deleted permanently"},
+            {"message": "Account deleted permanently", "success": True},
             status=status.HTTP_200_OK
         )
 

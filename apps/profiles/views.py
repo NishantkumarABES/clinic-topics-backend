@@ -46,12 +46,14 @@ class DoctorProfileView(APIView):
             profile = request.user.doctor_profile
         except ObjectDoesNotExist:
             return Response(
-                {"detail": "Doctor profile not created"},
+                {"detail": "Doctor profile not created", "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = DoctorProfileSerializer(profile)
-        return Response(serializer.data)
+        data = serializer.data
+        data["success"] = True
+        return Response(data)
 
     @swagger_auto_schema(
         request_body=DoctorProfileSerializer,
@@ -89,21 +91,22 @@ class DoctorProfileView(APIView):
     def post(self, request):
         if not request.user.terms_accepted:
             return Response(
-                {"detail": "Accept terms and conditions first"},
+                {"detail": "Accept terms and conditions first", "success": False},
                 status=403
             )
-        
+
         if not request.user.is_profile_complete():
             return Response(
                 {
-                    "detail": "Complete user profile before creating doctor profile"
+                    "detail": "Complete user profile before creating doctor profile",
+                    "success": False
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         if hasattr(request.user, "doctor_profile"):
             return Response(
-                {"detail": "Doctor profile already exists"},
+                {"detail": "Doctor profile already exists", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -117,7 +120,8 @@ class DoctorProfileView(APIView):
         return Response(
             {
                 "message": "Doctor profile created",
-                "verification_status": profile.verification_status
+                "verification_status": profile.verification_status,
+                "success": True
             },
             status=status.HTTP_201_CREATED
         )
@@ -150,7 +154,7 @@ class DoctorProfileView(APIView):
             profile = request.user.doctor_profile
         except ObjectDoesNotExist:
             return Response(
-                {"detail": "Doctor profile not created"},
+                {"detail": "Doctor profile not created", "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -160,7 +164,7 @@ class DoctorProfileView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response({"message": "Doctor profile updated"})
+        return Response({"message": "Doctor profile updated", "success": True})
 
 class DoctorSectionUpdateMixin:
     section_name = None
@@ -196,7 +200,7 @@ class DoctorSectionUpdateMixin:
 
         if profile.is_section_locked(self.section_name):
             return Response(
-                {"detail": "This section is locked by admin"},
+                {"detail": "This section is locked by admin", "success": False},
                 status=403
             )
 
@@ -208,7 +212,7 @@ class DoctorSectionUpdateMixin:
 
         update_doctor_section_completion(profile, self.section_name)
 
-        return Response({"message": f"{self.section_name} updated"})
+        return Response({"message": f"{self.section_name} updated", "success": True})
 
 class DoctorOverviewUpdateView(APIView, DoctorSectionUpdateMixin):
     permission_classes = [IsDoctor]
@@ -436,14 +440,14 @@ class DoctorLicenseUploadView(APIView):
 
         if "license_document" not in request.FILES:
             return Response(
-                {"detail": "No document provided"},
+                {"detail": "No document provided", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         profile.license_document = request.FILES["license_document"]
         profile.save(update_fields=["license_document"])
 
-        return Response({"message": "License uploaded"})
+        return Response({"message": "License uploaded", "success": True})
 
 class DoctorVerificationStatusView(APIView):
     permission_classes = [IsDoctor]
@@ -475,13 +479,14 @@ class DoctorVerificationStatusView(APIView):
             profile = request.user.doctor_profile
         except ObjectDoesNotExist:
             return Response(
-                {"detail": "Doctor profile not created"},
+                {"detail": "Doctor profile not created", "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         return Response({
             "verification_status": profile.verification_status,
-            "user_state": request.user.state
+            "user_state": request.user.state,
+            "success": True
         })
 
 
@@ -511,12 +516,14 @@ class PatientProfileView(APIView):
             profile = request.user.patient_profile
         except ObjectDoesNotExist:
             return Response(
-                {"detail": "Patient profile not created"},
+                {"detail": "Patient profile not created", "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = PatientProfileSerializer(profile)
-        return Response(serializer.data)
+        data = serializer.data
+        data["success"] = True
+        return Response(data)
 
     @swagger_auto_schema(
         request_body=PatientProfileSerializer,
@@ -554,21 +561,22 @@ class PatientProfileView(APIView):
     def post(self, request):
         if not request.user.terms_accepted:
             return Response(
-                {"detail": "Accept terms and conditions first"},
+                {"detail": "Accept terms and conditions first", "success": False},
                 status=403
             )
 
         if not request.user.is_profile_complete():
             return Response(
                 {
-                    "detail": "Complete user profile before creating patient profile"
+                    "detail": "Complete user profile before creating patient profile",
+                    "success": False
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
+
         if hasattr(request.user, "patient_profile"):
             return Response(
-                {"detail": "Patient profile already exists"},
+                {"detail": "Patient profile already exists", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -583,7 +591,8 @@ class PatientProfileView(APIView):
         return Response(
             {
                 "message": "Patient profile created",
-                "state": request.user.state
+                "state": request.user.state,
+                "success": True
             },
             status=status.HTTP_201_CREATED
         )
@@ -616,7 +625,7 @@ class PatientProfileView(APIView):
             profile = request.user.patient_profile
         except ObjectDoesNotExist:
             return Response(
-                {"detail": "Patient profile not created"},
+                {"detail": "Patient profile not created", "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -628,7 +637,7 @@ class PatientProfileView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response({"message": "Patient profile updated"})
+        return Response({"message": "Patient profile updated", "success": True})
 
 class PatientSectionUpdateMixin:
     section_name = None
@@ -661,7 +670,7 @@ class PatientSectionUpdateMixin:
 
         update_patient_section_completion(profile, self.section_name)
 
-        return Response({"message": f"{self.section_name} updated"})
+        return Response({"message": f"{self.section_name} updated", "success": True})
 
 class PatientMedicalUpdateView(APIView, PatientSectionUpdateMixin):
     permission_classes = [IsPatient]
@@ -791,7 +800,7 @@ class AdminDoctorPendingListView(APIView):
                 "created_at": p.created_at,
             })
 
-        return Response(data)
+        return Response({"data": data, "success": True})
 
 class AdminDoctorApproveView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -834,13 +843,13 @@ class AdminDoctorApproveView(APIView):
             )
         except DoctorProfile.DoesNotExist:
             return Response(
-                {"detail": "Doctor profile not found"},
+                {"detail": "Doctor profile not found", "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         if not profile.license_document:
             return Response(
-                {"detail": "License document not uploaded"},
+                {"detail": "License document not uploaded", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -851,7 +860,7 @@ class AdminDoctorApproveView(APIView):
         user.state = UserState.ACTIVE
         user.save(update_fields=["state"])
 
-        return Response({"message": "Doctor approved"})
+        return Response({"message": "Doctor approved", "success": True})
 
 class AdminDoctorRejectView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -885,7 +894,7 @@ class AdminDoctorRejectView(APIView):
             )
         except DoctorProfile.DoesNotExist:
             return Response(
-                {"detail": "Doctor profile not found"},
+                {"detail": "Doctor profile not found", "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -896,7 +905,7 @@ class AdminDoctorRejectView(APIView):
         user.state = UserState.REJECTED
         user.save(update_fields=["state"])
 
-        return Response({"message": "Doctor rejected"})
+        return Response({"message": "Doctor rejected", "success": True})
 
 class AdminDoctorSectionLockView(APIView):
     permission_classes = [IsAdmin]
@@ -929,4 +938,4 @@ class AdminDoctorSectionLockView(APIView):
             profile.locked_sections.append(section)
             profile.save(update_fields=["locked_sections"])
 
-        return Response({"message": f"{section} locked"})
+        return Response({"message": f"{section} locked", "success": True})
