@@ -172,13 +172,25 @@ class PhoneOTPVerifySerializer(serializers.Serializer):
                 is_used=False
             ).latest("created_at")
         except PhoneOTP.DoesNotExist:
-            raise ValidationError("Invalid OTP")
+            data["otp_obj"] = None
+            data["message"] = "Invalid OTP or OTP already used"
+            data["is_valid"] = False
+            return data
 
         if not otp_obj.is_valid():
-            raise ValidationError("OTP expired")
+            data["otp_obj"] = otp_obj
+            data["is_valid"] = False
+            data["message"] = "OTP expired"
+            return data
         
+        if otp_obj.otp != data["otp"]:
+            data["otp_obj"] = otp_obj
+            data["is_valid"] = False
+            data["message"] = "Invalid OTP"
+            return data
+    
         data["otp_obj"] = otp_obj
-        data["is_valid"] = otp_obj.otp == data["otp"]
+        data["is_valid"] = True
         return data
 
 class EmailOTPRequestSerializer(serializers.Serializer):
@@ -196,13 +208,25 @@ class EmailOTPVerifySerializer(serializers.Serializer):
                 is_used=False
             ).latest("created_at")
         except EmailOTP.DoesNotExist:
-            raise ValidationError("Invalid OTP")
+            data["otp_obj"] = None
+            data["message"] = "Invalid OTP or OTP already used"
+            data["is_valid"] = False
+            return data
         
         if not otp_obj.is_valid():
-            raise ValidationError("OTP expired")
+            data["is_valid"] = False
+            data["otp_obj"] = otp_obj
+            data["message"] = "OTP expired"
+            return data
+        
+        if otp_obj.otp != data["otp"]:
+            data["is_valid"] = False
+            data["otp_obj"] = otp_obj
+            data["message"] = "Invalid OTP"
+            return data
         
         data["otp_obj"] = otp_obj
-        data["is_valid"] = otp_obj.otp == data["otp"]
+        data["is_valid"] = True
         return data
 
 
@@ -224,7 +248,7 @@ class EmailLoginSerializer(serializers.Serializer):
 
 class SocialLoginSerializer(serializers.Serializer):
     provider = serializers.ChoiceField(
-        choices=("google", "apple", "microsoft")
+        choices=("google", "apple", "facebook")
     )
     token = serializers.CharField()
     role = serializers.ChoiceField(

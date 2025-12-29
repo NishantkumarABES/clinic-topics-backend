@@ -110,15 +110,12 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
 class AuthProvider(TimeStampedUUIDModel):
     PROVIDER_GOOGLE = "google"
     PROVIDER_APPLE = "apple"
-    # PROVIDER_MICROSOFT = "microsoft"
-    PROVIDER_MICROSOFT = "facebook"
-
+    PROVIDER_FACEBOOK = "facebook"
 
     PROVIDER_CHOICES = (
         (PROVIDER_GOOGLE, "Google"),
         (PROVIDER_APPLE, "Apple"),
-        # (PROVIDER_MICROSOFT, "Microsoft"),
-        (PROVIDER_MICROSOFT, "Facebook"),
+        (PROVIDER_FACEBOOK, "Facebook"),
     )
 
     user = models.ForeignKey(

@@ -25,6 +25,7 @@ def home(request):
         "message": "Welcome to Clinic Topics API",
         "docs": "/swagger/",
         "admin": "/admin/",
+        "redoc": "/redoc/",
     })
 
 urlpatterns = [
@@ -44,6 +45,8 @@ urlpatterns = [
     path("api/v1/events/", include(("apps.events.urls", "events"), namespace="events")),
     path("api/v1/appointments/", include(("apps.appointments.urls", "appointments"), namespace="appointments")),
     path("api/v1/topics/", include(("apps.topics.urls", "topics"), namespace="topics")),
+
+    path("api/v1/analytics/", include(("apps.analytics.urls", "analytics"), namespace="analytics")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

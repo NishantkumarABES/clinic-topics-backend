@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.events.app.EventsConfig",
     "apps.appointments.app.AppointmentsConfig",
     "apps.topics.app.TopicsConfig",
+    "apps.analytics.app.AnalyticsConfig",
     "core.app.CoreConfig",
 ]
 
@@ -135,8 +136,6 @@ ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
 ]
-
-
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
