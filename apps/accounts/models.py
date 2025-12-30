@@ -53,6 +53,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
     # Identity
     email = models.EmailField(unique=True)
     phone = models.CharField(max_length=15, unique=True)
+    country_code = models.CharField(max_length=5, default="+91")
     full_name = models.CharField(max_length=255)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)

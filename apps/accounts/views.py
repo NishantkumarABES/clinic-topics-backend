@@ -5,15 +5,16 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.pagination import PageNumberPagination
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema
 
 from apps.accounts.serializers import (
-    EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer, DoctorRegistrationSerializer, 
-    PatientRegistrationSerializer, PasswordResetRequestSerializer, PasswordResetConfirmSerializer, EmailOTPRequestSerializer, 
-    EmailOTPVerifySerializer
+    EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer, PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer, EmailOTPRequestSerializer, EmailOTPVerifySerializer, RegisterSerializer, UserMeSerializer,
+    UserListSerializer
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
@@ -22,6 +23,7 @@ from apps.accounts.services import (
 from apps.accounts.social_providers import social_provider_verification
 from apps.accounts.models import User
 from apps.accounts.constants import UserState, UserRole
+from core.permissions import IsAdmin
 
 
 
@@ -133,7 +135,6 @@ class PhoneOTPRequestView(APIView):
             ),
         },
     )
-    
     def post(self, request):
         phone = request.data.get("phone")
 
@@ -207,115 +208,65 @@ class PhoneOTPVerifyView(APIView):
                 status=404
             )
 
-
-class DoctorRegistrationView(APIView):
+class RegisterView(APIView):
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
 
     @swagger_auto_schema(
-        request_body=DoctorRegistrationSerializer,
+        request_body=RegisterSerializer,
         responses={
             201: openapi.Response(
-                description="Doctor registered successfully",
+                description="User registered successfully",
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
                         "id": openapi.Schema(type=openapi.TYPE_STRING),
                         "role": openapi.Schema(type=openapi.TYPE_STRING),
                         "state": openapi.Schema(type=openapi.TYPE_STRING),
+                        "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
                     },
                 ),
             ),
-            400: openapi.Response(
-                description="Validation error",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
+            400: openapi.Response(description="Validation error"),
         },
     )
-    def post(self, request):
-        serializer = DoctorRegistrationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        is_email_verified = serializer.validated_data.get("is_email_verified", False)
-        is_phone_verified = serializer.validated_data.get("is_phone_verified", False)
-        if not (is_email_verified or is_phone_verified):
+    def post(self, request, role):
+        # ---- Normalize & validate role ----
+        role = role.lower()
+
+        if role not in dict(UserRole.CHOICES):
             return Response(
-                {"detail": "Email or phone must be verified to register as a doctor", "success": False},
+                {"detail": "Invalid role", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        user = serializer.save(role=UserRole.DOCTOR)
+        # ---- Inject role into request data ----
+        data = request.data.copy()
+        data["role"] = role
 
+        serializer = RegisterSerializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        access_token, refresh_token = get_tokens_for_user(user, False)
         return Response(
             {
-                "id": str(user.id),
-                "role": user.role,
-                "state": user.state,
-                "success": True
-            },
-            status=status.HTTP_201_CREATED
-        )
-
-class PatientRegistrationView(APIView):
-    permission_classes = [AllowAny]
-    parser_classes = [FormParser]
-
-
-    @swagger_auto_schema(
-        request_body=PatientRegistrationSerializer,
-        responses={
-            201: openapi.Response(
-                description="Patient registered successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "id": openapi.Schema(type=openapi.TYPE_STRING),
-                        "role": openapi.Schema(type=openapi.TYPE_STRING),
-                        "state": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-            400: openapi.Response(
-                description="Validation error",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-        },
-    )
-    def post(self, request):
-        if request.data.get("role") and request.data.get("role") != UserRole.PATIENT:
-            return Response(
-                {"detail": "Invalid role for this endpoint", "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        serializer = PatientRegistrationSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        is_email_verified = serializer.validated_data.get("is_email_verified", False)
-        is_phone_verified = serializer.validated_data.get("is_phone_verified", False)
-        if not (is_email_verified or is_phone_verified):
-            return Response(
-                {"detail": "Email or phone must be verified to register as a patient", "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        user = serializer.save(role=UserRole.PATIENT)
-
-
-        return Response(
-            {
-                "id": str(user.id),
-                "role": user.role,
-                "state": user.state,
-                "success": True
+                "access": access_token,
+                "refresh": refresh_token,
+                "user": {
+                    "id": str(user.id),
+                    "role": user.role,
+                    "full_name": user.full_name,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "date_of_birth": user.date_of_birth,
+                    "gender": user.gender,
+                    "state": user.state,
+                    "is_email_verified": user.is_email_verified,
+                    "is_phone_verified": user.is_phone_verified,
+                    "created_at": user.created_at,
+                    "updated_at": user.updated_at
+                },
+                "success": True,
             },
             status=status.HTTP_201_CREATED
         )
@@ -366,16 +317,19 @@ class EmailLoginView(APIView):
             "user": {
                 "id": str(user.id),
                 "role": user.role,
+                "full_name": user.full_name,
+                "email": user.email,
+                "phone": user.phone,
+                "date_of_birth": user.date_of_birth,
+                "gender": user.gender,
                 "state": user.state,
-                "onboarding_complete": (
-                    True if user.role == "admin" else
-                    hasattr(user, "doctor_profile") if user.role == "doctor" else
-                    hasattr(user, "patient_profile")
-                )
+                "is_email_verified": user.is_email_verified,
+                "is_phone_verified": user.is_phone_verified,
+                "created_at": user.created_at,
+                "updated_at": user.updated_at
             },
             "success": True
         })
-
 
 class SocialLoginView(APIView):
     permission_classes = [AllowAny]
@@ -432,14 +386,101 @@ class SocialLoginView(APIView):
                 "id": str(user.id),
                 "role": user.role,
                 "state": user.state,
-                "onboarding_complete": (
-                    hasattr(user, "doctor_profile")
-                    if user.role == UserRole.DOCTOR
-                    else hasattr(user, "patient_profile")
-                )
+                "user": {
+                    "id": str(user.id),
+                    "role": user.role,
+                    "full_name": user.full_name,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "date_of_birth": user.date_of_birth,
+                    "gender": user.gender,
+                    "state": user.state,
+                    "is_email_verified": user.is_email_verified,
+                    "is_phone_verified": user.is_phone_verified,
+                    "created_at": user.created_at,
+                    "updated_at": user.updated_at
+                }
             },
             "success": True
         })
+
+class PhoneLoginView(APIView):
+    permission_classes = [AllowAny]
+    @swagger_auto_schema(
+        request_body=PhoneOTPVerifySerializer,
+        responses={
+            200: openapi.Response(
+                description="Phone login successful",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "access": openapi.Schema(type=openapi.TYPE_STRING, description="Access token"), 
+                        "refresh": openapi.Schema(type=openapi.TYPE_STRING, description="Refresh token"),
+                        "user": openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                "id": openapi.Schema(type=openapi.TYPE_STRING),
+                                "role": openapi.Schema(type=openapi.TYPE_STRING),
+                                "state": openapi.Schema(type=openapi.TYPE_STRING),
+                                "onboarding_complete": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                            },
+                        ),
+                    },
+                ),
+            ),
+        },
+    )
+    def post(self, request):
+        serializer = PhoneOTPVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        is_valid = serializer.validated_data["is_valid"]
+        otp_obj = serializer.validated_data["otp_obj"]
+        phone = serializer.validated_data["phone"]
+
+        if not is_valid:
+            return Response(
+                {"detail": serializer.validated_data.get("message", "Invalid OTP"), "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            user = User.objects.get(phone=phone)
+            if not user.is_phone_verified:
+                return Response(
+                    {"detail": "Phone number not verified", "success": False},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "User with this phone number does not exist", "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        otp_obj.mark_as_used()
+        access_token, refresh_token = get_tokens_for_user(user)
+
+        return Response({
+            "access": access_token,
+            "refresh": refresh_token,
+            "user": {
+                "id": str(user.id),
+                "role": user.role,
+                "full_name": user.full_name,
+                "email": user.email,
+                "phone": user.phone,
+                "date_of_birth": user.date_of_birth,
+                "gender": user.gender,
+                "state": user.state,
+                "is_email_verified": user.is_email_verified,
+                "is_phone_verified": user.is_phone_verified,
+                "created_at": user.created_at,
+                "updated_at": user.updated_at
+            },
+            "success": True
+        })
+                    
+
 
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
@@ -516,7 +557,6 @@ class PasswordResetConfirmView(APIView):
 
         return Response({"detail": "Password reset successful", "success": True})
 
-
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -558,7 +598,6 @@ class LogoutView(APIView):
         token.blacklist()
 
         return Response({"detail": "Logged out successfully", "success": True})
-
 
 class DeactivateAccountView(APIView):
     permission_classes = [IsAuthenticated]
@@ -686,9 +725,218 @@ class DeleteAccountView(APIView):
             status=status.HTTP_200_OK
         )
 
+class UserMeView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response(
+                description="Current user details",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "id": openapi.Schema(type=openapi.TYPE_STRING, format="uuid"),
+                        "email": openapi.Schema(type=openapi.TYPE_STRING, format="email"),
+                        "phone": openapi.Schema(type=openapi.TYPE_STRING),
+                        "full_name": openapi.Schema(type=openapi.TYPE_STRING),
+                        "date_of_birth": openapi.Schema(type=openapi.TYPE_STRING, format="date", nullable=True),
+                        "gender": openapi.Schema(type=openapi.TYPE_STRING, nullable=True),
+                        "role": openapi.Schema(type=openapi.TYPE_STRING),
+                        "state": openapi.Schema(type=openapi.TYPE_STRING),
+                        "is_email_verified": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                        "is_phone_verified": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                        "terms_accepted": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                        "terms_accepted_at": openapi.Schema(type=openapi.TYPE_STRING, format="date-time", nullable=True),
+                        "terms_version": openapi.Schema(type=openapi.TYPE_STRING, nullable=True),
+                        "onboarding_complete": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                        "created_at": openapi.Schema(type=openapi.TYPE_STRING, format="date-time"),
+                        "updated_at": openapi.Schema(type=openapi.TYPE_STRING, format="date-time"),
+                        "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                    },
+                ),
+            ),
+            401: openapi.Response(
+                description="Unauthorized",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
+    def get(self, request):
+        serializer = UserMeSerializer(request.user)
+        return Response({
+            **serializer.data,
+            "success": True
+        })
+
+
+############## ADMIN APIs ##############
+
+class AdminUserListPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+class AdminUserListView(APIView):
+    permission_classes = [IsAdmin]
+    pagination_class = AdminUserListPagination
+
+    def get(self, request, role):
+        if role not in [UserRole.PATIENT, UserRole.DOCTOR]:
+            return Response(
+                {
+                    "detail": "Invalid role. Must be 'patient' or 'doctor'",
+                    "success": False
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        status_filter = request.query_params.get("status", None)
+        users = User.objects.filter(role=role)
+        
+        if status_filter and role == UserRole.PATIENT:
+            if status_filter not in ["active", "inactive"]:
+                return Response(
+                    {
+                        "detail": "Invalid status. Must be 'active' or 'inactive'",
+                        "success": False
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            users = users.filter(is_active=(status_filter=="active"))
+
+        users = users.order_by('-created_at')
+        paginator = self.pagination_class()
+        paginated_users = paginator.paginate_queryset(users, request)
+        serializer = UserListSerializer(paginated_users, many=True)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data['success'] = True
+
+        return Response(response_data)
 
 
 
+
+
+
+
+
+
+
+# class DoctorRegistrationView(APIView):
+#     permission_classes = [AllowAny]
+#     parser_classes = [MultiPartParser, FormParser]
+
+#     @swagger_auto_schema(
+#         request_body=DoctorRegistrationSerializer,
+#         responses={
+#             201: openapi.Response(
+#                 description="Doctor registered successfully",
+#                 schema=openapi.Schema(
+#                     type=openapi.TYPE_OBJECT,
+#                     properties={
+#                         "id": openapi.Schema(type=openapi.TYPE_STRING),
+#                         "role": openapi.Schema(type=openapi.TYPE_STRING),
+#                         "state": openapi.Schema(type=openapi.TYPE_STRING),
+#                     },
+#                 ),
+#             ),
+#             400: openapi.Response(
+#                 description="Validation error",
+#                 schema=openapi.Schema(
+#                     type=openapi.TYPE_OBJECT,
+#                     properties={
+#                         "detail": openapi.Schema(type=openapi.TYPE_STRING),
+#                     },
+#                 ),
+#             ),
+#         },
+#     )
+#     def post(self, request):
+#         serializer = DoctorRegistrationSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         is_email_verified = serializer.validated_data.get("is_email_verified", False)
+#         is_phone_verified = serializer.validated_data.get("is_phone_verified", False)
+#         if not (is_email_verified or is_phone_verified):
+#             return Response(
+#                 {"detail": "Email or phone must be verified to register as a doctor", "success": False},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         user = serializer.save(role=UserRole.DOCTOR)
+
+#         return Response(
+#             {
+#                 "id": str(user.id),
+#                 "role": user.role,
+#                 "state": user.state,
+#                 "success": True
+#             },
+#             status=status.HTTP_201_CREATED
+#         )
+
+# class PatientRegistrationView(APIView):
+#     permission_classes = [AllowAny]
+#     parser_classes = [FormParser]
+
+
+#     @swagger_auto_schema(
+#         request_body=PatientRegistrationSerializer,
+#         responses={
+#             201: openapi.Response(
+#                 description="Patient registered successfully",
+#                 schema=openapi.Schema(
+#                     type=openapi.TYPE_OBJECT,
+#                     properties={
+#                         "id": openapi.Schema(type=openapi.TYPE_STRING),
+#                         "role": openapi.Schema(type=openapi.TYPE_STRING),
+#                         "state": openapi.Schema(type=openapi.TYPE_STRING),
+#                     },
+#                 ),
+#             ),
+#             400: openapi.Response(
+#                 description="Validation error",
+#                 schema=openapi.Schema(
+#                     type=openapi.TYPE_OBJECT,
+#                     properties={
+#                         "detail": openapi.Schema(type=openapi.TYPE_STRING),
+#                     },
+#                 ),
+#             ),
+#         },
+#     )
+#     def post(self, request):
+#         if request.data.get("role") and request.data.get("role") != UserRole.PATIENT:
+#             return Response(
+#                 {"detail": "Invalid role for this endpoint", "success": False},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         serializer = PatientRegistrationSerializer(data=request.data)
+#         serializer.is_valid(raise_exception=True)
+#         is_email_verified = serializer.validated_data.get("is_email_verified", False)
+#         is_phone_verified = serializer.validated_data.get("is_phone_verified", False)
+#         if not (is_email_verified or is_phone_verified):
+#             return Response(
+#                 {"detail": "Email or phone must be verified to register as a patient", "success": False},
+#                 status=status.HTTP_400_BAD_REQUEST
+#             )
+
+#         user = serializer.save(role=UserRole.PATIENT)
+
+
+#         return Response(
+#             {
+#                 "id": str(user.id),
+#                 "role": user.role,
+#                 "state": user.state,
+#                 "success": True
+#             },
+#             status=status.HTTP_201_CREATED
+#         )
 
 
 

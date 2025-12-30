@@ -51,7 +51,7 @@ def activate_user_if_eligible(user):
 def generate_otp():
     return f"{random.randint(1000, 9999)}"
 
-def send_phone_otp(phone: str, otp: str) -> dict:
+def send_phone_otp(phone: str) -> dict:
     otp = generate_otp()
     expires_at = timezone.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
 
@@ -60,39 +60,39 @@ def send_phone_otp(phone: str, otp: str) -> dict:
         otp=otp,
         expires_at=expires_at
     )
-    print(f"[OTP DEBUG] {phone} -> {otp}")
-    authkey = os.environ.get("MSG91_OTP_AUTH_KEY")
-    if not authkey:
-        raise ValueError("MSG91_OTP_AUTH_KEY is not set in environment variables")
+    return otp
+    # authkey = os.environ.get("MSG91_OTP_AUTH_KEY")
+    # if not authkey:
+    #     raise ValueError("MSG91_OTP_AUTH_KEY is not set in environment variables")
 
-    if not phone or not otp:
-        raise ValueError("Phone and OTP are required")
+    # if not phone or not otp:
+    #     raise ValueError("Phone and OTP are required")
     
-    phone = phone.strip().lstrip('+91')
-    conn = http.client.HTTPSConnection("api.msg91.com")
+    # phone = phone.strip().lstrip('+91')
+    # conn = http.client.HTTPSConnection("api.msg91.com")
 
-    payload = {
-        "mobile": f"91{phone}",
-        "authkey": authkey,
-        "sender": "AESSDW",      
-        "otp": otp,
-        "message": f"Your Clinic Topics verification code is {otp}. Valid for 5 minutes."
-    }
+    # payload = {
+    #     "mobile": f"91{phone}",
+    #     "authkey": authkey,
+    #     "sender": "AESSDW",      
+    #     "otp": otp,
+    #     "message": f"Your Clinic Topics verification code is {otp}. Valid for 5 minutes."
+    # }
 
-    headers = {
-        "Content-Type": "application/json"
-    }
+    # headers = {
+    #     "Content-Type": "application/json"
+    # }
 
-    try:
-        conn.request("POST", "/api/v5/otp", body=json.dumps(payload), headers=headers)
-        response = conn.getresponse()
-        data = response.read().decode("utf-8")
-        conn.close()
-        result = json.loads(data)
-        return result
+    # try:
+    #     conn.request("POST", "/api/v5/otp", body=json.dumps(payload), headers=headers)
+    #     response = conn.getresponse()
+    #     data = response.read().decode("utf-8")
+    #     conn.close()
+    #     result = json.loads(data)
+    #     return result
 
-    except Exception as e:
-        return {"success": False, "error": str(e)}
+    # except Exception as e:
+    #     return {"success": False, "error": str(e)}
 
 def send_email_otp(email):
     otp = generate_otp()
