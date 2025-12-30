@@ -71,7 +71,9 @@ class RegisterSerializer(serializers.Serializer):
                 missing.append("specialization")
             if not data.get("license_number"):
                 missing.append("license_number")
-
+            if not data.get("years_of_experience"):
+                missing.append("years_of_experience")
+                
             if missing:
                 raise serializers.ValidationError(
                     {field: "This field is required for doctor registration" for field in missing}

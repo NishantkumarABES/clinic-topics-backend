@@ -1,20 +1,24 @@
 import requests
-BASE_URL = "http://localhost:8000/api/v1/"
+BASE_URL = "http://localhost:8000/api/v1"
+# BASE_URL = "https://clinic-topics-backend.onrender.com/api/v1"
 
 payload = {
-    "full_name": "Rohan Sharma",
-    "email": "rohan.sharma.98@gmail.com",
-    "phone": "8122335678",
+    "full_name": "Ashok Sharma",
+    "email": "Askok.sharma.98@gmail.com",
+    "phone": "8112324678",
     "country_code": "+91",
     "password": "MyPass123!",
     "terms_accepted": True,
-    "date_of_birth": "1999-07-22",
+    "date_of_birth": "1899-07-22",
     "gender": "male",
-    "is_phone_verified": True
+    "is_phone_verified": True,
+    "specialization": "Cardiology",
+    "license_number" : "UNNIWDNI23423",
+    "years_of_experience": "10"
 }
 
 response = requests.post(
-    "http://localhost:8000/api/v1/auth/register/patient/",
+    f"{BASE_URL}/auth/register/doctor/",
     data=payload
 )
 
