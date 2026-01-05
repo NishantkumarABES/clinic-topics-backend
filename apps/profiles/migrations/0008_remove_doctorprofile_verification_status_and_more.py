@@ -15,21 +15,32 @@ class Migration(migrations.Migration):
             name='verification_status',
         ),
 
-        # ✅ FIX: Rename the existing DB column
-        migrations.RenameField(
-            model_name='doctorprofile',
-            old_name='specializations',
-            new_name='specialization',
-        ),
-
-        # ✅ Then safely alter it
-        migrations.AlterField(
-            model_name='doctorprofile',
-            name='specialization',
-            field=models.CharField(
-                max_length=100,
-                null=True,
-                blank=True,
-            ),
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                # Database already has `specializations`,
+                # rename it at the DB level
+                migrations.RunSQL(
+                    sql="""
+                    ALTER TABLE profiles_doctorprofile
+                    RENAME COLUMN specializations TO specialization;
+                    """,
+                    reverse_sql="""
+                    ALTER TABLE profiles_doctorprofile
+                    RENAME COLUMN specialization TO specializations;
+                    """
+                ),
+            ],
+            state_operations=[
+                # Django state: just acknowledge the field correctly
+                migrations.AddField(
+                    model_name='doctorprofile',
+                    name='specialization',
+                    field=models.CharField(
+                        max_length=100,
+                        null=True,
+                        blank=True,
+                    ),
+                ),
+            ],
         ),
     ]
