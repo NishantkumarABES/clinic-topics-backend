@@ -1,7 +1,9 @@
 from django.db import models
 from core.models import TimeStampedUUIDModel
-from apps.accounts.models import User
 from decimal import Decimal
+
+from apps.accounts.models import User
+from apps.profiles.constants import BloodGroup
 
 
 class DoctorProfile(TimeStampedUUIDModel):
@@ -10,6 +12,7 @@ class DoctorProfile(TimeStampedUUIDModel):
         on_delete=models.CASCADE,
         related_name="doctor_profile"
     )
+    profile_photo = models.FileField(upload_to="doctor_photos/", null=True, blank=True)
 
     # ---------- Overview / Identity ----------
     credentials = models.CharField(
@@ -70,39 +73,6 @@ class DoctorProfile(TimeStampedUUIDModel):
     awards = models.TextField(blank=True)
 
 
-
-    # ---------- Section Completion Flags ----------
-
-    overview_completed = models.BooleanField(default=False)
-    professional_completed = models.BooleanField(default=False)
-    license_completed = models.BooleanField(default=False)
-    practice_completed = models.BooleanField(default=False)
-    availability_completed = models.BooleanField(default=False)
-    about_completed = models.BooleanField(default=False)
-
-    locked_sections = models.JSONField(default=list)
-
-    def is_fully_verified(self):
-        return self.user.state == "active"
-    
-    def is_doctor_profile_complete(profile):
-        return all([
-            profile.specialization,
-            profile.years_of_experience,
-            profile.license_number,
-            profile.clinic_name,
-            profile.available_days,
-            profile.available_time_slots,
-        ])
-    
-    def is_section_locked(self, section):
-        return section in self.locked_sections
-
-
-    @property
-    def is_verified_badge(self):
-        return self.user.state == "active"
-
     def __str__(self):
         return f"DoctorProfile({self.user.full_name})"
 
@@ -112,9 +82,12 @@ class PatientProfile(TimeStampedUUIDModel):
         on_delete=models.CASCADE,
         related_name="patient_profile"
     )
-
+    profile_photo = models.FileField(upload_to="patient_photos/", null=True, blank=True)
     # ---------- Personal & Contact ----------
-    blood_group = models.CharField(max_length=5, blank=True)
+    blood_group = models.CharField(
+        max_length=3, choices=BloodGroup.choices,
+        blank=True, null=True
+    )
     address = models.TextField(blank=True)
 
     # ---------- Medical Information ----------
@@ -135,11 +108,6 @@ class PatientProfile(TimeStampedUUIDModel):
     insurance_policy_number = models.CharField(max_length=100, blank=True)
     insurance_coverage_details = models.TextField(blank=True)
 
-    # ---------- Section Completion Flags ----------
-    personal_completed = models.BooleanField(default=False)
-    medical_completed = models.BooleanField(default=False)
-    emergency_completed = models.BooleanField(default=False)
-    insurance_completed = models.BooleanField(default=False)
 
     def __str__(self):
         return f"PatientProfile({self.user.full_name})"

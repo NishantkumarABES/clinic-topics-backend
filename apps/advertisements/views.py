@@ -41,6 +41,7 @@ class AdvertisementCreateView(APIView):
                 ),
             ),
         },
+        auto_schema=None
     )
     def post(self, request):
         serializer = AdvertisementSerializer(data=request.data)
@@ -97,6 +98,7 @@ class AdvertisementUpdateView(APIView):
                 ),
             ),
         },
+        auto_schema=None
     )
     def patch(self, request, pk):
         try:
@@ -190,6 +192,7 @@ class AdvertisementListView(APIView):
                 ),
             ),
         },
+        auto_schema=None
     )
     def get(self, request):
         # Get query parameters
@@ -244,6 +247,7 @@ class AdvertisementDetailView(APIView):
                 ),
             ),
         },
+        auto_schema=None
     )
     def get(self, request, pk):
         try:
@@ -282,6 +286,7 @@ class AdvertisementDetailView(APIView):
                 ),
             ),
         },
+        auto_schema=None
     )
     def delete(self, request, pk):
         try:

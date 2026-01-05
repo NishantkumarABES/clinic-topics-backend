@@ -286,22 +286,12 @@ class UserMeSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            "id",
-            "email",
-            "phone",
-            "country_code",
-            "full_name",
-            "date_of_birth",
-            "gender",
-            "role",
-            "state",
-            "is_email_verified",
-            "is_phone_verified",
-            "terms_accepted",
-            "terms_accepted_at",
-            "terms_version",
-            "onboarding_complete",
-            "created_at",
+            "id", "email", "phone", "country_code",
+            "full_name", "date_of_birth", "gender",
+            "role", "state", "is_email_verified",
+            "is_phone_verified", "terms_accepted",
+            "terms_accepted_at", "terms_version",
+            "onboarding_complete", "created_at",
             "updated_at",
         ]
         read_only_fields = fields

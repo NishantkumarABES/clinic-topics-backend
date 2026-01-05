@@ -4,6 +4,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from drf_yasg.utils import swagger_auto_schema
 
+from core.permissions import IsAdmin
 from apps.commerce.models import Category, Product, Cart, CartItem, Address, Prescription
 from apps.commerce.serializers import (
     CategorySerializer, ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
@@ -234,3 +235,15 @@ class AttachPrescriptionToCartItemView(APIView):
         item.save(update_fields=["prescription"])
 
         return Response({"message": "Prescription attached"})
+
+#### ADMIN APIS FOR PRODUCTS ####
+
+class AdminProductCreateView(APIView):
+    permission_classes = [IsAdmin, IsAuthenticated]  
+
+    @swagger_auto_schema(auto_schema=None, request_body=ProductDetailSerializer(), responses={201: ProductDetailSerializer()})
+    def post(self, request):
+        serializer = ProductDetailSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product = serializer.save()
+        return Response(ProductDetailSerializer(product).data, status=201)
