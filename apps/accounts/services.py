@@ -1,13 +1,14 @@
-import os, random, secrets, http.client, json
+import random, secrets
+from django.db import transaction
 from django.utils import timezone
 from django.core.mail import send_mail
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
 from datetime import timedelta
-from apps.accounts.constants import UserState, UserRole
-from apps.profiles.constants import DoctorVerificationStatus
+
+from apps.accounts.constants import UserState
 from apps.accounts.models import User, AuthProvider, PhoneOTP, PasswordResetToken, EmailOTP
-from config.settings.base import OTP_EXPIRY_MINUTES
+from config.settings import OTP_EXPIRY_MINUTES
 
 def assert_identity_available(email=None, phone=None):
     qs = User.objects.exclude(state=UserState.DELETED)
@@ -17,6 +18,18 @@ def assert_identity_available(email=None, phone=None):
 
     if phone and qs.filter(phone=phone).exists():
         raise ValidationError("Phone already linked to another account")
+
+def get_user_by_email(email) -> User | None:
+    try:
+        return User.objects.get(email=email)
+    except User.DoesNotExist:
+        return None
+
+def get_user_by_phone(phone) -> User | None:
+    try:
+        return User.objects.get(phone=phone)
+    except User.DoesNotExist:
+        return None
 
 def is_user_profile_complete(user):
     return all([
@@ -28,21 +41,17 @@ def is_user_profile_complete(user):
 def activate_user_if_eligible(user):
     if user.state != UserState.CREATED:
         return user
-        
+
     if not user.is_profile_complete():
         return
-    
+
     if user.role == "patient":
         if hasattr(user, "patient_profile"):
             user.state = UserState.ACTIVE
             user.save(update_fields=["state"])
 
     elif user.role == "doctor":
-        if (
-            hasattr(user, "doctor_profile") and
-            user.doctor_profile.verification_status
-            == DoctorVerificationStatus.APPROVED
-        ):
+        if hasattr(user, "doctor_profile"):
             user.state = UserState.ACTIVE
             user.save(update_fields=["state"])
 
@@ -94,6 +103,30 @@ def send_phone_otp(phone: str) -> dict:
     # except Exception as e:
     #     return {"success": False, "error": str(e)}
 
+def normalize_phone(phone: str, country_code: str = "+91") -> str:
+    phone = phone.strip()
+    if phone.startswith("+"):
+        return phone
+    return f"{country_code}{phone}"
+
+def verify_phone_otp(phone: str, otp: str) -> PhoneOTP:
+    with transaction.atomic():
+        try:
+            otp_obj = (
+                PhoneOTP.objects
+                .select_for_update()
+                .filter(phone=phone, otp=otp, is_used=False)
+                .latest("created_at")
+            )
+        except PhoneOTP.DoesNotExist:
+            raise ValidationError("Invalid or already used OTP")
+
+        if not otp_obj.is_valid():
+            raise ValidationError("OTP expired")
+
+        otp_obj.marks_as_used()
+        return otp_obj
+
 def send_email_otp(email):
     otp = generate_otp()
     EmailOTP.objects.create(
@@ -115,42 +148,15 @@ def can_resend_otp(phone):
         return False
     return True
 
-def resolve_social_user(social_user, role=None):
-    # 1. Match provider + provider_user_id
+def resolve_social_user(social_user):
     try:
         auth = AuthProvider.objects.select_related("user").get(
             provider=social_user.provider,
             provider_user_id=social_user.provider_user_id
         )
-        return auth.user, False
+        return auth.user
     except AuthProvider.DoesNotExist:
-        pass
-
-    # 2. Match email (if provided)
-    user = None
-    if social_user.email:
-        try:
-            user = User.objects.get(email=social_user.email)
-        except User.DoesNotExist:
-            pass
-
-    # 3. Create user if not found
-    if not user:
-        user = User.objects.create(
-            email=social_user.email,
-            role=role or UserRole.PATIENT,
-            state=UserState.CREATED
-        )
-
-    # 4. Link provider
-    AuthProvider.objects.create(
-        user=user,
-        provider=social_user.provider,
-        provider_user_id=social_user.provider_user_id,
-        email=social_user.email
-    )
-
-    return user, True
+        return None
 
 def generate_reset_token():
     return secrets.token_urlsafe(32)
@@ -192,3 +198,9 @@ def issue_tokens(user):
         "access": str(refresh.access_token),
         "refresh": str(refresh),
     }
+
+def get_object_or_404(model, **kwargs):
+    try:
+        return model.objects.get(**kwargs)
+    except model.DoesNotExist:
+        raise ValidationError(f"{model.__name__} not found")

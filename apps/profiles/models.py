@@ -1,14 +1,7 @@
 from django.db import models
 from core.models import TimeStampedUUIDModel
 from apps.accounts.models import User
-from apps.profiles.constants import DoctorVerificationStatus
 from decimal import Decimal
-
-from decimal import Decimal
-from django.db import models
-from core.models import TimeStampedUUIDModel
-from apps.accounts.models import User
-from apps.profiles.constants import DoctorVerificationStatus
 
 
 class DoctorProfile(TimeStampedUUIDModel):
@@ -23,10 +16,10 @@ class DoctorProfile(TimeStampedUUIDModel):
         max_length=255, null=True, blank=True
     )  # e.g. MD, MS, MBBS
 
-    specializations = models.JSONField(null=True, blank=True)
+    specialization = models.CharField(max_length=100, null=True, blank=True)
     years_of_experience = models.PositiveIntegerField()
 
-    languages_spoken = models.JSONField(null=True, blank=True)
+    # languages_spoken = models.JSONField(null=True, blank=True)
 
     # ---------- Professional Details ----------
     qualifications = models.JSONField(null=True, blank=True)
@@ -76,12 +69,9 @@ class DoctorProfile(TimeStampedUUIDModel):
     bio = models.TextField(blank=True)
     awards = models.TextField(blank=True)
 
-    # ---------- Verification ----------
-    verification_status = models.CharField(
-        max_length=20,
-        choices=DoctorVerificationStatus.CHOICES,
-        default=DoctorVerificationStatus.PENDING
-    )
+
+
+    # ---------- Section Completion Flags ----------
 
     overview_completed = models.BooleanField(default=False)
     professional_completed = models.BooleanField(default=False)
@@ -93,14 +83,11 @@ class DoctorProfile(TimeStampedUUIDModel):
     locked_sections = models.JSONField(default=list)
 
     def is_fully_verified(self):
-        return (
-            self.verification_status == DoctorVerificationStatus.APPROVED
-            and self.user.state == "active"
-        )
+        return self.user.state == "active"
     
     def is_doctor_profile_complete(profile):
         return all([
-            profile.specializations,
+            profile.specialization,
             profile.years_of_experience,
             profile.license_number,
             profile.clinic_name,
@@ -114,7 +101,7 @@ class DoctorProfile(TimeStampedUUIDModel):
 
     @property
     def is_verified_badge(self):
-        return self.verification_status == DoctorVerificationStatus.APPROVED
+        return self.user.state == "active"
 
     def __str__(self):
         return f"DoctorProfile({self.user.full_name})"

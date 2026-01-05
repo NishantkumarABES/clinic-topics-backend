@@ -1,6 +1,6 @@
 def update_doctor_section_completion(profile, section):
     rules = {
-        "overview": lambda p: bool(p.specializations and p.years_of_experience),
+        "overview": lambda p: bool(p.specialization and p.years_of_experience),
         "professional": lambda p: bool(p.qualifications),
         "license": lambda p: bool(p.license_number and p.license_document),
         "practice": lambda p: bool(p.clinic_name and p.consultation_fee),

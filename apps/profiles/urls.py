@@ -1,8 +1,8 @@
 from django.urls import path
 from apps.profiles.views import (
-    DoctorProfileView, DoctorLicenseUploadView, DoctorVerificationStatusView, PatientProfileView, AdminDoctorPendingListView, AdminDoctorApproveView, 
-    AdminDoctorRejectView, DoctorOverviewUpdateView, DoctorProfessionalUpdateView,DoctorLicenseUpdateView, DoctorPracticeUpdateView, 
-    DoctorAvailabilityUpdateView, DoctorAboutUpdateView, DoctorVerificationStatusView, PatientPersonalUpdateView, PatientMedicalUpdateView, 
+    DoctorProfileView, DoctorLicenseUploadView, PatientProfileView, AdminDoctorListView,
+    DoctorOverviewUpdateView, DoctorProfessionalUpdateView, DoctorLicenseUpdateView, DoctorPracticeUpdateView,
+    DoctorAvailabilityUpdateView, DoctorAboutUpdateView, PatientPersonalUpdateView, PatientMedicalUpdateView,
     PatientEmergencyUpdateView, PatientInsuranceUpdateView
 )
 
@@ -16,7 +16,6 @@ urlpatterns = [
     path("doctor-profile/availability/", DoctorAvailabilityUpdateView.as_view()),
     path("doctor-profile/about/", DoctorAboutUpdateView.as_view()),
     path("doctor-profile/license/", DoctorLicenseUploadView.as_view()),
-    path("doctor-profile-status/", DoctorVerificationStatusView.as_view()),
     
     # Patient APIs Endpoints
     path("patient-profile/", PatientProfileView.as_view()),
@@ -26,7 +25,5 @@ urlpatterns = [
     path("patient-profile/insurance/", PatientInsuranceUpdateView.as_view()),
     
     # Admin APIs Endpoints
-    path("doctors/pending/", AdminDoctorPendingListView.as_view()),
-    path("doctors/<uuid:user_id>/approve/", AdminDoctorApproveView.as_view()),
-    path("doctors/<uuid:user_id>/reject/", AdminDoctorRejectView.as_view()),
+    path("doctors/", AdminDoctorListView.as_view()),
 ]

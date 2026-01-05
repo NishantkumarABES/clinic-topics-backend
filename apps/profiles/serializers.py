@@ -4,7 +4,7 @@ from apps.profiles.models import DoctorProfile, PatientProfile
 class DoctorProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = DoctorProfile
-        exclude = ("user", "verification_status", "created_at", "updated_at", 
+        exclude = ("user", "created_at", "updated_at",
                    "locked_sections", "overview_completed", "professional_completed",
                    "license_completed", "practice_completed", "availability_completed",
                    "about_completed")
@@ -29,9 +29,8 @@ class DoctorOverviewSerializer(serializers.ModelSerializer):
         model = DoctorProfile
         fields = [
             "credentials",
-            "specializations",
+            "specialization",
             "years_of_experience",
-            "languages_spoken",
         ]
 
 class DoctorProfessionalSerializer(serializers.ModelSerializer):

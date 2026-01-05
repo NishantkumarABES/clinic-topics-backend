@@ -5,26 +5,34 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from apps.accounts.models import User, PhoneOTP, PasswordResetToken, EmailOTP
+from apps.accounts.services import normalize_phone
+from apps.accounts.models import User, PasswordResetToken, EmailOTP, AuthProvider
 from apps.accounts.constants import UserState, UserRole, UserState
 from apps.profiles.models import DoctorProfile
-
+from apps.accounts.social_providers import social_provider_verification
 
 class RegisterSerializer(serializers.Serializer):
     # -------- Common User Fields --------
-    role = serializers.ChoiceField(choices=['doctor', 'patient'])
-    full_name = serializers.CharField(required=True)
-    email = serializers.EmailField(required=True)
-    phone = serializers.CharField(required=True)
+    role = serializers.ChoiceField(choices=[UserRole.DOCTOR, UserRole.PATIENT])
+    full_name = serializers.CharField()
+    email = serializers.EmailField()
+    phone = serializers.CharField()
     country_code = serializers.CharField(required=False, default="+91")
-    password = serializers.CharField(write_only=True)
-    terms_accepted = serializers.BooleanField(required=True)
+
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True
+    )
+
+    terms_accepted = serializers.BooleanField()
     date_of_birth = serializers.DateField(required=False, allow_null=True)
     gender = serializers.ChoiceField(
         choices=("male", "female", "other"),
         required=False,
         allow_null=True
     )
+
     is_email_verified = serializers.BooleanField(required=False, default=False)
     is_phone_verified = serializers.BooleanField(required=False, default=False)
 
@@ -34,72 +42,98 @@ class RegisterSerializer(serializers.Serializer):
     license_number = serializers.CharField(required=False, allow_blank=True)
     license_document = serializers.FileField(required=False)
 
-    # -------- Common Validations --------
-    def validate_password(self, value):
-        validate_password(value)
-        return value
+    # -------- Social Fields --------
+    via_social = serializers.BooleanField(default=False)
+    provider = serializers.ChoiceField(
+        choices=("google", "apple", "facebook"),
+        required=False,
+        allow_null=True
+    )
+    token = serializers.CharField(required=False, allow_blank=True)
 
-    def validate_email(self, value):
-        if User.objects.filter(email=value).exists():
-            raise serializers.ValidationError("Email already registered")
-        return value
+    # -------- Admin Flag --------
+    by_admin = serializers.BooleanField(default=False)
 
-    def validate_phone(self, value):
-        if User.objects.filter(phone=value).exists():
-            raise serializers.ValidationError("Phone number already registered")
-        return value
+    # ---------------- VALIDATION ----------------
 
     def validate(self, data):
         role = data["role"]
+        via_social = data.get("via_social", False)
 
-        # ---- Public cannot create admin ----
+        # ---- Admin protection ----
         if role == UserRole.ADMIN:
-            raise serializers.ValidationError(
-                {"role": "Admin accounts cannot be created via public registration"}
-            )
+            raise ValidationError({"role": "Admin cannot be registered publicly"})
 
-        # ---- Verification rule (shared) ----
-        if not (data.get("is_email_verified") or data.get("is_phone_verified")):
-            raise serializers.ValidationError(
-                "Email or phone must be verified to register"
-            )
+        # ---- Social validation ----
+        social_user = None
+        if via_social:
+            provider = data.get("provider")
+            token = data.get("token")
 
-        # ---- Doctor-specific required fields ----
-        if role == UserRole.DOCTOR:
-            missing = []
-            if not data.get("specialization"):
-                missing.append("specialization")
-            if not data.get("license_number"):
-                missing.append("license_number")
-            if not data.get("years_of_experience"):
-                missing.append("years_of_experience")
-                
-            if missing:
-                raise serializers.ValidationError(
-                    {field: "This field is required for doctor registration" for field in missing}
+            if not provider or not token:
+                raise ValidationError("Provider and token are required for social signup")
+
+            verifier = social_provider_verification.get(provider)
+            if not verifier:
+                raise ValidationError({"provider": "Unsupported social provider"})
+
+            social_user = verifier(token)
+
+            # Enforce email consistency (if provider supplies email)
+            if social_user.email and social_user.email != data["email"]:
+                raise ValidationError(
+                    {"email": "Email does not match social account"}
                 )
 
+            # Social = email verified by default
+            data["is_email_verified"] = True
+
+        else:
+            # ---- Password required for non-social ----
+            password = data.get("password")
+            if not password:
+                raise ValidationError({"password": "Password is required"})
+            validate_password(password)
+
+        # ---- Verification rule ----
+        if not (data.get("is_email_verified") or data.get("is_phone_verified")):
+            raise ValidationError("Email or phone must be verified")
+
+        # ---- Unique constraints ----
+        if User.objects.filter(email=data["email"]).exists():
+            raise ValidationError({"email": "Email already registered"})
+
+        if User.objects.filter(phone=data["phone"]).exists():
+            raise ValidationError({"phone": "Phone already registered"})
+
+        # ---- Doctor-specific validation ----
+        if role == UserRole.DOCTOR:
+            required = ["specialization", "license_number", "years_of_experience"]
+            errors = {
+                field: "This field is required for doctor registration"
+                for field in required if not data.get(field)
+            }
+            if errors:
+                raise ValidationError(errors)
+
+        # Attach social_user for use in create()
+        data["_social_user"] = social_user
         return data
 
-    # -------- CREATE --------
+    # ---------------- CREATE ----------------
+
     @transaction.atomic
     def create(self, validated_data):
+        social_user = validated_data.pop("_social_user", None)
+
+        password = validated_data.pop("password", None)
         role = validated_data["role"]
 
-        # ---- Extract doctor fields ----
-        doctor_fields = {
-            "specialization": validated_data.pop("specialization", None),
-            "years_of_experience": validated_data.pop("years_of_experience", None),
-            "license_number": validated_data.pop("license_number", None),
-            "license_document": validated_data.pop("license_document", None),
-        }
-
-        # ---- Create User ----
         user = User.objects.create_user(
-            full_name=validated_data["full_name"],
             email=validated_data["email"],
             phone=validated_data["phone"],
-            password=validated_data["password"],
+            password=password if not social_user else None,
+            full_name=validated_data["full_name"],
             role=role,
             state=UserState.CREATED,
             terms_accepted=validated_data["terms_accepted"],
@@ -109,61 +143,56 @@ class RegisterSerializer(serializers.Serializer):
             gender=validated_data.get("gender"),
             is_email_verified=validated_data.get("is_email_verified"),
             is_phone_verified=validated_data.get("is_phone_verified"),
+            by_admin=validated_data.get("by_admin", False),
         )
 
-        # ---- Role-based profile creation ----
         if role == UserRole.DOCTOR:
             DoctorProfile.objects.create(
                 user=user,
-                specializations=[doctor_fields["specialization"]],
-                years_of_experience=doctor_fields["years_of_experience"],
-                license_number=doctor_fields["license_number"],
-                license_document=doctor_fields["license_document"],
+                specialization=validated_data["specialization"],
+                years_of_experience=validated_data["years_of_experience"],
+                license_number=validated_data["license_number"],
+                license_document=validated_data.get("license_document"),
+            )
+
+        if social_user:
+            AuthProvider.objects.create(
+                user=user,
+                provider=social_user.provider,
+                provider_user_id=social_user.provider_user_id,
+                email=social_user.email,
             )
 
         return user
 
 class PhoneOTPRequestSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
+    country_code = serializers.CharField(max_length=5, required=False, default="+91")
 
     def validate_phone(self, value):
-        # basic sanity check; extend later
         if not value.isdigit():
-            raise ValidationError("Invalid phone number")
+            raise ValidationError("Phone number must contain only digits")
         return value
+
+    def validate(self, data):
+        data["phone"] = normalize_phone(
+            data["phone"],
+            data.get("country_code", "+91")
+        )
+        return data
 
 class PhoneOTPVerifySerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
+    country_code = serializers.CharField(max_length=5, required=False, default="+91")
     otp = serializers.CharField(max_length=6)
 
     def validate(self, data):
-        try:
-            otp_obj = PhoneOTP.objects.filter(
-                phone=data["phone"],
-                otp=data["otp"],
-                is_used=False
-            ).latest("created_at")
-        except PhoneOTP.DoesNotExist:
-            data["otp_obj"] = None
-            data["message"] = "Invalid OTP or OTP already used"
-            data["is_valid"] = False
-            return data
-
-        if not otp_obj.is_valid():
-            data["otp_obj"] = otp_obj
-            data["is_valid"] = False
-            data["message"] = "OTP expired"
-            return data
-        
-        if otp_obj.otp != data["otp"]:
-            data["otp_obj"] = otp_obj
-            data["is_valid"] = False
-            data["message"] = "Invalid OTP"
-            return data
-    
-        data["otp_obj"] = otp_obj
-        data["is_valid"] = True
+        data["phone_number"] = normalize_phone(
+            data["phone"],
+            data.get("country_code", "+91")
+        )
         return data
+
 
 class EmailOTPRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -223,10 +252,6 @@ class SocialLoginSerializer(serializers.Serializer):
         choices=("google", "apple", "facebook")
     )
     token = serializers.CharField()
-    role = serializers.ChoiceField(
-        choices=UserRole.CHOICES,
-        required=False
-    )
     remember_me = serializers.BooleanField(required=False)
 
 class PasswordResetRequestSerializer(serializers.Serializer):
@@ -264,6 +289,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             "id",
             "email",
             "phone",
+            "country_code",
             "full_name",
             "date_of_birth",
             "gender",
@@ -289,198 +315,143 @@ class UserMeSerializer(serializers.ModelSerializer):
             return hasattr(obj, "patient_profile")
         return False
 
+
 class UserListSerializer(serializers.ModelSerializer):
+    license_number = serializers.SerializerMethodField()
+    clinic_address = serializers.SerializerMethodField()
+    specialization = serializers.SerializerMethodField()
+    years_of_experience = serializers.SerializerMethodField()
+
     class Meta:
         model = User
         fields = [
-            "email", "phone", "country_code",
-            "full_name", "date_of_birth",
-            "gender", "role", "state", "is_email_verified",
-            "is_phone_verified", "is_active",
-            "created_at", "updated_at",
+            "id", "email", "phone", "country_code",
+            "full_name", "date_of_birth", "gender", "state", "is_email_verified",
+            "is_phone_verified", "is_active", "created_at", "updated_at",
+            "license_number", "clinic_address",
+            "specialization", "years_of_experience",
         ]
         read_only_fields = fields
 
+    def get_license_number(self, obj):
+        if obj.role == UserRole.DOCTOR and hasattr(obj, 'doctor_profile'):
+            return obj.doctor_profile.license_number
+        return None
 
+    def get_clinic_address(self, obj):
+        if obj.role == UserRole.DOCTOR and hasattr(obj, 'doctor_profile'):
+            return obj.doctor_profile.clinic_address
+        return None
 
+    def get_specialization(self, obj):
+        if obj.role == UserRole.DOCTOR and hasattr(obj, 'doctor_profile'):
+            return obj.doctor_profile.specialization
+        return None
 
+    def get_years_of_experience(self, obj):
+        if obj.role == UserRole.DOCTOR and hasattr(obj, 'doctor_profile'):
+            return obj.doctor_profile.years_of_experience
+        return None
 
+class UserUpdateSerializer(serializers.ModelSerializer):
+    # Doctor profile fields (optional, only for doctors)
+    specialization = serializers.CharField(required=False, allow_blank=True)
+    years_of_experience = serializers.IntegerField(required=False, min_value=0)
+    license_number = serializers.CharField(required=False, allow_blank=True)
+    clinic_address = serializers.CharField(required=False, allow_blank=True)
 
+    class Meta:
+        model = User
+        fields = [
+            "full_name", "phone", "country_code", "date_of_birth",
+            "gender", "is_active", "specialization", "years_of_experience",
+            "license_number", "clinic_address"
+        ]
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# class PatientRegistrationSerializer(serializers.Serializer):
-#     full_name = serializers.CharField(required=True)
-#     email = serializers.EmailField(required=True)
-#     phone = serializers.CharField(required=True)
-#     password = serializers.CharField(write_only=True)
-#     date_of_birth = serializers.DateField(required=False, allow_null=True)
-#     gender = serializers.ChoiceField(choices=("male", "female", "other"), required=False, allow_null=True)
-#     terms_accepted = serializers.BooleanField(required=True)
-#     is_email_verified = serializers.BooleanField(required=False, default=False)
-#     is_phone_verified = serializers.BooleanField(required=False, default=False)
+    def validate_phone(self, value):
+        # Check if phone already exists for another user
+        user = self.instance
+        if User.objects.filter(phone=value).exclude(id=user.id).exists():
+            raise serializers.ValidationError("Phone number already registered")
+        return value
     
-#     def validate_password(self, value):
-#         validate_password(value)
-#         return value
-    
-#     def validate_phone(self, value):
-#         if User.objects.filter(phone=value).exists():
-#             raise serializers.ValidationError("Phone number already registered")
-#         return value
+    def validate_email(self, value):
+        # Check if email already exists for another user
+        user = self.instance
+        if User.objects.filter(email=value).exclude(id=user.id).exists():
+            raise serializers.ValidationError("Email already registered")
+        return value
 
-#     def validate_email(self, value):
-#         if User.objects.filter(email=value).exists():
-#             raise serializers.ValidationError("Email already registered")
-#         return value
-    
-#     def validate_role(self, value):
-#         if value == UserRole.ADMIN:
-#             raise serializers.ValidationError(
-#                 "Admin accounts cannot be created via public registration"
-#             )
-#         return value
-    
 
-#     def create(self, validated_data):
-#         user = User.objects.create_user(
-#             full_name=validated_data["full_name"],
-#             email=validated_data["email"],
-#             phone=validated_data["phone"],
-#             password=validated_data["password"],
-#             role=validated_data["role"],
-#             state=UserState.CREATED,
-#             date_of_birth=validated_data.get("date_of_birth"),
-#             gender=validated_data.get("gender"),
-#             terms_accepted=validated_data.get("terms_accepted"),
-#             is_email_verified=validated_data.get("is_email_verified"),
-#             is_phone_verified=validated_data.get("is_phone_verified"),
-#         )
-#         return user
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        # Extract doctor profile fields
+        doctor_fields = {
+            "specialization": validated_data.pop("specialization", None),
+            "years_of_experience": validated_data.pop("years_of_experience", None),
+            "license_number": validated_data.pop("license_number", None),
+            "clinic_address": validated_data.pop("clinic_address", None),
+        }
+        updatation_time = timezone.now()
 
-# class DoctorRegistrationSerializer(serializers.ModelSerializer):
-#     # ---- User fields ----
-#     full_name = serializers.CharField(required=True)
-#     email = serializers.EmailField(required=True)
-#     phone = serializers.CharField(required=True)
-#     password = serializers.CharField(write_only=True)
-#     terms_accepted = serializers.BooleanField(required=True)
-#     date_of_birth = serializers.DateField(required=False, allow_null=True)
-#     gender = serializers.ChoiceField(choices=("male", "female", "other"), required=False, allow_null=True)
-#     is_email_verified = serializers.BooleanField(required=False, default=False)
-#     is_phone_verified = serializers.BooleanField(required=False, default=False)
+        # Update user fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.updated_at = updatation_time
+        instance.save()
 
-#     # ---- DoctorProfile fields ----
-#     specialization = serializers.CharField(required=False, allow_blank=True)
-#     years_of_experience = serializers.IntegerField(required=False, min_value=0)
-#     license_number = serializers.CharField(required=False, allow_blank=True)
-#     license_document = serializers.FileField(required=False)
+        # Update doctor profile if user is a doctor and profile exists
+        if instance.role == UserRole.DOCTOR and hasattr(instance, 'doctor_profile'):
+            doctor_profile = instance.doctor_profile
+            for field, value in doctor_fields.items():
+                if value is not None:
+                    setattr(doctor_profile, field, value)
+            doctor_profile.updated_at = updatation_time
+            doctor_profile.save()
 
-#     class Meta:
-#         model = User
-#         fields = [
-#             "full_name", "email", "phone", "password", "terms_accepted", "is_email_verified", "date_of_birth", "gender",
-#             "is_phone_verified", "specialization", "years_of_experience", "license_number", "license_document",
-#         ]
-#         extra_kwargs = {
-#             "password": {"write_only": True},
-#         }
+        return instance
 
-#     # ---------------- VALIDATIONS ---------------- #
 
-#     def validate_password(self, value):
-#         validate_password(value)
-#         return value
 
-#     def validate_phone(self, value):
-#         if User.objects.filter(phone=value).exists():
-#             raise serializers.ValidationError("Phone number already registered")
-#         return value
 
-#     def validate_email(self, value):
-#         if User.objects.filter(email=value).exists():
-#             raise serializers.ValidationError("Email already registered")
-#         return value
+#########################   Response Serializers    #########################
 
-#     def validate_role(self, value):
-#         if value != UserRole.DOCTOR:
-#             raise serializers.ValidationError(
-#                 "Only doctor accounts can be created using this endpoint"
-#             )
-#         return value
+class LoginResponseSerializer(serializers.Serializer):
+    access = serializers.CharField(help_text="JWT access token")
+    refresh = serializers.CharField(help_text="JWT refresh token")
+    user = UserMeSerializer()
+    success = serializers.BooleanField()
 
-#     # ---------------- CREATE ---------------- #
+class RegisterResponseSerializer(serializers.Serializer):
+    access = serializers.CharField(help_text="JWT access token")
+    refresh = serializers.CharField(help_text="JWT refresh token")
+    user = UserMeSerializer()
+    success = serializers.BooleanField()
 
-#     @transaction.atomic
-#     def create(self, validated_data):
-#         # ---- Extract DoctorProfile data ----
-#         doctor_data = {
-#             "specialization": validated_data.pop("specialization", None),
-#             "years_of_experience": validated_data.pop("years_of_experience", None),
-#             "license_number": validated_data.pop("license_number", None),
-#             "license_document": validated_data.pop("license_document", None),
-#         }
 
-#         # ---- Create User ----
-#         user = User.objects.create_user(
-#             full_name=validated_data["full_name"],
-#             email=validated_data["email"],
-#             phone=validated_data["phone"],
-#             password=validated_data["password"],
-#             role=validated_data["role"],
-#             state=UserState.CREATED,
-#             terms_accepted=validated_data["terms_accepted"],
-#             date_of_birth=validated_data.get("date_of_birth"),
-#             gender=validated_data.get("gender"),
-#             is_email_verified=validated_data.get("is_email_verified"),
-#             is_phone_verified=validated_data.get("is_phone_verified"),
-#         )
 
-#         # ---- Create DoctorProfile ----
-#         DoctorProfile.objects.create(
-#             user=user,
-#             specializations=[doctor_data["specialization"]]
-#             if doctor_data["specialization"] else [],
-#             years_of_experience=doctor_data["years_of_experience"],
-#             license_number=doctor_data["license_number"],
-#             license_document=doctor_data["license_document"],
-#         )
 
-#         return user
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

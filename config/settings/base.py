@@ -5,13 +5,10 @@ from datetime import timedelta
 DEBUG = True
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",    
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://admin-panel-frontend-2yrl.onrender.com"
-]
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
 
 CORS_ALLOW_HEADERS = [
     "authorization",
@@ -55,21 +52,23 @@ INSTALLED_APPS = [
     "apps.appointments.app.AppointmentsConfig",
     "apps.topics.app.TopicsConfig",
     "apps.analytics.app.AnalyticsConfig",
+    "apps.cms.app.CMSConfig",
+    "apps.advertisements.app.AdvertisementsConfig",
     "core.app.CoreConfig",
 ]
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
-    "django.middleware.security.SecurityMiddleware",
 ]
+
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (

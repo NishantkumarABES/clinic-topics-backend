@@ -23,3 +23,16 @@ class UserState:
         (DEACTIVATED, "Deactivated"),
         (DELETED, "Deleted"),
     )
+
+# accounts/constants.py
+
+class AuthProviderType:
+    GOOGLE = "google"
+    APPLE = "apple"
+    FACEBOOK = "facebook"
+
+    CHOICES = (
+        (GOOGLE, "Google"),
+        (APPLE, "Apple"),
+        (FACEBOOK, "Facebook"),
+    )

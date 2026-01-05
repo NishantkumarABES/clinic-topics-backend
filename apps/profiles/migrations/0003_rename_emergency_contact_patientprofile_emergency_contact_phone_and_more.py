@@ -74,7 +74,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='doctorprofile',
-            name='specializations',
+            name='specialization',
             field=models.JSONField(blank=True, null=True),
         ),
         migrations.AddField(

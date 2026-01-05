@@ -64,7 +64,6 @@ class DoctorProfileView(APIView):
                     type=openapi.TYPE_OBJECT,
                     properties={
                         "message": openapi.Schema(type=openapi.TYPE_STRING),
-                        "verification_status": openapi.Schema(type=openapi.TYPE_STRING),
                     },
                 ),
             ),
@@ -120,7 +119,6 @@ class DoctorProfileView(APIView):
         return Response(
             {
                 "message": "Doctor profile created",
-                "verification_status": profile.verification_status,
                 "success": True
             },
             status=status.HTTP_201_CREATED
@@ -449,45 +447,6 @@ class DoctorLicenseUploadView(APIView):
 
         return Response({"message": "License uploaded", "success": True})
 
-class DoctorVerificationStatusView(APIView):
-    permission_classes = [IsDoctor]
-    @swagger_auto_schema(
-        responses={
-            200: openapi.Response(
-                description="Verification status",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "verification_status": openapi.Schema(type=openapi.TYPE_STRING),
-                        "user_state": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-            404: openapi.Response(
-                description="Profile not created",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-        },
-    )
-    def get(self, request):
-        try:
-            profile = request.user.doctor_profile
-        except ObjectDoesNotExist:
-            return Response(
-                {"detail": "Doctor profile not created", "success": False},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        return Response({
-            "verification_status": profile.verification_status,
-            "user_state": request.user.state,
-            "success": True
-        })
 
 
 # Patient profile APIs view
@@ -762,7 +721,7 @@ class PatientInsuranceUpdateView(APIView, PatientSectionUpdateMixin):
     
 
 # ADMIN APIs view
-class AdminDoctorPendingListView(APIView):
+class AdminDoctorListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
     @swagger_auto_schema(
@@ -786,9 +745,7 @@ class AdminDoctorPendingListView(APIView):
         },
     )
     def get(self, request):
-        profiles = DoctorProfile.objects.filter(
-            verification_status="pending"
-        ).select_related("user")
+        profiles = DoctorProfile.objects.select_related("user")
 
         data = []
         for p in profiles:
@@ -802,110 +759,6 @@ class AdminDoctorPendingListView(APIView):
 
         return Response({"data": data, "success": True})
 
-class AdminDoctorApproveView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
-
-    @swagger_auto_schema(
-        responses={
-            200: openapi.Response(
-                description="Doctor approved",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "message": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-            400: openapi.Response(
-                description="License document not uploaded",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-            404: openapi.Response(
-                description="Doctor profile not found",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-        },
-    )
-    def post(self, request, user_id):
-        try:
-            profile = DoctorProfile.objects.select_related("user").get(
-                user_id=user_id
-            )
-        except DoctorProfile.DoesNotExist:
-            return Response(
-                {"detail": "Doctor profile not found", "success": False},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        if not profile.license_document:
-            return Response(
-                {"detail": "License document not uploaded", "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        profile.verification_status = "approved"
-        profile.save(update_fields=["verification_status"])
-
-        user = profile.user
-        user.state = UserState.ACTIVE
-        user.save(update_fields=["state"])
-
-        return Response({"message": "Doctor approved", "success": True})
-
-class AdminDoctorRejectView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
-
-    @swagger_auto_schema(
-        responses={
-            200: openapi.Response(
-                description="Doctor rejected",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "message": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-            404: openapi.Response(
-                description="Doctor profile not found",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-        },
-    )
-    def post(self, request, user_id):
-        try:
-            profile = DoctorProfile.objects.select_related("user").get(
-                user_id=user_id
-            )
-        except DoctorProfile.DoesNotExist:
-            return Response(
-                {"detail": "Doctor profile not found", "success": False},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        profile.verification_status = "rejected"
-        profile.save(update_fields=["verification_status"])
-
-        user = profile.user
-        user.state = UserState.REJECTED
-        user.save(update_fields=["state"])
-
-        return Response({"message": "Doctor rejected", "success": True})
 
 class AdminDoctorSectionLockView(APIView):
     permission_classes = [IsAdmin]

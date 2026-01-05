@@ -1,0 +1,3 @@
+full_name,email,phone,country_code,password,terms_accepted,date_of_birth,gender,is_phone_verified,is_email_verified,specialization,license_number,years_of_experience
+Neel Baria,jonathan74@example.com,6378150539,+91,l%8S85Oy#R,True,1971-02-01,male,True,False,Orthopedics,fNSs482888,15
+Samesh Sha,triya03@example.org,9288542360,+91,R&H1VwnbqU,True,1974-03-25,male,False,True,Orthopedics,BBfB874026,23

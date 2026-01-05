@@ -1,6 +1,9 @@
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.contrib.auth.base_user import BaseUserManager
+from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.db import models
+from django.db.models import Q, Index
 from django.utils import timezone
 
 from core.models import TimeStampedUUIDModel
@@ -84,7 +87,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
     # Verification
     is_email_verified = models.BooleanField(default=False)
     is_phone_verified = models.BooleanField(default=False)
-    
+    by_admin = models.BooleanField(default=False)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = []
@@ -141,23 +144,72 @@ class AuthProvider(TimeStampedUUIDModel):
         return f"{self.provider} → {self.user_id}"
 
 class PhoneOTP(TimeStampedUUIDModel):
-    phone = models.CharField(max_length=15)
-    otp = models.CharField(max_length=6)
-    expires_at = models.DateTimeField()
-    is_used = models.BooleanField(default=False)
+    phone = models.CharField(
+        max_length=20,
+        db_index=True,
+        help_text="Canonical phone number including country code, e.g. +911234567890"
+    )
 
-    def is_valid(self):
+    otp = models.CharField(
+        max_length=6,
+        help_text="Numeric OTP"
+    )
+
+    expires_at = models.DateTimeField(
+        db_index=True
+    )
+
+    is_used = models.BooleanField(
+        default=False,
+        db_index=True
+    )
+
+    class Meta:
+        indexes = [
+            Index(fields=["phone", "otp", "is_used"]),
+            Index(fields=["expires_at"]),
+        ]
+        ordering = ["-created_at"]
+        verbose_name = "Phone OTP"
+        verbose_name_plural = "Phone OTPs"
+
+    def is_valid(self) -> bool:
         return (
-            not self.is_used and
-            timezone.now() <= self.expires_at
+            not self.is_used
+            and timezone.now() <= self.expires_at
         )
 
-    def mark_as_used(self):
+    def marks_as_used(self):
         self.is_used = True
         self.save()
 
+    @transaction.atomic
+    def consume(self):
+        otp = (
+            PhoneOTP.objects
+            .select_for_update()
+            .get(id=self.id)
+        )
+
+        if otp.is_used:
+            raise ValidationError("OTP already used")
+
+        if timezone.now() > otp.expires_at:
+            raise ValidationError("OTP expired")
+
+        otp.is_used = True
+        otp.save(update_fields=["is_used"])
+
+        return otp
+
+    @classmethod
+    def cleanup_expired(cls):
+        return cls.objects.filter(
+            Q(is_used=True) | Q(expires_at__lt=timezone.now())
+        ).delete()
+
     def __str__(self):
-        return f"OTP for {self.phone}"
+        return f"OTP({self.phone})"
 
 class EmailOTP(TimeStampedUUIDModel):
     email = models.EmailField()

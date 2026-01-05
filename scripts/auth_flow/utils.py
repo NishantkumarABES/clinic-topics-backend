@@ -1,7 +1,7 @@
-import requests, random
+import random
 from faker import Faker
 from datetime import date
-
+import pandas as pd
 
 fake = Faker("en_IN")  
 BASE_URL = "http://localhost:8000/api/v1"
@@ -52,11 +52,17 @@ def generate_patient_payload(phone_verified=False, email_verified=False):
     return payload
 
 
+def log_generated_payload(payload):
+    df = pd.DataFrame([payload])
+    df.to_csv(
+        "generated_payloads.csv", mode="a", index=False, 
+        header=not pd.io.common.file_exists("generated_payloads.csv")
+    )
 
 
-
-
-# print(response.status_code)
-# print(response.json())
-
-
+if __name__ == "__main__":
+    # Example usage
+    # doctor_payload = generate_doctor_payload(phone_verified=True, email_verified=False)
+    patient_payload = generate_patient_payload(phone_verified=False, email_verified=True)
+    # print("Doctor Payload:", doctor_payload)
+    print("Patient Payload:", patient_payload)

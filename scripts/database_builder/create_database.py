@@ -103,8 +103,8 @@ class CreateDummyDatabase:
 
 
 
-RENDER_DB_URL = "postgresql://postgres_render:oRF5IVpoP8MK4fnyEbwPsjw35z281Q0g@dpg-d55ufc63jp1c73a3oa4g-a.oregon-postgres.render.com/clinic_topics"
-dummy_db = CreateDummyDatabase(RENDER_DB_URL)
+# RENDER_DB_URL = "postgresql://postgres_render:oRF5IVpoP8MK4fnyEbwPsjw35z281Q0g@dpg-d55ufc63jp1c73a3oa4g-a.oregon-postgres.render.com/clinic_topics"
+dummy_db = CreateDummyDatabase()
 # dummy_db.create_admin_user(
 #     email="admin@clinic.topics.com",
 #     phone="0000000001",

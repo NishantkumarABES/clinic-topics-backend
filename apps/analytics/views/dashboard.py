@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.utils.timezone import now
+from drf_yasg.utils import swagger_auto_schema
 from datetime import timedelta
 
 from apps.accounts.models import User
@@ -16,6 +17,7 @@ class AdminDashboardMetricsAPIView(APIView):
             return 100 if new_count > 0 else 0
         return round((new_count / previous_total) * 100, 2)
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         now_time = now()
         last_month = now_time - timedelta(days=30)

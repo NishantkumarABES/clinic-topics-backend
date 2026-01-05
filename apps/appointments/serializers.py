@@ -11,14 +11,13 @@ class DoctorListSerializer(serializers.ModelSerializer):
             "id",
             "full_name",
             "gender",
-            "specializations",
+            "specialization",
             "years_of_experience",
             "languages_spoken",
             "clinic_name",
             "clinic_address",
             "consultation_fee",
             "premium_online_fee",
-            "verification_status",
         ]
 
 class DoctorDetailSerializer(serializers.ModelSerializer):

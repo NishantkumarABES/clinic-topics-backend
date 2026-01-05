@@ -12,7 +12,6 @@ class DoctorListView(APIView):
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         qs = DoctorProfile.objects.filter(
-            verification_status="approved",
             user__state="active"
         )
 
@@ -27,7 +26,7 @@ class DoctorListView(APIView):
             qs = qs.filter(user__full_name__icontains=name)
 
         if specialization:
-            qs = qs.filter(specializations__icontains=specialization)
+            qs = qs.filter(specialization__icontains=specialization)
 
         if clinic:
             qs = qs.filter(clinic_name__icontains=clinic)
@@ -52,7 +51,7 @@ class DoctorDetailView(APIView):
         try:
             doctor = DoctorProfile.objects.get(
                 id=doctor_id,
-                verification_status="approved"
+                user__state="active"
             )
         except DoctorProfile.DoesNotExist:
             return Response({"detail": "Doctor not found"}, status=404)
