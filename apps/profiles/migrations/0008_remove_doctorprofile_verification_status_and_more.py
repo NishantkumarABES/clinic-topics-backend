@@ -14,9 +14,22 @@ class Migration(migrations.Migration):
             model_name='doctorprofile',
             name='verification_status',
         ),
+
+        # ✅ FIX: Rename the existing DB column
+        migrations.RenameField(
+            model_name='doctorprofile',
+            old_name='specializations',
+            new_name='specialization',
+        ),
+
+        # ✅ Then safely alter it
         migrations.AlterField(
             model_name='doctorprofile',
             name='specialization',
-            field=models.CharField(blank=True, max_length=100, null=True),
+            field=models.CharField(
+                max_length=100,
+                null=True,
+                blank=True,
+            ),
         ),
     ]
