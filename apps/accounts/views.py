@@ -160,10 +160,11 @@ class PhoneOTPVerifyView(APIView):
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
-    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    parser_classes = [MultiPartParser, FormParser]
 
     @swagger_auto_schema(
         request_body=RegisterSerializer,
+        consumes=["multipart/form-data"],
         responses={
             201: RegisterResponseSerializer,
             400: openapi.Response(description="Validation error"),
@@ -599,6 +600,7 @@ class AdminUserListView(APIView):
     permission_classes = [IsAdmin]
     pagination_class = AdminUserListPagination
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request, role):
         if role not in [UserRole.PATIENT, UserRole.DOCTOR]:
             return Response(
