@@ -76,9 +76,9 @@
 <script>
 /* ================= CONFIG ================= */
 
+// const BASE_URL = "http://clinic-topics-backend.onrender.com/api/v1";
 const BASE_URL = "http://localhost:8000/api/v1";
-const GOOGLE_CLIENT_ID =
-  "539182370618-kihl7enlmd76ug9vgmns03k0m0im9229.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "539182370618-kihl7enlmd76ug9vgmns03k0m0im9229.apps.googleusercontent.com";
 
 /* Track intent */
 let GOOGLE_MODE = "register";
@@ -138,7 +138,7 @@ async function handleGoogleRegister(response) {
 
     /* sample user data for testing */
     full_name: "Thomas Bunt",
-    email: "nishantembibejee@gmail.com",
+    email: "nishant@gmail.com",
     phone: "7234390482",
     country_code: "+91",
     password: "#dW5SnlON4",
@@ -153,7 +153,7 @@ async function handleGoogleRegister(response) {
     `${BASE_URL}/auth/register/${role}/`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "multipart/form-data" },
       body: JSON.stringify(payload),
     }
   );
