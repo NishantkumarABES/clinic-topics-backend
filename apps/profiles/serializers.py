@@ -28,14 +28,12 @@ class PatientProfileSerializer(serializers.ModelSerializer):
     country_code = serializers.CharField(source="user.country_code", read_only=True)
     date_of_birth = serializers.DateField(source="user.date_of_birth", read_only=True)
     gender = serializers.CharField(source="user.gender", read_only=True)
-
+    
     class Meta:
         model = PatientProfile
         exclude = ("id", "created_at", "updated_at", "user")
 
-
-
-
+    
 
 
 

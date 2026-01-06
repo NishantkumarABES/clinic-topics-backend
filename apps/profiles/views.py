@@ -52,8 +52,18 @@ class ProfileMeView(APIView):
         if not ctx:
             return Response({"detail": "Unsupported role"}, status=400)
 
-        # if not ctx["instance"]:
-        #     return Response({"detail": "Profile not found"}, status=404)
+        if not ctx["instance"]:
+            user = request.user
+
+            return Response({
+                "full_name": user.full_name,
+                "email": user.email,
+                "phone": user.phone,
+                "country_code": user.country_code,
+                "date_of_birth": user.date_of_birth,
+                "gender": user.gender,
+                **ctx["serializer"](ctx["instance"]).data
+            })
 
         return Response(ctx["serializer"](ctx["instance"]).data)
 

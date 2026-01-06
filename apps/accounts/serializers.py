@@ -237,13 +237,8 @@ class EmailLoginSerializer(serializers.Serializer):
     remember_me = serializers.BooleanField(required=False)
 
     def validate(self, data):
-        user = authenticate(
-            email=data["email"],
-            password=data["password"]
-        )
-        if not user:
-            data["error"] = "Invalid email or password"
-
+        user = authenticate(email=data["email"], password=data["password"])
+        if not user: data["error"] = "Invalid email or password"
         data["user"] = user
         return data
 
