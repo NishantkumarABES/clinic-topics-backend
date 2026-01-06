@@ -3,6 +3,13 @@ from apps.profiles.models import DoctorProfile, PatientProfile
 
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source="user.full_name", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+    phone = serializers.CharField(source="user.phone", read_only=True)
+    country_code = serializers.CharField(source="user.country_code", read_only=True)
+    date_of_birth = serializers.DateField(source="user.date_of_birth", read_only=True)
+    gender = serializers.CharField(source="user.gender", read_only=True)
+    
     class Meta:
         model = DoctorProfile
         exclude = ("id", "created_at", "updated_at", "user")
@@ -15,6 +22,13 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
 
 
 class PatientProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source="user.full_name", read_only=True)
+    email = serializers.EmailField(source="user.email", read_only=True)
+    phone = serializers.CharField(source="user.phone", read_only=True)
+    country_code = serializers.CharField(source="user.country_code", read_only=True)
+    date_of_birth = serializers.DateField(source="user.date_of_birth", read_only=True)
+    gender = serializers.CharField(source="user.gender", read_only=True)
+
     class Meta:
         model = PatientProfile
         exclude = ("id", "created_at", "updated_at", "user")

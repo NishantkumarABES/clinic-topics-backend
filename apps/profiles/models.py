@@ -101,6 +101,7 @@ class PatientProfile(TimeStampedUUIDModel):
     # ---------- Emergency Contact ----------
     emergency_contact_name = models.CharField(max_length=255, blank=True)
     emergency_contact_relationship = models.CharField(max_length=100, blank=True)
+    emergency_contant_country_code = models.CharField(max_length=10, blank=True)
     emergency_contact_phone = models.CharField(max_length=15, blank=True)
 
     # ---------- Insurance ----------
