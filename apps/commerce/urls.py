@@ -2,7 +2,7 @@ from django.urls import path
 from apps.commerce.views import (
     CategoryListView, ProductListView, ProductDetailView, CartDetailView, AddToCartView, UpdateCartItemView, 
     RemoveCartItemView, AddressListCreateView, AddressDetailView, PrescriptionUploadView, PrescriptionListView,
-    AttachPrescriptionToCartItemView
+    AttachPrescriptionToCartItemView, AdminProductListCreateAPIView, AdminProductUpdateAPIView
 )
 
 urlpatterns = [
@@ -21,4 +21,7 @@ urlpatterns = [
 
     path("addresses/", AddressListCreateView.as_view()),
     path("addresses/<uuid:address_id>/", AddressDetailView.as_view()),
+
+    path("admin/products/", AdminProductListCreateAPIView.as_view()),
+    path("admin/products/<uuid:product_id>/", AdminProductUpdateAPIView.as_view()),
 ]

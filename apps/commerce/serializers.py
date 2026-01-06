@@ -110,3 +110,65 @@ class PrescriptionUploadSerializer(serializers.ModelSerializer):
 class AttachPrescriptionSerializer(serializers.Serializer):
     cart_item_id = serializers.UUIDField()
     prescription_id = serializers.UUIDField()
+
+
+
+
+########### ADMIN SERIALIZERS ###########
+class AdminProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ["id", "image", "created_at"]
+
+class AdminProductReadSerializer(serializers.ModelSerializer):
+    images = AdminProductImageSerializer(many=True, read_only=True)
+    category_name = serializers.CharField(source="category.name", read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            "id", "name", "sku", "category",
+            "category_name", "description",
+            "price", "tax_percentage",
+            "is_prescription_required",
+            "is_active", "stock_quantity",
+            "images", "created_at", "updated_at",
+        ]
+
+class AdminProductWriteSerializer(serializers.ModelSerializer):
+    images = serializers.ListField(
+        child=serializers.ImageField(),
+        required=False,
+        write_only=True
+    )
+
+    class Meta:
+        model = Product
+        fields = [
+            "name", "sku", "category", "description",
+            "price", "tax_percentage", "is_prescription_required",
+            "is_active", "stock_quantity", "images",
+        ]
+
+    def create(self, validated_data):
+        images = validated_data.pop("images", [])
+        product = Product.objects.create(**validated_data)
+
+        for image in images:
+            ProductImage.objects.create(product=product, image=image)
+
+        return product
+
+    def update(self, instance, validated_data):
+        images = validated_data.pop("images", None)
+
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        if images is not None:
+            instance.images.all().delete()
+            for image in images:
+                ProductImage.objects.create(product=instance, image=image)
+
+        return instance

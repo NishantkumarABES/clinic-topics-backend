@@ -151,10 +151,11 @@ class PhoneOTPVerifyView(APIView):
         serializer = PhoneOTPVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        verify_phone_otp(
-            phone=serializer.validated_data["phone"],
-            otp=serializer.validated_data["otp"]
-        )
+        phone = serializer.validated_data["phone"]
+        phone_number = serializer.validated_data["phone_number"]
+        otp = serializer.validated_data["otp"]
+
+        verify_phone_otp(phone=phone_number, otp=otp)
 
         return Response({"detail": "Phone verified successfully", "success": True})
 

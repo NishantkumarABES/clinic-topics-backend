@@ -1,14 +1,17 @@
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from drf_yasg.utils import swagger_auto_schema
+from django.shortcuts import get_object_or_404
+
 
 from core.permissions import IsAdmin
 from apps.commerce.models import Category, Product, Cart, CartItem, Address, Prescription
 from apps.commerce.serializers import (
     CategorySerializer, ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
-    PrescriptionUploadSerializer, AttachPrescriptionSerializer
+    PrescriptionUploadSerializer, AttachPrescriptionSerializer, AdminProductReadSerializer, AdminProductWriteSerializer
 )
 
 
@@ -236,14 +239,51 @@ class AttachPrescriptionToCartItemView(APIView):
 
         return Response({"message": "Prescription attached"})
 
+class OrderHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(auto_schema=None, responses={200: "Order history not implemented yet"})
+    def get(self, request):
+        return Response({"message": "Order history not implemented yet"})
+    
+
+
+
+
 #### ADMIN APIS FOR PRODUCTS ####
 
-class AdminProductCreateView(APIView):
-    permission_classes = [IsAdmin, IsAuthenticated]  
 
-    @swagger_auto_schema(auto_schema=None, request_body=ProductDetailSerializer(), responses={201: ProductDetailSerializer()})
+class AdminProductListCreateAPIView(APIView):
+    permission_classes = [IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get(self, request):
+        products = Product.objects.all().order_by("-created_at")
+        serializer = AdminProductReadSerializer(products, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
     def post(self, request):
-        serializer = ProductDetailSerializer(data=request.data)
+        serializer = AdminProductWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         product = serializer.save()
-        return Response(ProductDetailSerializer(product).data, status=201)
+        return Response(
+            AdminProductReadSerializer(product).data,
+            status=status.HTTP_201_CREATED
+        )
+
+
+class AdminProductUpdateAPIView(APIView):
+    permission_classes = [IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def patch(self, request, product_id):
+        product = get_object_or_404(Product, id=product_id)
+        serializer = AdminProductWriteSerializer(
+            product, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        product = serializer.save()
+        return Response(
+            AdminProductReadSerializer(product).data,
+            status=status.HTTP_200_OK
+        )

@@ -1,6 +1,9 @@
 from django.db import models
 from core.models import TimeStampedUUIDModel
+
 from apps.accounts.models import User
+from apps.commerce.constants import ProductCategory
+
 
 class Prescription(TimeStampedUUIDModel):
     user = models.ForeignKey(
@@ -35,11 +38,13 @@ class Category(TimeStampedUUIDModel):
 class Product(TimeStampedUUIDModel):
     name = models.CharField(max_length=255)
     sku = models.CharField(max_length=100, unique=True)
+    # SKU stands for Stock Keeping Unit, a unique identifier for each product in inventory.
 
     category = models.ForeignKey(
         Category,
         on_delete=models.PROTECT,
-        related_name="products"
+        related_name="products",
+        choices=ProductCategory.CHOICES
     )
 
     description = models.TextField(blank=True)
