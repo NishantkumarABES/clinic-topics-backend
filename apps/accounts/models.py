@@ -81,7 +81,6 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
         choices=UserState.CHOICES,
         default=UserState.CREATED
     )
-    suspended_at = models.DateTimeField(null=True, blank=True)
     deactivated_at = models.DateTimeField(null=True, blank=True)
 
     # Verification

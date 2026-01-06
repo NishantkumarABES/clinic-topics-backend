@@ -132,7 +132,7 @@ class RegisterSerializer(serializers.Serializer):
         user = User.objects.create_user(
             email=validated_data["email"],
             phone=validated_data["phone"],
-            password=password if not social_user else None,
+            password=password,
             full_name=validated_data["full_name"],
             role=role,
             state=UserState.CREATED,

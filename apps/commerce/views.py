@@ -257,11 +257,13 @@ class AdminProductListCreateAPIView(APIView):
     permission_classes = [IsAdmin]
     parser_classes = [MultiPartParser, FormParser]
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         products = Product.objects.all().order_by("-created_at")
         serializer = AdminProductReadSerializer(products, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(auto_schema=None)
     def post(self, request):
         serializer = AdminProductWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -276,6 +278,7 @@ class AdminProductUpdateAPIView(APIView):
     permission_classes = [IsAdmin]
     parser_classes = [MultiPartParser, FormParser]
 
+    @swagger_auto_schema(auto_schema=None)
     def patch(self, request, product_id):
         product = get_object_or_404(Product, id=product_id)
         serializer = AdminProductWriteSerializer(
