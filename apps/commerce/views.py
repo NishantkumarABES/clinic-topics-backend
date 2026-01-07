@@ -3,9 +3,10 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.pagination import PageNumberPagination
 from drf_yasg.utils import swagger_auto_schema
 from django.shortcuts import get_object_or_404
-
+from django.db.models import Q
 
 from core.permissions import IsAdmin
 from apps.commerce.models import Category, Product, Cart, CartItem, Address, Prescription
@@ -251,19 +252,46 @@ class OrderHistoryView(APIView):
 
 
 #### ADMIN APIS FOR PRODUCTS ####
-
+class AdminProductListPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 class AdminProductListCreateAPIView(APIView):
     permission_classes = [IsAdmin]
     parser_classes = [MultiPartParser, FormParser]
+    pagination_class = AdminProductListPagination
 
-    @swagger_auto_schema(auto_schema=None)
+    # @swagger_auto_schema(auto_schema=None)    
     def get(self, request):
-        products = Product.objects.all().order_by("-created_at")
-        serializer = AdminProductReadSerializer(products, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        search_term = request.query_params.get("search", None)
+        status = request.query_params.get("status", None)
+        category = request.query_params.get("category", None)
 
-    @swagger_auto_schema(auto_schema=None)
+
+        products = Product.objects.all().order_by("-created_at")
+        if search_term:
+            products = products.filter(
+                Q(name__icontains=search_term) |
+                Q(brand__icontains=search_term) |
+                Q(description__icontains=search_term)
+            )
+        
+        if status:
+            products = products.filter(is_out_of_stock=(status=='outofstock'))
+        
+        if category:
+            products = products.filter(category=category)
+        
+        paginator = self.pagination_class()    
+        paginated_products = paginator.paginate_queryset(products, request)
+        serializer = AdminProductReadSerializer(paginated_products, many=True)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data['success'] = True
+        return Response(response_data)
+
+
+    # @swagger_auto_schema(auto_schema=None)
     def post(self, request):
         serializer = AdminProductWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -272,7 +300,6 @@ class AdminProductListCreateAPIView(APIView):
             AdminProductReadSerializer(product).data,
             status=status.HTTP_201_CREATED
         )
-
 
 class AdminProductUpdateAPIView(APIView):
     permission_classes = [IsAdmin]

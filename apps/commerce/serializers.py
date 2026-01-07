@@ -1,3 +1,4 @@
+import uuid
 from rest_framework import serializers
 from apps.commerce.models import Category, Product, ProductImage, Cart, CartItem, Address, Prescription
 
@@ -20,7 +21,6 @@ class ProductListSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "price",
-            "is_prescription_required",
             "image",
         ]
 
@@ -47,7 +47,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             "description",
             "price",
             "tax_percentage",
-            "is_prescription_required",
             "stock_quantity",
             "images",
         ]
@@ -122,15 +121,13 @@ class AdminProductImageSerializer(serializers.ModelSerializer):
 
 class AdminProductReadSerializer(serializers.ModelSerializer):
     images = AdminProductImageSerializer(many=True, read_only=True)
-    category_name = serializers.CharField(source="category.name", read_only=True)
+    # category_name = serializers.CharField(source="category.name", read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            "id", "name", "sku", "category",
-            "category_name", "description",
-            "price", "tax_percentage",
-            "is_prescription_required",
+            "id", "name", "sku", "category", "brand",
+            "description", "price", "tax_percentage",
             "is_active", "stock_quantity",
             "images", "created_at", "updated_at",
         ]
@@ -145,13 +142,16 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "name", "sku", "category", "description",
-            "price", "tax_percentage", "is_prescription_required",
-            "is_active", "stock_quantity", "images",
+            "name", "category", "brand", "description",
+            "price", "tax_percentage", "is_active", 
+            "stock_quantity", "images",
         ]
 
     def create(self, validated_data):
         images = validated_data.pop("images", [])
+        is_out_of_stock = False if validated_data["stock_quantity"] > 0 else True
+        validated_data["is_out_of_stock"] = is_out_of_stock
+        validated_data["sku"] = uuid.uuid4().hex
         product = Product.objects.create(**validated_data)
 
         for image in images:
