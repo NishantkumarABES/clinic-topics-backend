@@ -25,24 +25,34 @@ class CategoryListView(APIView):
         serializer = CategorySerializer(categories, many=True)
         return Response(serializer.data)
 
+class ProductListPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class ProductListView(APIView):
-    permission_classes = [AllowAny]
-
-    @swagger_auto_schema(auto_schema=None, responses={200: ProductListSerializer(many=True)})
+    permission_classes = [IsAuthenticated]
+    pagination_class = ProductListPagination
+    
+    @swagger_auto_schema(responses={200: ProductListSerializer(many=True)})
     def get(self, request):
-        queryset = Product.objects.filter(is_active=True)
-
-        category_slug = request.query_params.get("category")
+        category = request.query_params.get("category")
         search = request.query_params.get("search")
+        queryset = Product.objects.filter(is_out_of_stock=False)
 
-        if category_slug:
-            queryset = queryset.filter(category__slug=category_slug)
+
+        if category:
+            queryset = queryset.filter(category=category)
 
         if search:
             queryset = queryset.filter(name__icontains=search)
 
-        serializer = ProductListSerializer(queryset, many=True)
-        return Response(serializer.data)
+        paginator = self.pagination_class()
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
+        serializer = ProductListSerializer(paginated_queryset, many=True)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data['success'] = True
+        return Response(response_data)
 
 class ProductDetailView(APIView):
     permission_classes = [AllowAny]
@@ -262,7 +272,7 @@ class AdminProductListCreateAPIView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     pagination_class = AdminProductListPagination
 
-    # @swagger_auto_schema(auto_schema=None)    
+    @swagger_auto_schema(auto_schema=None)    
     def get(self, request):
         search_term = request.query_params.get("search", None)
         status = request.query_params.get("status", None)
@@ -291,7 +301,7 @@ class AdminProductListCreateAPIView(APIView):
         return Response(response_data)
 
 
-    # @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(auto_schema=None)
     def post(self, request):
         serializer = AdminProductWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)

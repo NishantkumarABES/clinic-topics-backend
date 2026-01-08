@@ -4,6 +4,7 @@ from django.utils.timezone import now
 from drf_yasg.utils import swagger_auto_schema
 from datetime import timedelta
 
+from apps.commerce.models import Product
 from apps.accounts.models import User
 from apps.topics.models import Topic
 from core.permissions import IsAdmin
@@ -38,12 +39,19 @@ class AdminDashboardMetricsAPIView(APIView):
         ).count()
         previous_patients = total_patients - new_patients
 
-        # Events
+        # Topics
         total_topics = Topic.objects.count()
         new_topics = Topic.objects.filter(
             created_at__gte=last_month
         ).count()
-        previous_events = total_topics - new_topics
+        previous_topics = total_topics - new_topics
+
+        # Products
+        total_products = Product.objects.count()
+        new_products = Product.objects.filter(
+            created_at__gte=last_month
+        ).count()
+        previous_products = total_products - new_products
         data = {
             "doctors": {
                 "total": total_doctors,
@@ -60,9 +68,15 @@ class AdminDashboardMetricsAPIView(APIView):
             "topics": {
                 "total": total_topics,
                 "growth_percent": self.calculate_growth_percentage(
-                    new_topics, previous_events
+                    new_topics, previous_topics
                 ),
             },
+            "products": {
+                "total": total_products,
+                "growth_percent": self.calculate_growth_percentage(
+                    new_products, previous_products
+                ),
+            }
         }
 
         return Response(data)

@@ -6,10 +6,7 @@ class CategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Category
         fields = [
-            "id",
-            "name",
-            "slug",
-            "parent",
+            "id", "name", "slug", "parent",
         ]
 
 class ProductListSerializer(serializers.ModelSerializer):
@@ -18,15 +15,14 @@ class ProductListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "id",
-            "name",
-            "price",
-            "image",
+            "id", "name", "price", "tax_percentage",
+            "image", "category", "description",
         ]
 
     def get_image(self, obj):
         image = obj.images.first()
         return image.image.url if image else None
+
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:

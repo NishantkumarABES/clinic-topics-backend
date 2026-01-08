@@ -8,7 +8,7 @@ from core.permissions import IsAdmin
 class ProductAnalyticsView(APIView):
     permission_classes = [IsAdmin]
 
-    # @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         total_products = Product.objects.count()
         out_of_stock_products = Product.objects.filter(is_out_of_stock=True).count()
