@@ -12,11 +12,26 @@ DATABASES = {
     }
 }
 
+
+STORAGES = {
+    "default": {
+        "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
+
+
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
+    "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
+    "API_SECRET": os.getenv("CLOUDINARY_API_SECRET"),
+}
+
 FRONTEND_BASE_URL = "http://localhost:3000"
 DEFAULT_FROM_EMAIL = "nishant543099@gmail.com"
 OTP_EXPIRY_MINUTES = 5
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
-
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",

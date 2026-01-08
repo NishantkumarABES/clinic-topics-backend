@@ -37,6 +37,8 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "cloudinary",
+    "cloudinary_storage",
     "django.contrib.staticfiles",
     "corsheaders",
     # third-party
@@ -146,7 +148,7 @@ STATICFILES_DIRS = [
 # For production (collectstatic)
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# MEDIA_ROOT = BASE_DIR / "media"
 
 AUTH_USER_MODEL = "accounts.User"
 ROOT_URLCONF = "config.urls"
