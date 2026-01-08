@@ -1,5 +1,6 @@
 class OrderStatus:
     PENDING = 'pending'
+    PAID = 'paid'
     PROCESSING = 'processing'
     SHIPPED = 'shipped'
     DELIVERED = 'delivered'
@@ -7,6 +8,7 @@ class OrderStatus:
 
     CHOICES = [
         (PENDING, 'Pending'),
+        (PAID, 'Paid'),
         (PROCESSING, 'Processing'),
         (SHIPPED, 'Shipped'),
         (DELIVERED, 'Delivered'),

@@ -3,6 +3,8 @@ from core.models import TimeStampedUUIDModel
 
 from apps.accounts.models import User
 from apps.commerce.constants import ProductCategory
+from apps.commerce.constants import OrderStatus
+
 
 
 class Prescription(TimeStampedUUIDModel):
@@ -33,6 +35,7 @@ class Product(TimeStampedUUIDModel):
     description = models.TextField(blank=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     tax_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
+    discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     is_active = models.BooleanField(default=True)
     is_out_of_stock = models.BooleanField(default=False)
@@ -89,13 +92,6 @@ class CartItem(TimeStampedUUIDModel):
     quantity = models.PositiveIntegerField(default=1)
     saved_for_later = models.BooleanField(default=False)
 
-    prescription = models.ForeignKey(
-        Prescription,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL
-    )
-
     class Meta:
         unique_together = ("cart", "product")
 
@@ -119,19 +115,10 @@ class Address(TimeStampedUUIDModel):
         return f"{self.name} - {self.city}"
 
 class Order(TimeStampedUUIDModel):
-    STATUS_CHOICES = [
-        ("pending", "Pending"),
-        ("paid", "Paid"),
-        ("shipped", "Shipped"),
-        ("delivered", "Delivered"),
-        ("cancelled", "Cancelled"),
-        ("returned", "Returned"),
-    ]
-
     user = models.ForeignKey(User, on_delete=models.PROTECT)
     address = models.ForeignKey(Address, on_delete=models.PROTECT)
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES)
+    status = models.CharField(max_length=20, choices=OrderStatus.CHOICES)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
     payment_method = models.CharField(max_length=50)

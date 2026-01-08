@@ -9,21 +9,12 @@ from django.shortcuts import get_object_or_404
 from django.db.models import Q
 
 from core.permissions import IsAdmin
-from apps.commerce.models import Category, Product, Cart, CartItem, Address, Prescription
+from apps.commerce.models import Category, Product, Cart, CartItem, Address
 from apps.commerce.serializers import (
-    CategorySerializer, ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
-    PrescriptionUploadSerializer, AttachPrescriptionSerializer, AdminProductReadSerializer, AdminProductWriteSerializer
+    ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
+    AdminProductReadSerializer, AdminProductWriteSerializer
 )
 
-
-class CategoryListView(APIView):
-    permission_classes = [AllowAny]
-
-    @swagger_auto_schema(responses={200: CategorySerializer(many=True)}, auto_schema=None)
-    def get(self, request):
-        categories = Category.objects.filter(is_active=True, parent__isnull=True)
-        serializer = CategorySerializer(categories, many=True)
-        return Response(serializer.data)
 
 class ProductListPagination(PageNumberPagination):
     page_size = 5
@@ -38,11 +29,21 @@ class ProductListView(APIView):
     def get(self, request):
         category = request.query_params.get("category")
         search = request.query_params.get("search")
+        min_price = request.query_params.get("min_price", 0)
+        max_price = request.query_params.get("max_price", float('inf'))
+        brand = request.query_params.get("brand")
         queryset = Product.objects.filter(is_out_of_stock=False)
 
+        if min_price:
+            queryset = queryset.filter(price__gte=min_price)
+        if max_price:
+            queryset = queryset.filter(price__lte=max_price)
 
         if category:
             queryset = queryset.filter(category=category)
+        
+        if brand:
+            queryset = queryset.filter(brand=brand)
 
         if search:
             queryset = queryset.filter(name__icontains=search)
@@ -57,10 +58,10 @@ class ProductListView(APIView):
 class ProductDetailView(APIView):
     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(auto_schema=None, responses={200: ProductDetailSerializer()})
+    @swagger_auto_schema(responses={200: ProductDetailSerializer()})
     def get(self, request, product_id):
         try:
-            product = Product.objects.get(id=product_id, is_active=True)
+            product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
             return Response(
                 {"detail": "Product not found"},
@@ -73,7 +74,7 @@ class ProductDetailView(APIView):
 class CartDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(auto_schema=None, responses={200: CartSerializer()})
+    @swagger_auto_schema(responses={200: CartSerializer()})
     def get(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         serializer = CartSerializer(cart)
@@ -81,8 +82,9 @@ class CartDetailView(APIView):
 
 class AddToCartView(APIView):
     permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
 
-    @swagger_auto_schema(auto_schema=None, request_body=AddToCartSerializer(), responses={201: "Item added to cart"})
+    @swagger_auto_schema(request_body=AddToCartSerializer(), responses={201: "Item added to cart"})
     def post(self, request):
         serializer = AddToCartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -106,7 +108,7 @@ class AddToCartView(APIView):
 class UpdateCartItemView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(auto_schema=None, request_body=AddToCartSerializer(), responses={200: "Cart updated"})
+    @swagger_auto_schema(request_body=AddToCartSerializer(), responses={200: "Cart updated"})
     def patch(self, request, item_id):
         try:
             item = CartItem.objects.get(id=item_id, cart__user=request.user)
@@ -131,7 +133,7 @@ class UpdateCartItemView(APIView):
 class RemoveCartItemView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(auto_schema=None, responses={200: "Item removed"})
+    @swagger_auto_schema(responses={200: "Item removed"})
     def delete(self, request, item_id):
         CartItem.objects.filter(
             id=item_id, cart__user=request.user
@@ -141,13 +143,13 @@ class RemoveCartItemView(APIView):
 class AddressListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: AddressSerializer(many=True)}, auto_schema=None)
+    @swagger_auto_schema(responses={200: AddressSerializer(many=True)})
     def get(self, request):
         addresses = Address.objects.filter(user=request.user)
         serializer = AddressSerializer(addresses, many=True)
         return Response(serializer.data)
     
-    @swagger_auto_schema(auto_schema=None, request_body=AddressSerializer(), responses={201: AddressSerializer()})
+    @swagger_auto_schema(request_body=AddressSerializer(), responses={201: AddressSerializer()})
     def post(self, request):
         serializer = AddressSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -186,69 +188,6 @@ class AddressDetailView(APIView):
             id=address_id, user=request.user
         ).delete()
         return Response(status=204)
-
-class PrescriptionUploadView(APIView):
-    permission_classes = [IsAuthenticated]
-    parser_classes = [MultiPartParser, FormParser]
-
-    @swagger_auto_schema(auto_schema=None, request_body=PrescriptionUploadSerializer(), responses={201: "Prescription uploaded"})
-    def post(self, request):
-        serializer = PrescriptionUploadSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        prescription = serializer.save(user=request.user)
-
-        return Response(
-            {
-                "id": prescription.id,
-                "message": "Prescription uploaded"
-            },
-            status=201
-        )
-
-class PrescriptionListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    @swagger_auto_schema(auto_schema=None, responses={200: PrescriptionUploadSerializer(many=True)})
-    def get(self, request):
-        prescriptions = Prescription.objects.filter(user=request.user)
-        serializer = PrescriptionUploadSerializer(prescriptions, many=True)
-        return Response(serializer.data)
-
-class AttachPrescriptionToCartItemView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    @swagger_auto_schema(auto_schema=None, request_body=AttachPrescriptionSerializer(), responses={200: "Prescription attached"})
-    def post(self, request):
-        serializer = AttachPrescriptionSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        try:
-            item = CartItem.objects.get(
-                id=serializer.validated_data["cart_item_id"],
-                cart__user=request.user
-            )
-        except CartItem.DoesNotExist:
-            return Response({"detail": "Cart item not found"}, status=404)
-
-        if not item.product.is_prescription_required:
-            return Response(
-                {"detail": "Prescription not required for this product"},
-                status=400
-            )
-
-        try:
-            prescription = Prescription.objects.get(
-                id=serializer.validated_data["prescription_id"],
-                user=request.user
-            )
-        except Prescription.DoesNotExist:
-            return Response({"detail": "Prescription not found"}, status=404)
-
-        item.prescription = prescription
-        item.save(update_fields=["prescription"])
-
-        return Response({"message": "Prescription attached"})
 
 class OrderHistoryView(APIView):
     permission_classes = [IsAuthenticated]

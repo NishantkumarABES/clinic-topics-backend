@@ -1,13 +1,8 @@
 import uuid
 from rest_framework import serializers
-from apps.commerce.models import Category, Product, ProductImage, Cart, CartItem, Address, Prescription
+from apps.commerce.models import Product, ProductImage, Cart, CartItem, Address, Prescription
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = [
-            "id", "name", "slug", "parent",
-        ]
+
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -20,26 +15,18 @@ class ProductListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "id", "name", "price", "tax_percentage",
+            "id", "name", "price", "tax_percentage", "discount_percentage",
             "images", "category", "brand", "description",
         ]
 
 class ProductDetailSerializer(serializers.ModelSerializer):
-    category = serializers.StringRelatedField()
     images = ProductImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
         fields = [
-            "id",
-            "name",
-            "sku",
-            "category",
-            "description",
-            "price",
-            "tax_percentage",
-            "stock_quantity",
-            "images",
+            "id", "name", "price", "tax_percentage",
+            "images", "category", "brand", "description",
         ]
 
 class CartItemSerializer(serializers.ModelSerializer):
@@ -92,11 +79,6 @@ class AddressSerializer(serializers.ModelSerializer):
         model = Address
         exclude = ("user",)
 
-class PrescriptionUploadSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Prescription
-        fields = ["id", "file", "notes"]
-
 class AttachPrescriptionSerializer(serializers.Serializer):
     cart_item_id = serializers.UUIDField()
     prescription_id = serializers.UUIDField()
@@ -117,9 +99,8 @@ class AdminProductReadSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id", "name", "sku", "category", "brand",
-            "description", "price", "tax_percentage",
-            "is_active", "stock_quantity",
-            "images", "created_at", "updated_at",
+            "description", "price", "tax_percentage", "discount_percentage",
+            "is_active", "stock_quantity", "images", "created_at", "updated_at",
         ]
 
 class AdminProductWriteSerializer(serializers.ModelSerializer):
@@ -133,8 +114,8 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "name", "category", "brand", "description",
-            "price", "tax_percentage", "is_active", 
-            "stock_quantity", "images",
+            "price", "tax_percentage", "discount_percentage",
+            "is_active", "stock_quantity", "images",
         ]
 
     def create(self, validated_data):

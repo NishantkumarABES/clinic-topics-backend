@@ -141,14 +141,10 @@ ALLOWED_HOSTS = [
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 STATIC_URL = "/static/"
-# STATICFILES_DIRS = [
-#     BASE_DIR / "static",
-# ]
-
 # For production (collectstatic)
 STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "/media/"
-# MEDIA_ROOT = BASE_DIR / "media"
+MEDIA_ROOT = BASE_DIR / "media"
 
 AUTH_USER_MODEL = "accounts.User"
 ROOT_URLCONF = "config.urls"

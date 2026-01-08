@@ -45,3 +45,20 @@ class TopicDetailSerializer(serializers.ModelSerializer):
             "author_name",
             "publishing_time",
         ]
+
+
+
+class AdminTopicReadSerializer(serializers.ModelSerializer):
+    pass
+
+class AdminTopicWriteSerializer(serializers.ModelSerializer):
+    pass
+
+class ArticleExtractionSerializer(serializers.Serializer):
+    url = serializers.URLField()
+
+class CleanupImagesSerializer(serializers.Serializer):
+    image_urls = serializers.ListField(
+        child=serializers.URLField(),
+        allow_empty=False,
+    )
