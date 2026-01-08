@@ -141,9 +141,9 @@ ALLOWED_HOSTS = [
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+# STATICFILES_DIRS = [
+#     BASE_DIR / "static",
+# ]
 
 # For production (collectstatic)
 STATIC_ROOT = BASE_DIR / "staticfiles"
