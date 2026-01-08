@@ -3,11 +3,10 @@ from config.settings.base import *
 import dj_database_url
 
 
-DEBUG = True
+DEBUG = False
 FRONTEND_BASE_URL = "http://localhost:3000"
 DEFAULT_FROM_EMAIL = "nishant543099@gmail.com"
 OTP_EXPIRY_MINUTES = 5
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 DATABASES["default"] = dj_database_url.parse(
     os.getenv('DATABASE_URL'),
@@ -19,11 +18,9 @@ STORAGES = {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
     },
 }
-
-WHITENOISE_MANIFEST_STRICT = False
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
     "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
