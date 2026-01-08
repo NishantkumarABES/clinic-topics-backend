@@ -9,25 +9,20 @@ class CategorySerializer(serializers.ModelSerializer):
             "id", "name", "slug", "parent",
         ]
 
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ["id", "image", "created_at"]
+
 class ProductListSerializer(serializers.ModelSerializer):
-    image = serializers.SerializerMethodField()
+    images = ProductImageSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
         fields = [
             "id", "name", "price", "tax_percentage",
-            "image", "category", "description",
+            "images", "category", "brand", "description",
         ]
-
-    def get_image(self, obj):
-        image = obj.images.first()
-        return image.image.url if image else None
-
-
-class ProductImageSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProductImage
-        fields = ["image"]
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     category = serializers.StringRelatedField()
@@ -117,7 +112,6 @@ class AdminProductImageSerializer(serializers.ModelSerializer):
 
 class AdminProductReadSerializer(serializers.ModelSerializer):
     images = AdminProductImageSerializer(many=True, read_only=True)
-    # category_name = serializers.CharField(source="category.name", read_only=True)
 
     class Meta:
         model = Product

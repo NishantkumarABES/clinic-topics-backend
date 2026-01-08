@@ -2,7 +2,6 @@ import os
 from config.settings.base import *
 import dj_database_url
 
-
 DEBUG = False
 FRONTEND_BASE_URL = "http://localhost:3000"
 DEFAULT_FROM_EMAIL = "nishant543099@gmail.com"
