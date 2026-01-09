@@ -106,9 +106,25 @@ class Address(TimeStampedUUIDModel):
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
     postal_code = models.CharField(max_length=20)
-    country = models.CharField(max_length=100)
-    address_type = models.CharField(max_length=50)
+    country = models.CharField(max_length=100, default="India")
+    address_type = models.CharField(max_length=50, default="home")
     is_default = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=[
+                    "user",
+                    "address_line",
+                    "address_line2",
+                    "city",
+                    "state",
+                    "postal_code",
+                    "country",
+                ],
+                name="unique_user_address"
+            )
+        ]
 
     def __str__(self):
         return f"{self.name} - {self.city}"

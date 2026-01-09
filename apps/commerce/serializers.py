@@ -113,6 +113,25 @@ class AddressSerializer(serializers.ModelSerializer):
         model = Address
         exclude = ("user",)
 
+class AddressCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = [
+            "name",
+            "phone",
+            "country_code",
+            "address_line",
+            "address_line2",
+            "city",
+            "state",
+            "postal_code",
+            "country",
+            "address_type",
+            "is_default",
+        ]
+
+class AddressUpdateSerializer(AddressCreateSerializer):
+    pass
 
 
 

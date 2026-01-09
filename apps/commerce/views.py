@@ -12,7 +12,7 @@ from core.permissions import IsAdmin
 from apps.commerce.models import Category, Product, Cart, CartItem, Address
 from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
-    AdminProductReadSerializer, AdminProductWriteSerializer
+    AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer
 )
 
 
@@ -147,47 +147,99 @@ class AddressListCreateView(APIView):
     def get(self, request):
         addresses = Address.objects.filter(user=request.user)
         serializer = AddressSerializer(addresses, many=True)
-        return Response(serializer.data)
+        return Response({
+            "success": True,
+            "data": serializer.data
+        })
     
-    @swagger_auto_schema(request_body=AddressSerializer(), responses={201: AddressSerializer()})
+    @swagger_auto_schema(
+    request_body=AddressCreateSerializer,
+    responses={201: AddressSerializer}
+    )
     def post(self, request):
-        serializer = AddressSerializer(data=request.data)
+        serializer = AddressCreateSerializer(
+            data=request.data,
+            context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
 
-        if serializer.validated_data.get("is_default", False):
+        if serializer.validated_data.get("is_default") is True:
             Address.objects.filter(user=request.user).update(is_default=False)
 
-        serializer.save(user=request.user)
-        return Response(serializer.data, status=201)
+        address = serializer.save(user=request.user)
+        return Response(
+            {
+                "success": True,
+                "data" : AddressSerializer(address).data
+            }, status=status.HTTP_201_CREATED
+        )
 
 class AddressDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(auto_schema=None, responses={200: AddressSerializer()})
+    @swagger_auto_schema(responses={200: AddressSerializer()})
+    def get(self, request, address_id):
+        try:
+            address = Address.objects.get(id=address_id, user=request.user)
+        except Address.DoesNotExist:
+            return Response({"detail": "Address not found"}, status=404)
+
+        serializer = AddressSerializer(address)
+        serializer.data["success"] = True
+        return Response({
+            "success": True,
+            "data": serializer.data
+        })
+
+    @swagger_auto_schema(
+        request_body=AddressUpdateSerializer,
+        responses={200: AddressSerializer}
+    )
     def patch(self, request, address_id):
         try:
             address = Address.objects.get(id=address_id, user=request.user)
         except Address.DoesNotExist:
             return Response({"detail": "Address not found"}, status=404)
 
-        serializer = AddressSerializer(
-            address, data=request.data, partial=True
+        serializer = AddressUpdateSerializer(
+            address,
+            data=request.data,
+            partial=True,
+            context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
 
-        if serializer.validated_data.get("is_default", False):
-            Address.objects.filter(user=request.user).update(is_default=False)
+        if serializer.validated_data.get("is_default") is True:
+            Address.objects.filter(
+                user=request.user,
+                is_default=True
+            ).exclude(id=address.id).update(is_default=False)
 
-        serializer.save()
-        return Response(serializer.data)
+        address = serializer.save()
+        return Response({
+            "success": True,
+            "data": AddressSerializer(address).data
+        })
 
-
-    @swagger_auto_schema(auto_schema=None, responses={200: AddressSerializer()})
+    @swagger_auto_schema(
+        responses={200: "Address deleted", 404: "Address not found"}
+    )
     def delete(self, request, address_id):
-        Address.objects.filter(
-            id=address_id, user=request.user
+        deleted_count, _ = Address.objects.filter(
+            id=address_id,
+            user=request.user
         ).delete()
-        return Response(status=204)
+
+        if deleted_count == 0:
+            return Response(
+                {"detail": "Address not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        return Response(
+            {"success": True},
+            status=status.HTTP_200_OK
+        )
 
 class OrderHistoryView(APIView):
     permission_classes = [IsAuthenticated]
