@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.analytics.app.AnalyticsConfig",
     "apps.cms.app.CMSConfig",
     "apps.advertisements.app.AdvertisementsConfig",
+    "apps.CIMS.app.CIMSConfig",
     "core.app.CoreConfig",
 ]
 

@@ -4,12 +4,13 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
-from drf_yasg.utils import swagger_auto_schema
-from django.shortcuts import get_object_or_404
+from django.db import transaction, IntegrityError
 from django.db.models import Q
+from django.shortcuts import get_object_or_404
+from drf_yasg.utils import swagger_auto_schema
 
 from core.permissions import IsAdmin
-from apps.commerce.models import Category, Product, Cart, CartItem, Address
+from apps.commerce.models import Product, Cart, CartItem, Address
 from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
     AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer
@@ -145,7 +146,9 @@ class AddressListCreateView(APIView):
 
     @swagger_auto_schema(responses={200: AddressSerializer(many=True)})
     def get(self, request):
-        addresses = Address.objects.filter(user=request.user)
+        addresses = Address.objects.filter(
+            user=request.user
+        ).order_by("-is_default", "-created_at")
         serializer = AddressSerializer(addresses, many=True)
         return Response({
             "success": True,
@@ -153,8 +156,11 @@ class AddressListCreateView(APIView):
         })
     
     @swagger_auto_schema(
-    request_body=AddressCreateSerializer,
-    responses={201: AddressSerializer}
+        request_body=AddressCreateSerializer,
+        responses={
+            201: AddressSerializer,
+            400: "Duplicate address"
+        }
     )
     def post(self, request):
         serializer = AddressCreateSerializer(
@@ -163,15 +169,30 @@ class AddressListCreateView(APIView):
         )
         serializer.is_valid(raise_exception=True)
 
-        if serializer.validated_data.get("is_default") is True:
-            Address.objects.filter(user=request.user).update(is_default=False)
+        try:
+            with transaction.atomic():
+                if serializer.validated_data.get("is_default") is True:
+                    Address.objects.filter(
+                        user=request.user
+                    ).update(is_default=False)
 
-        address = serializer.save(user=request.user)
+                address = serializer.save(user=request.user)
+
+        except IntegrityError:
+            return Response(
+                {
+                    "success": False,
+                    "detail": "This address already exists."
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
         return Response(
             {
                 "success": True,
-                "data" : AddressSerializer(address).data
-            }, status=status.HTTP_201_CREATED
+                "data": AddressSerializer(address).data
+            },
+            status=status.HTTP_201_CREATED
         )
 
 class AddressDetailView(APIView):
@@ -248,8 +269,6 @@ class OrderHistoryView(APIView):
     def get(self, request):
         return Response({"message": "Order history not implemented yet"})
     
-
-
 
 
 #### ADMIN APIS FOR PRODUCTS ####

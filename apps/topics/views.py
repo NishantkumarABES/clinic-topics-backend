@@ -11,9 +11,9 @@ from drf_yasg.utils import swagger_auto_schema
 
 
 from apps.topics.services import inshort_generator
-from apps.topics.models import Topic, TopicCategory
+from apps.topics.models import Topic
 from apps.topics.serializers import (
-    TopicCategorySerializer, TopicListSerializer, TopicDetailSerializer, ArticleExtractionSerializer,
+    TopicListSerializer, TopicDetailSerializer, ArticleExtractionSerializer,
     CleanupImagesSerializer, AdminTopicReadSerializer, AdminTopicWriteSerializer
 )
 from core.permissions import IsAdmin 
@@ -21,11 +21,6 @@ from external.cloudinary.utils import CloudinaryService
 cloudinary = CloudinaryService()
 
 
-
-class TopicCategoryListView(generics.ListAPIView):
-    queryset = TopicCategory.objects.all()
-    serializer_class = TopicCategorySerializer
-    permission_classes = [permissions.AllowAny]
 
 class TopicListView(generics.ListAPIView):
     serializer_class = TopicListSerializer
@@ -52,6 +47,9 @@ class TopicDetailView(generics.RetrieveAPIView):
 
 
 
+
+#########  ADMIN TOPICS APIs ######################
+
 class AdminTopicListPagination(PageNumberPagination):
     page_size = 5
     page_size_query_param = 'page_size'
@@ -62,27 +60,48 @@ class AdminTopicListCreateAPIView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     pagination_class = AdminTopicListPagination
 
-    @swagger_auto_schema(auto_schema=None)    
+    @swagger_auto_schema(
+        operation_summary="List topics",
+        responses={200: AdminTopicReadSerializer(many=True)}
+    )
     def get(self, request):
-        search_term = request.query_params.get("search", None)
+        search_term = request.query_params.get("search")
 
-        topics = Topic.objects.all().order_by("-created_at")
-        
-        paginator = self.pagination_class()    
-        paginated_topics = paginator.paginate_queryset(topics, request)
-        serializer = AdminTopicReadSerializer(paginated_topics, many=True)
-        response_data = paginator.get_paginated_response(serializer.data).data
-        response_data['success'] = True
-        return Response(response_data)
+        queryset = Topic.objects.all()
 
+        if search_term:
+            queryset = queryset.filter(
+                Q(title__icontains=search_term) |
+                Q(description__icontains=search_term)
+            )
 
-    @swagger_auto_schema(auto_schema=None)
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(
+            queryset.order_by("-created_at"), request
+        )
+
+        serializer = AdminTopicReadSerializer(page, many=True)
+        response = paginator.get_paginated_response(serializer.data)
+        response.data["success"] = True
+        return response
+
+    @swagger_auto_schema(
+        request_body=AdminTopicWriteSerializer,
+        responses={201: AdminTopicReadSerializer}
+    )
     def post(self, request):
-        serializer = AdminTopicWriteSerializer(data=request.data)
+        serializer = AdminTopicWriteSerializer(
+            data=request.data,
+            context={"request": request}
+        )
         serializer.is_valid(raise_exception=True)
         topic = serializer.save()
+
         return Response(
-            AdminTopicReadSerializer(topic).data,
+            {
+                "success": True,
+                "data": AdminTopicReadSerializer(topic).data
+            },
             status=status.HTTP_201_CREATED
         )
 
@@ -90,17 +109,41 @@ class AdminTopicUpdateAPIView(APIView):
     permission_classes = [IsAdmin]
     parser_classes = [MultiPartParser, FormParser]
 
-    @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(
+        request_body=AdminTopicWriteSerializer,
+        responses={200: AdminTopicReadSerializer}
+    )
     def patch(self, request, topic_id):
         topic = get_object_or_404(Topic, id=topic_id)
+
         serializer = AdminTopicWriteSerializer(
-            topic, data=request.data, partial=True
+            topic,
+            data=request.data,
+            partial=True,
+            context={"request": request}
         )
         serializer.is_valid(raise_exception=True)
         topic = serializer.save()
+
         return Response(
-            AdminTopicReadSerializer(topic).data,
+            {
+                "success": True,
+                "data": AdminTopicReadSerializer(topic).data
+            },
             status=status.HTTP_200_OK
+        )
+
+class AdminTopicUpdatePublishStatusAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema()
+    def patch(self, request, topic_id):
+        topic = get_object_or_404(Topic, id=topic_id)
+        topic.publish_status = not topic.publish_status
+        topic.save()
+
+        return Response(
+            {"success": True, "message": "Publish status updated successfully."}
         )
 
 class ExtractArticleDataView(generics.CreateAPIView):

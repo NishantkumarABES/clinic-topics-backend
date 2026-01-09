@@ -47,7 +47,6 @@ def process_article(url: str):
     soup = BeautifulSoup(article_html, "html.parser")
     article_text = soup.get_text(separator=" ", strip=True)
     article_title = extract_article_title(article_html)
-    print("TITLE:", article_title)
     all_image_links = [img.get("src") for img in soup.find_all("img")]
     return article_text, article_title, all_image_links
 
@@ -74,7 +73,7 @@ def download_images(image_links: list[str]) -> list[str]:
             uploaded_image_urls.append(upload_result["secure_url"])
 
         except Exception as exc:
-            print(f"[Image Upload Failed] {link}: {exc}")
+            pass
 
     return uploaded_image_urls
 

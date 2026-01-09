@@ -7,8 +7,6 @@ from apps.commerce.constants import ProductCategory
 from apps.commerce.constants import OrderStatus
 
 
-
-
 class Product(TimeStampedUUIDModel):
     name = models.CharField(max_length=255)
     sku = models.CharField(max_length=100, unique=True)
