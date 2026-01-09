@@ -1,5 +1,5 @@
 from django.contrib import admin
-from apps.commerce.models import Category, Product, ProductImage, Address, Cart, CartItem, Prescription
+from apps.commerce.models import Category, Product, ProductImage, Address, Cart, CartItem
 
 
 @admin.register(Category)
@@ -38,7 +38,3 @@ class CartAdmin(admin.ModelAdmin):
     list_display = ("user", "created_at")
     inlines = [CartItemInline]
 
-@admin.register(Prescription)
-class PrescriptionAdmin(admin.ModelAdmin):
-    list_display = ("user", "is_verified", "created_at")
-    list_filter = ("is_verified",)

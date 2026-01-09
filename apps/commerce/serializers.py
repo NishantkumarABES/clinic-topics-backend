@@ -1,6 +1,6 @@
 import uuid
 from rest_framework import serializers
-from apps.commerce.models import Product, ProductImage, Cart, CartItem, Address, Prescription
+from apps.commerce.models import Product, ProductImage, Cart, CartItem, Address
 
 
 
@@ -32,6 +32,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 class CartItemSerializer(serializers.ModelSerializer):
     product_id = serializers.UUIDField(source="product.id", read_only=True)
     product_name = serializers.CharField(source="product.name", read_only=True)
+    product_image = serializers.SerializerMethodField()
 
     tax_percentage = serializers.DecimalField(
         source="product.tax_percentage",
@@ -61,6 +62,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             "id",
             "product_id",
             "product_name",
+            "product_image",
             "price",
             "tax_percentage",
             "discount_percentage",
@@ -68,6 +70,17 @@ class CartItemSerializer(serializers.ModelSerializer):
             "quantity",
             "saved_for_later",
         ]
+    
+    def get_product_image(self, obj):
+        image_obj = obj.product.images.first()
+        if not image_obj or not image_obj.image:
+            return None
+
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(image_obj.image.url)
+
+        return image_obj.image.url
 
     def get_final_price(self, obj):
         return obj.get_final_price()

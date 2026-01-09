@@ -8,20 +8,6 @@ from apps.commerce.constants import OrderStatus
 
 
 
-class Prescription(TimeStampedUUIDModel):
-    user = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="prescriptions"
-    )
-
-    file = models.FileField(upload_to="prescriptions/")
-    notes = models.TextField(blank=True)
-
-    is_verified = models.BooleanField(default=False)
-
-    def __str__(self):
-        return f"Prescription({self.user.full_name})"
 
 class Product(TimeStampedUUIDModel):
     name = models.CharField(max_length=255)
