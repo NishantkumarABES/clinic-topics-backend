@@ -30,7 +30,7 @@ class ProductListView(APIView):
         category = request.query_params.get("category")
         search = request.query_params.get("search")
         min_price = request.query_params.get("min_price", 0)
-        max_price = request.query_params.get("max_price", float('inf'))
+        max_price = request.query_params.get("max_price", 999999999)
         brand = request.query_params.get("brand")
         queryset = Product.objects.filter(is_out_of_stock=False)
 
@@ -128,7 +128,7 @@ class UpdateCartItemView(APIView):
             item.saved_for_later = saved_for_later
 
         item.save()
-        return Response({"message": "Cart updated"})
+        return Response({"message": "Cart updated", "success" : True})
 
 class RemoveCartItemView(APIView):
     permission_classes = [IsAuthenticated]
@@ -138,7 +138,7 @@ class RemoveCartItemView(APIView):
         CartItem.objects.filter(
             id=item_id, cart__user=request.user
         ).delete()
-        return Response({"message": "Item removed"})
+        return Response({"message": "Item removed", "success" : True})
 
 class AddressListCreateView(APIView):
     permission_classes = [IsAuthenticated]
