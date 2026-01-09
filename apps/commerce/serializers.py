@@ -30,7 +30,22 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         ]
 
 class CartItemSerializer(serializers.ModelSerializer):
+    product_id = serializers.UUIDField(source="product.id", read_only=True)
     product_name = serializers.CharField(source="product.name", read_only=True)
+
+    tax_percentage = serializers.DecimalField(
+        source="product.tax_percentage",
+        max_digits=5,
+        decimal_places=2,
+        read_only=True
+    )
+    discount_percentage = serializers.DecimalField(
+        source="product.discount_percentage",
+        max_digits=5,
+        decimal_places=2,
+        read_only=True
+    )
+
     price = serializers.DecimalField(
         source="product.price",
         max_digits=10,
@@ -38,16 +53,24 @@ class CartItemSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    final_price = serializers.SerializerMethodField()
+
     class Meta:
         model = CartItem
         fields = [
             "id",
-            "product",
+            "product_id",
             "product_name",
             "price",
+            "tax_percentage",
+            "discount_percentage",
+            "final_price",
             "quantity",
             "saved_for_later",
         ]
+
+    def get_final_price(self, obj):
+        return obj.get_final_price()
 
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
@@ -60,9 +83,7 @@ class CartSerializer(serializers.ModelSerializer):
     def get_total_amount(self, obj):
         total = 0
         for item in obj.items.filter(saved_for_later=False):
-            price = item.product.price
-            tax = price * (item.product.tax_percentage / 100)
-            total += (price + tax) * item.quantity
+            total += item.get_final_price() * item.quantity
         return round(total, 2)
 
 class AddToCartSerializer(serializers.Serializer):

@@ -1,5 +1,6 @@
 from django.db import models
 from core.models import TimeStampedUUIDModel
+from decimal import Decimal
 
 from apps.accounts.models import User
 from apps.commerce.constants import ProductCategory
@@ -91,6 +92,15 @@ class CartItem(TimeStampedUUIDModel):
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField(default=1)
     saved_for_later = models.BooleanField(default=False)
+
+    def get_final_price(self):
+        price = self.product.price
+
+        if self.product.discount_percentage > 0:
+            price -= (price * self.product.discount_percentage / Decimal("100"))
+
+        tax = price * (self.product.tax_percentage / Decimal("100"))
+        return round(price + tax, 2)
 
     class Meta:
         unique_together = ("cart", "product")

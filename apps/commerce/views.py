@@ -103,7 +103,7 @@ class AddToCartView(APIView):
             item.quantity += quantity
             item.save(update_fields=["quantity"])
 
-        return Response({"message": "Item added to cart"}, status=201)
+        return Response({"message": "Item added to cart", "success" : True}, status=201)
 
 class UpdateCartItemView(APIView):
     permission_classes = [IsAuthenticated]
