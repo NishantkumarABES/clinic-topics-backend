@@ -100,11 +100,14 @@ class Address(TimeStampedUUIDModel):
 
     name = models.CharField(max_length=255)
     phone = models.CharField(max_length=15)
-
+    country_code = models.CharField(max_length=10, default="+91")
     address_line = models.TextField()
+    address_line2 = models.TextField(blank=True)
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
     postal_code = models.CharField(max_length=20)
+    country = models.CharField(max_length=100)
+    address_type = models.CharField(max_length=50)
     is_default = models.BooleanField(default=False)
 
     def __str__(self):
@@ -132,9 +135,6 @@ class OrderItem(TimeStampedUUIDModel):
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField()
     price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2)
-
-
-
 
 
 class Category(TimeStampedUUIDModel):

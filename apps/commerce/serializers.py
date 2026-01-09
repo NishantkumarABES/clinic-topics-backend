@@ -113,9 +113,6 @@ class AddressSerializer(serializers.ModelSerializer):
         model = Address
         exclude = ("user",)
 
-class AttachPrescriptionSerializer(serializers.Serializer):
-    cart_item_id = serializers.UUIDField()
-    prescription_id = serializers.UUIDField()
 
 
 
