@@ -66,3 +66,5 @@ ehthumbs.db
 
 media/*
 /secrets
+
+/worklog_today.txt

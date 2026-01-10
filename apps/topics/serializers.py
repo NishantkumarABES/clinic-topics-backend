@@ -7,7 +7,10 @@ class TopicListSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "description",
             "publishing_time",
+            "publish_status",
+            "image"
         ]
 
 class TopicDetailSerializer(serializers.ModelSerializer):

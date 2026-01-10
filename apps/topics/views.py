@@ -3,7 +3,6 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.parsers import MultiPartParser, FormParser
 from django.utils.timezone import now
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
@@ -27,17 +26,7 @@ class TopicListView(generics.ListAPIView):
     permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        queryset = Topic.objects.filter(publishing_time__lte=now())
-
-        category_id = self.request.query_params.get("category")
-        audience = self.request.query_params.get("audience")
-
-        if category_id:
-            queryset = queryset.filter(category_id=category_id)
-
-        if audience:
-            queryset = queryset.filter(topic_audience=audience)
-
+        queryset = Topic.objects.filter(publish_status=True).order_by("-publishing_time")
         return queryset
 
 class TopicDetailView(generics.RetrieveAPIView):
@@ -57,10 +46,10 @@ class AdminTopicListPagination(PageNumberPagination):
 
 class AdminTopicListCreateAPIView(APIView):
     permission_classes = [IsAdmin]
-    parser_classes = [MultiPartParser, FormParser]
     pagination_class = AdminTopicListPagination
 
     @swagger_auto_schema(
+        auto_schema=None,
         operation_summary="List topics",
         responses={200: AdminTopicReadSerializer(many=True)}
     )
@@ -86,6 +75,7 @@ class AdminTopicListCreateAPIView(APIView):
         return response
 
     @swagger_auto_schema(
+        auto_schema=None,
         request_body=AdminTopicWriteSerializer,
         responses={201: AdminTopicReadSerializer}
     )
@@ -107,9 +97,9 @@ class AdminTopicListCreateAPIView(APIView):
 
 class AdminTopicUpdateAPIView(APIView):
     permission_classes = [IsAdmin]
-    parser_classes = [MultiPartParser, FormParser]
 
     @swagger_auto_schema(
+        auto_schema=None,
         request_body=AdminTopicWriteSerializer,
         responses={200: AdminTopicReadSerializer}
     )
@@ -136,7 +126,7 @@ class AdminTopicUpdateAPIView(APIView):
 class AdminTopicUpdatePublishStatusAPIView(APIView):
     permission_classes = [IsAdmin]
 
-    @swagger_auto_schema()
+    @swagger_auto_schema(auto_schema=None, responses={200: "Success"})
     def patch(self, request, topic_id):
         topic = get_object_or_404(Topic, id=topic_id)
         topic.publish_status = not topic.publish_status
@@ -150,6 +140,11 @@ class ExtractArticleDataView(generics.CreateAPIView):
     serializer_class = ArticleExtractionSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        auto_schema=None,
+        request_body=ArticleExtractionSerializer,
+        responses={200: "Success"}
+    )
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -180,6 +175,11 @@ class ExtractArticleDataView(generics.CreateAPIView):
 class CleanupUnwantedImages(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        auto_schema=None,
+        request_body=CleanupImagesSerializer,
+        responses={200: "Success"}
+    )
     def post(self, request):
         serializer = CleanupImagesSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
