@@ -1,6 +1,7 @@
 import uuid
+from django.db import models
 from rest_framework import serializers
-from apps.commerce.models import Product, ProductImage, Cart, CartItem, Address
+from apps.commerce.models import Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon
 
 
 
@@ -16,18 +17,104 @@ class ProductListSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id", "name", "price", "tax_percentage", "discount_percentage",
-            "images", "category", "brand", "description",
+            "images", "category", "brand", "description"
         ]
-
+    
 class ProductDetailSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
+    average_rating = serializers.SerializerMethodField()
+    total_reviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             "id", "name", "price", "tax_percentage",
             "images", "category", "brand", "description",
+            "average_rating", "total_reviews",
         ]
+    
+    def get_average_rating(self, obj):
+        agg = obj.reviews.aggregate(avg=models.Avg("rating"))
+        return round(agg["avg"] or 0, 2)
+
+    def get_total_reviews(self, obj):
+        return obj.reviews.count()
+
+class ProductReviewSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+
+    class Meta:
+        model = ProductReview
+        fields = [
+            "id",
+            "user_name",
+            "rating",
+            "comment",
+            "is_verified_purchase",
+            "created_at",
+        ]
+
+class CreateUpdateReviewSerializer(serializers.ModelSerializer):
+    product_id = serializers.UUIDField(write_only=True)
+
+    class Meta:
+        model = ProductReview
+        fields = ["product_id", "rating", "comment"]
+
+    def validate_rating(self, value):
+        if value < 1 or value > 5:
+            raise serializers.ValidationError("Rating must be between 1 and 5")
+        return value
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        product_id = validated_data.pop("product_id")
+
+        # check verified purchase
+        verified = OrderItem.objects.filter(
+            order__user=user,
+            product_id=product_id
+        ).exists()
+
+        review, _ = ProductReview.objects.update_or_create(
+            user=user,
+            product_id=product_id,
+            defaults={
+                "rating": validated_data["rating"],
+                "comment": validated_data.get("comment", ""),
+                "is_verified_purchase": verified
+            }
+        )
+        return review
+
+class CouponSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Coupon
+        fields = [
+            "id",
+            "code",
+            "description",
+            "discount_percentage",
+            "discount_amount",
+            "minimum_cart_amount",
+            "valid_from",
+            "valid_until",
+            "is_active"
+        ]
+
+class ApplyCouponSerializer(serializers.Serializer):
+    code = serializers.CharField()
+
+    def validate_code(self, value):
+        try:
+            coupon = Coupon.objects.get(code__iexact=value)
+        except Coupon.DoesNotExist:
+            raise serializers.ValidationError("Invalid coupon code")
+
+        if not coupon.is_valid():
+            raise serializers.ValidationError("Coupon is expired or inactive")
+
+        return value
 
 class CartItemSerializer(serializers.ModelSerializer):
     product_id = serializers.UUIDField(source="product.id", read_only=True)
@@ -88,16 +175,43 @@ class CartItemSerializer(serializers.ModelSerializer):
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
     total_amount = serializers.SerializerMethodField()
+    discount = serializers.SerializerMethodField()
+    final_amount = serializers.SerializerMethodField()
+    applied_coupon = serializers.CharField(source="coupon.code", read_only=True)
 
     class Meta:
         model = Cart
-        fields = ["id", "items", "total_amount"]
+        fields = ["id", "items", "total_amount", "discount", "final_amount", "applied_coupon"]
 
     def get_total_amount(self, obj):
         total = 0
         for item in obj.items.filter(saved_for_later=False):
             total += item.get_final_price() * item.quantity
         return round(total, 2)
+
+    def get_discount(self, obj):
+        if not obj.coupon:
+            return 0
+
+        total = self.get_total_amount(obj)
+        coupon = obj.coupon
+
+        if total < coupon.minimum_cart_amount:
+            return 0
+
+        if coupon.discount_percentage:
+            return round(total * (coupon.discount_percentage / 100), 2)
+
+        if coupon.discount_amount:
+            return min(coupon.discount_amount, total)
+
+        return 0
+
+    def get_final_amount(self, obj):
+        total = self.get_total_amount(obj)
+        discount = self.get_discount(obj)
+        return round(total - discount, 2)
+
 
 class AddToCartSerializer(serializers.Serializer):
     product_id = serializers.UUIDField()

@@ -1,10 +1,16 @@
-import requests, uuid
+import requests, uuid, nltk
 import numpy as np
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from google import genai
 from nltk.tokenize import sent_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
+
+if not nltk.data.find("tokenizers/punkt"):
+    nltk.download("punkt")
+if not nltk.data.find("tokenizers/punkt_tab"):
+    nltk.download("punkt_tab")
+
 
 from external.cloudinary.utils import CloudinaryService
 cloudinary = CloudinaryService()

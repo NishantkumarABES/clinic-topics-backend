@@ -10,10 +10,11 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 
 from core.permissions import IsAdmin
-from apps.commerce.models import Product, Cart, CartItem, Address
+from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview
 from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
-    AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer
+    AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer,
+    ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer
 )
 
 
@@ -71,6 +72,77 @@ class ProductDetailView(APIView):
 
         serializer = ProductDetailSerializer(product)
         return Response(serializer.data)
+
+class ProductReviewListView(APIView):
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(responses={200: ProductReviewSerializer(many=True)})
+    def get(self, request, product_id):
+        reviews = ProductReview.objects.filter(product_id=product_id).order_by("-created_at")
+        serializer = ProductReviewSerializer(reviews, many=True)
+        return Response({
+            "success": True,
+            "data": serializer.data
+        })
+
+class CreateUpdateProductReviewView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=CreateUpdateReviewSerializer,
+        responses={200: ProductReviewSerializer}
+    )
+    def post(self, request):
+        serializer = CreateUpdateReviewSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        review = serializer.save()
+        return Response({
+            "success": True,
+            "data": ProductReviewSerializer(review).data
+        })
+
+class ApplyCouponView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=ApplyCouponSerializer,
+        responses={200: "Coupon applied"}
+    )
+    def post(self, request):
+        serializer = ApplyCouponSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        code = serializer.validated_data["code"]
+        coupon = Coupon.objects.get(code__iexact=code)
+
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+
+        total = 0
+        for item in cart.items.filter(saved_for_later=False):
+            total += item.get_final_price() * item.quantity
+
+        if total < coupon.minimum_cart_amount:
+            return Response(
+                {"detail": "Cart total below minimum amount for this coupon"},
+                status=400
+            )
+
+        cart.coupon = coupon
+        cart.save(update_fields=["coupon"])
+
+        return Response({"success": True, "message": "Coupon applied"})
+
+class RemoveCouponView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart.coupon = None
+        cart.save(update_fields=["coupon"])
+        return Response({"success": True, "message": "Coupon removed"})
 
 class CartDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -337,3 +409,27 @@ class AdminProductUpdateAPIView(APIView):
             AdminProductReadSerializer(product).data,
             status=status.HTTP_200_OK
         )
+
+class AdminCouponListCreateView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        coupons = Coupon.objects.all().order_by("-created_at")
+        serializer = CouponSerializer(coupons, many=True)
+        return Response({"success": True, "data": serializer.data})
+
+    def post(self, request):
+        serializer = CouponSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        coupon = serializer.save()
+        return Response({"success": True, "data": CouponSerializer(coupon).data})
+
+class AdminCouponUpdateView(APIView):
+    permission_classes = [IsAdmin]
+
+    def patch(self, request, coupon_id):
+        coupon = get_object_or_404(Coupon, id=coupon_id)
+        serializer = CouponSerializer(coupon, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        coupon = serializer.save()
+        return Response({"success": True, "data": CouponSerializer(coupon).data})
