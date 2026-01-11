@@ -6,10 +6,16 @@ from google import genai
 from nltk.tokenize import sent_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 
-if not nltk.data.find("tokenizers/punkt"):
+try:
+    nltk.data.find("tokenizers/punkt")
+except LookupError:
     nltk.download("punkt")
-if not nltk.data.find("tokenizers/punkt_tab"):
+try:
+    nltk.data.find("tokenizers/punkt_tab")
+except LookupError:
     nltk.download("punkt_tab")
+
+
 
 
 from external.cloudinary.utils import CloudinaryService
