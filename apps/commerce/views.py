@@ -467,14 +467,19 @@ class AdminProductUpdateAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
-class AdminCouponListCreateView(APIView):
+class AdminCouponListCreateView(APIView): 
     permission_classes = [IsAdmin]
 
+    @swagger_auto_schema(responses={200: CouponSerializer(many=True)})
     def get(self, request):
         coupons = Coupon.objects.all().order_by("-created_at")
         serializer = CouponSerializer(coupons, many=True)
         return Response({"success": True, "data": serializer.data})
 
+    @swagger_auto_schema(
+        request_body=CouponSerializer,
+        responses={201: "Coupon created"}
+    )
     def post(self, request):
         serializer = CouponSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -484,6 +489,10 @@ class AdminCouponListCreateView(APIView):
 class AdminCouponUpdateView(APIView):
     permission_classes = [IsAdmin]
 
+    @swagger_auto_schema(
+        request_body=CouponSerializer,
+        responses={200: "Coupon updated"}
+    )
     def patch(self, request, coupon_id):
         coupon = get_object_or_404(Coupon, id=coupon_id)
         serializer = CouponSerializer(coupon, data=request.data, partial=True)
