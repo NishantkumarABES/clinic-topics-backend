@@ -2,7 +2,8 @@ import uuid
 from django.db import models
 from rest_framework import serializers
 from apps.commerce.models import (
-    Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem
+    Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem,
+    Order, OrderItem
 )
 
 
@@ -96,14 +97,18 @@ class CouponSerializer(serializers.ModelSerializer):
             "id",
             "code",
             "description",
-            "discount_percentage",
-            "discount_amount",
-            "minimum_cart_amount",
+            "discount_type",
+            "discount_value",
+            "min_purchase_amount",
+            "max_discount_amount",
+            "max_uses",
+            "current_uses",
             "valid_from",
             "valid_until",
             "is_active"
         ]
 
+    
 class ApplyCouponSerializer(serializers.Serializer):
     code = serializers.CharField()
 
@@ -183,7 +188,14 @@ class CartSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Cart
-        fields = ["id", "items", "total_amount", "discount", "final_amount", "applied_coupon"]
+        fields = [
+            "id",
+            "items",
+            "total_amount",
+            "discount",
+            "final_amount",
+            "applied_coupon"
+        ]
 
     def get_total_amount(self, obj):
         total = 0
@@ -195,25 +207,29 @@ class CartSerializer(serializers.ModelSerializer):
         if not obj.coupon:
             return 0
 
-        total = self.get_total_amount(obj)
         coupon = obj.coupon
+        total = self.get_total_amount(obj)
 
-        if total < coupon.minimum_cart_amount:
+        # Recheck validity
+        if not coupon.is_valid(cart_total=total):
             return 0
 
-        if coupon.discount_percentage:
-            return round(total * (coupon.discount_percentage / 100), 2)
+        # Calculate discount
+        if coupon.discount_type == Coupon.DiscountType.PERCENTAGE:
+            discount = total * (coupon.discount_value / 100)
+        else:
+            discount = coupon.discount_value
 
-        if coupon.discount_amount:
-            return min(coupon.discount_amount, total)
+        # Apply max discount cap if set
+        if coupon.max_discount_amount:
+            discount = min(discount, coupon.max_discount_amount)
 
-        return 0
+        return round(discount, 2)
 
     def get_final_amount(self, obj):
         total = self.get_total_amount(obj)
         discount = self.get_discount(obj)
         return round(total - discount, 2)
-
 
 class AddToCartSerializer(serializers.Serializer):
     product_id = serializers.UUIDField()
@@ -274,6 +290,41 @@ class AddToWishlistSerializer(serializers.Serializer):
         return value
 
 
+class OrderItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    product_id = serializers.UUIDField(source="product.id", read_only=True)
+
+    class Meta:
+        model = OrderItem
+        fields = [
+            "id",
+            "product_id",
+            "product_name",
+            "quantity",
+            "price_at_purchase"
+        ]
+
+
+class OrderHistorySerializer(serializers.ModelSerializer):
+    items = OrderItemSerializer(many=True, read_only=True)
+    address_summary = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "status",
+            "total_amount",
+            "payment_method",
+            "payment_reference",
+            "created_at",
+            "address_summary",
+            "items"
+        ]
+
+    def get_address_summary(self, obj):
+        addr = obj.address
+        return f"{addr.address_line}, {addr.city}, {addr.state}, {addr.postal_code}"
 ########### ADMIN SERIALIZERS ###########
 class AdminProductImageSerializer(serializers.ModelSerializer):
     class Meta:

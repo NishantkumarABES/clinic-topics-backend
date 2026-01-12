@@ -43,7 +43,6 @@ urlpatterns = [
     path("api/v1/profiles/", include(("apps.profiles.urls", "profiles"), namespace="profiles")),
     path("api/v1/commerce/", include(("apps.commerce.urls", "commerce"), namespace="commerce")),
     path("api/v1/events/", include(("apps.events.urls", "events"), namespace="events")),
-    path("api/v1/appointments/", include(("apps.appointments.urls", "appointments"), namespace="appointments")),
     path("api/v1/topics/", include(("apps.topics.urls", "topics"), namespace="topics")),
 
     path("api/v1/analytics/", include(("apps.analytics.urls", "analytics"), namespace="analytics")),

@@ -51,7 +51,6 @@ INSTALLED_APPS = [
     "apps.profiles.app.ProfilesConfig",
     "apps.commerce.app.CommerceConfig",
     "apps.events.app.EventsConfig",
-    "apps.appointments.app.AppointmentsConfig",
     "apps.topics.app.TopicsConfig",
     "apps.analytics.app.AnalyticsConfig",
     "apps.cms.app.CMSConfig",

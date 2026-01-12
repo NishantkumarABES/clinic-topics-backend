@@ -1,7 +1,9 @@
 from django.db import models
-from core.models import TimeStampedUUIDModel
+from django.utils import timezone
+from django.core.validators import MinValueValidator
 from decimal import Decimal
 
+from core.models import TimeStampedUUIDModel
 from apps.accounts.models import User
 from apps.commerce.constants import ProductCategory
 from apps.commerce.constants import OrderStatus
@@ -61,38 +63,67 @@ class ProductReview(TimeStampedUUIDModel):
         unique_together = ("product", "user")
 
 class Coupon(TimeStampedUUIDModel):
+
+    class DiscountType(models.TextChoices):
+        PERCENTAGE = "percentage", "Percentage"
+        FIXED = "fixed", "Fixed"
+
     code = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True)
 
-    discount_percentage = models.DecimalField(
-        max_digits=5, decimal_places=2, null=True, blank=True
+    # Discount definition
+    discount_type = models.CharField(
+        max_length=20,
+        choices=DiscountType.choices,
+        default=DiscountType.PERCENTAGE
     )
-    discount_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, null=True, blank=True
+    discount_value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(0)],
+        null=True,
+        blank=True
     )
 
-    minimum_cart_amount = models.DecimalField(
-        max_digits=10, decimal_places=2, default=0
+    # Usage limits
+    max_uses = models.PositiveIntegerField(null=True, blank=True)
+    current_uses = models.PositiveIntegerField(default=0)
+
+    # Cart conditions
+    min_purchase_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+    max_discount_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True
     )
 
-    max_usage = models.PositiveIntegerField(default=1)
-    used_count = models.PositiveIntegerField(default=0)
-
+    # Validity
+    is_active = models.BooleanField(default=True)
     valid_from = models.DateTimeField()
     valid_until = models.DateTimeField()
 
-    is_active = models.BooleanField(default=True)
-
-    def is_valid(self):
-        from django.utils import timezone
+    def is_valid(self, cart_total=None):
         now = timezone.now()
 
         if not self.is_active:
             return False
+
         if now < self.valid_from or now > self.valid_until:
             return False
-        if self.used_count >= self.max_usage:
+
+        if self.max_uses is not None and self.current_uses >= self.max_uses:
             return False
+
+        if cart_total is not None and self.min_purchase_amount is not None:
+            if cart_total < self.min_purchase_amount:
+                return False
+
         return True
 
     def __str__(self):
@@ -208,7 +239,6 @@ class Category(TimeStampedUUIDModel):
 
     def __str__(self):
         return self.name
-
 
 class Wishlist(TimeStampedUUIDModel):
     user = models.OneToOneField(

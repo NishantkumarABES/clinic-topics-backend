@@ -10,12 +10,12 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 
 from core.permissions import IsAdmin
-from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem
+from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order
 from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
     AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer,
     ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer,
-    WishlistSerializer, AddToWishlistSerializer, WishlistItem
+    WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer
 )
 
 
@@ -121,20 +121,28 @@ class ApplyCouponView(APIView):
 
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
+        # Calculate cart total
         total = 0
         for item in cart.items.filter(saved_for_later=False):
             total += item.get_final_price() * item.quantity
 
-        if total < coupon.minimum_cart_amount:
+        total = round(total, 2)
+
+        # Use model validation
+        if not coupon.is_valid(cart_total=total):
             return Response(
-                {"detail": "Cart total below minimum amount for this coupon"},
+                {"success": False, "detail": "Coupon is not valid for this cart"},
                 status=400
             )
 
+        # Attach coupon to cart
         cart.coupon = coupon
         cart.save(update_fields=["coupon"])
 
-        return Response({"success": True, "message": "Coupon applied"})
+        return Response({
+            "success": True,
+            "message": "Coupon applied successfully"
+        })
 
 class RemoveCouponView(APIView):
     permission_classes = [IsAuthenticated]
@@ -143,7 +151,11 @@ class RemoveCouponView(APIView):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         cart.coupon = None
         cart.save(update_fields=["coupon"])
-        return Response({"success": True, "message": "Coupon removed"})
+        return Response({
+            "success": True,
+            "message": "Coupon removed"
+        })
+
 
 class CartDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -335,13 +347,7 @@ class AddressDetailView(APIView):
             status=status.HTTP_200_OK
         )
 
-class OrderHistoryView(APIView):
-    permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(auto_schema=None, responses={200: "Order history not implemented yet"})
-    def get(self, request):
-        return Response({"message": "Order history not implemented yet"})
-    
 # Get Wishlist
 class WishlistDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -398,6 +404,42 @@ class RemoveFromWishlistView(APIView):
             return Response({"detail": "Item not found"}, status=404)
 
         return Response({"success": True, "message": "Removed from wishlist"})
+
+class OrderHistoryPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = "page_size"
+    max_page_size = 50
+
+class OrderHistoryView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = OrderHistoryPagination
+
+    @swagger_auto_schema(responses={200: OrderHistorySerializer(many=True)})
+    def get(self, request):
+        orders = Order.objects.filter(
+            user=request.user
+        ).order_by("-created_at")
+
+        paginator = self.pagination_class()
+        paginated_orders = paginator.paginate_queryset(orders, request)
+
+        serializer = OrderHistorySerializer(paginated_orders, many=True)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data["success"] = True
+        return Response(response_data)
+
+class OrderDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(responses={200: OrderHistorySerializer()})
+    def get(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response({"detail": "Order not found"}, status=404)
+
+        serializer = OrderHistorySerializer(order)
+        return Response({"success": True, "data": serializer.data})
 
 
 #### ADMIN APIS FOR PRODUCTS ####
@@ -467,14 +509,40 @@ class AdminProductUpdateAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
+class AdminCouponPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class AdminCouponListCreateView(APIView): 
     permission_classes = [IsAdmin]
+    pagination_class = AdminCouponPagination
 
     @swagger_auto_schema(responses={200: CouponSerializer(many=True)})
     def get(self, request):
+        search_term = request.query_params.get("search", None)
+        status = request.query_params.get("status", None)
+        coupon_type = request.query_params.get("coupon_type", None)
+
+        if search_term:
+            coupons = Coupon.objects.filter(
+                Q(code__icontains=search_term) |
+                Q(description__icontains=search_term)
+            )
+        if status:
+            coupons = coupons.filter(is_active=(status=='active'))
+        if coupon_type:
+            coupons = coupons.filter(coupon_type=coupon_type)
+
         coupons = Coupon.objects.all().order_by("-created_at")
         serializer = CouponSerializer(coupons, many=True)
-        return Response({"success": True, "data": serializer.data})
+        paginator = self.pagination_class()
+        paginated_coupons = paginator.paginate_queryset(coupons, request)
+        serializer = CouponSerializer(paginated_coupons, many=True)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data['success'] = True
+        return Response(response_data)
+
 
     @swagger_auto_schema(
         request_body=CouponSerializer,
@@ -486,7 +554,7 @@ class AdminCouponListCreateView(APIView):
         coupon = serializer.save()
         return Response({"success": True, "data": CouponSerializer(coupon).data})
 
-class AdminCouponUpdateView(APIView):
+class AdminCouponUpdateDestroyView(APIView):
     permission_classes = [IsAdmin]
 
     @swagger_auto_schema(
@@ -499,3 +567,9 @@ class AdminCouponUpdateView(APIView):
         serializer.is_valid(raise_exception=True)
         coupon = serializer.save()
         return Response({"success": True, "data": CouponSerializer(coupon).data})
+    
+    @swagger_auto_schema(responses={200: "Coupon deleted"})
+    def delete(self, request, coupon_id):
+        coupon = get_object_or_404(Coupon, id=coupon_id)
+        coupon.delete()
+        return Response({"success": True, "message": "Coupon deleted"})

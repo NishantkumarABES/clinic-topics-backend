@@ -2,7 +2,8 @@ from django.urls import path
 from apps.commerce.views import (
     ProductListView, ProductDetailView, CartDetailView, AddToCartView, UpdateCartItemView, RemoveCartItemView, AddressListCreateView, 
     AddressDetailView, AdminProductListCreateAPIView, AdminProductUpdateAPIView, ProductReviewListView, CreateUpdateProductReviewView, 
-    ApplyCouponView, RemoveCouponView, AdminCouponListCreateView, AdminCouponUpdateView, WishlistDetailView, AddToWishlistView, RemoveFromWishlistView
+    ApplyCouponView, RemoveCouponView, AdminCouponListCreateView, AdminCouponUpdateDestroyView, WishlistDetailView, AddToWishlistView, 
+    RemoveFromWishlistView, OrderHistoryView, OrderDetailView
 )
 
 urlpatterns = [
@@ -25,8 +26,11 @@ urlpatterns = [
     path("wishlist/add/", AddToWishlistView.as_view()),
     path("wishlist/remove/<uuid:item_id>/", RemoveFromWishlistView.as_view()),
 
+    path("orders/", OrderHistoryView.as_view()),
+    path("orders/<uuid:order_id>/", OrderDetailView.as_view()),
+
     path("admin/products/", AdminProductListCreateAPIView.as_view()),
     path("admin/products/<uuid:product_id>/", AdminProductUpdateAPIView.as_view()),
     path("admin/coupons/", AdminCouponListCreateView.as_view()),
-    path("admin/coupons/<uuid:coupon_id>/", AdminCouponUpdateView.as_view()),
+    path("admin/coupons/<uuid:coupon_id>/", AdminCouponUpdateDestroyView.as_view()),
 ]
