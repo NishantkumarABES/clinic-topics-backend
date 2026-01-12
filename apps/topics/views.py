@@ -9,11 +9,12 @@ from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 
 
+
 from apps.topics.services import inshort_generator
 from apps.topics.models import Topic
 from apps.topics.serializers import (
-    TopicListSerializer, TopicDetailSerializer, ArticleExtractionSerializer,
-    CleanupImagesSerializer, AdminTopicReadSerializer, AdminTopicWriteSerializer
+    TopicListSerializer, TopicDetailSerializer, ArticleExtractionSerializer, CleanupImagesSerializer, AdminTopicReadSerializer,
+    AdminTopicWriteSerializer
 )
 from core.permissions import IsAdmin 
 from external.cloudinary.utils import CloudinaryService
@@ -139,7 +140,8 @@ class AdminTopicUpdatePublishStatusAPIView(APIView):
 class ExtractArticleDataView(generics.CreateAPIView):
     serializer_class = ArticleExtractionSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
-
+    swagger_schema = None
+    
     @swagger_auto_schema(
         auto_schema=None,
         request_body=ArticleExtractionSerializer,

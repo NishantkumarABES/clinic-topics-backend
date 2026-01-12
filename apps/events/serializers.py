@@ -1,3 +1,4 @@
+import json
 from rest_framework import serializers
 from apps.events.models import Event, EventSpeaker, EventImage
 
@@ -41,8 +42,14 @@ class EventSerializer(serializers.ModelSerializer):
 # Event Create / Update Serializer
 # ---------------------------
 
+class EventSpeakerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EventSpeaker
+        fields = ["name", "title", "bio", "image"]
+
+
 class EventCreateUpdateSerializer(serializers.ModelSerializer):
-    speakers = EventSpeakerSerializer(many=True, required=False)
+    speakers = serializers.CharField(required=False, write_only=True)
     images = serializers.ListField(
         child=serializers.ImageField(),
         required=False,
@@ -63,7 +70,7 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
             "format",
             "is_free",
             "registration_fee",
-            "certificate_available",
+            "is_certificate_available",
             "agenda",
             "venue",
             "event_link",
@@ -71,6 +78,15 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
             "speakers",
             "images",
         ]
+
+    def validate_speakers(self, value):
+        try:
+            data = json.loads(value)
+            if not isinstance(data, list):
+                raise serializers.ValidationError("Speakers must be a list")
+            return data
+        except json.JSONDecodeError:
+            raise serializers.ValidationError("Invalid JSON format for speakers")
 
     def create(self, validated_data):
         speakers_data = validated_data.pop("speakers", [])
@@ -94,19 +110,14 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
 
-        # Replace speakers if provided
         if speakers_data is not None:
             instance.speakers.all().delete()
             for speaker in speakers_data:
                 EventSpeaker.objects.create(event=instance, **speaker)
 
-        # Append new images if provided
         if images_data is not None:
             for img in images_data:
                 EventImage.objects.create(event=instance, image=img)
 
         return instance
-
-
-
 

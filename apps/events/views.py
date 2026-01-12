@@ -57,7 +57,7 @@ class EventFilterHelper:
 # List + Create
 # -----------------------------------
 class EventPagination(PageNumberPagination):
-    page_size = 10
+    page_size = 5
     page_size_query_param = "page_size"
     max_page_size = 50
 
@@ -75,6 +75,11 @@ class EventListCreateAPIView(APIView):
         serializer = EventSerializer(paginated_queryset, many=True)
         return paginator.get_paginated_response(serializer.data)
 
+    @swagger_auto_schema(
+        auto_schema=None,
+        request_body=EventCreateUpdateSerializer,
+        responses={201: EventSerializer}
+    )
     def post(self, request):
         serializer = EventCreateUpdateSerializer(data=request.data)
         if serializer.is_valid():
@@ -103,6 +108,11 @@ class EventRetrieveUpdateAPIView(APIView):
         serializer = EventSerializer(event)
         return Response(serializer.data)
 
+    @swagger_auto_schema(
+        auto_schema=None,
+        request_body=EventCreateUpdateSerializer,
+        responses={200: EventSerializer}
+    )
     def patch(self, request, id):
         event = self.get_object(id)
         if not event:
