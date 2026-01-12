@@ -15,7 +15,7 @@ class Topic(TimeStampedUUIDModel):
         blank=True
     )
 
-    image = models.URLField()
+    image = models.URLField(null=True)
     source_url = models.URLField(blank=True, null=True)
     video_url = models.URLField(blank=True, null=True)
     publishing_time = models.DateTimeField()

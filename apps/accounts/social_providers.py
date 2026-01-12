@@ -1,5 +1,6 @@
 import os, requests
 from rest_framework.exceptions import AuthenticationFailed
+from jwt.algorithms import RSAAlgorithm
 from jose import jwt
 
 class SocialUser:
@@ -50,63 +51,66 @@ def verify_apple_token(token):
     APPLE_PUBLIC_KEY_URL = "https://appleid.apple.com/auth/keys"
 
     try:
-        # Fetch Apple's public keys
+        # 1. Fetch Apple's public keys
         response = requests.get(APPLE_PUBLIC_KEY_URL, timeout=5)
         if response.status_code != 200:
             raise AuthenticationFailed("Unable to fetch Apple public keys")
 
         apple_keys = response.json()
 
-        # Decode the JWT header to get the key ID (kid)
+        # 2. Read token header to find matching key id
         unverified_header = jwt.get_unverified_header(token)
         key_id = unverified_header.get("kid")
 
         if not key_id:
             raise AuthenticationFailed("Invalid Apple token: missing key ID")
 
-        # Find the matching public key
+        # 3. Find corresponding Apple public key
         public_key = None
         for key in apple_keys.get("keys", []):
             if key.get("kid") == key_id:
-                public_key = key
+                public_key = RSAAlgorithm.from_jwk(key)
                 break
 
         if not public_key:
             raise AuthenticationFailed("Apple public key not found")
 
-        # Verify and decode the token
-        # Apple's audience should be your app's client ID
-        apple_client_id = os.getenv("APPLE_CLIENT_ID")
-        if not apple_client_id:
-            raise AuthenticationFailed("Apple Client ID not configured")
-
-        # Decode and verify the JWT
+        # 4. Verify and decode token
         claims = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
-            audience=apple_client_id,
+            audience=os.getenv("APPLE_SUB"),  # Your app's client id (bundle id)
             issuer="https://appleid.apple.com"
         )
 
-        # Extract user information
-        # Apple's 'sub' claim is the unique user identifier
+        # 5. Validate issuer team id inside token
+        if claims.get("iss") != "https://appleid.apple.com":
+            raise AuthenticationFailed("Invalid issuer in Apple token")
+
+        # 6. Extract required fields
         provider_user_id = claims.get("sub")
         email = claims.get("email")
 
         if not provider_user_id:
-            raise AuthenticationFailed("Invalid Apple token: missing user ID")
+            raise AuthenticationFailed("Invalid Apple token: missing subject")
 
+        # 7. Return standardized social user object
         return SocialUser(
             provider="apple",
             provider_user_id=provider_user_id,
             email=email
         )
 
+    except jwt.ExpiredSignatureError:
+        raise AuthenticationFailed("Apple token has expired")
+
     except jwt.JWTError as e:
         raise AuthenticationFailed(f"Invalid Apple token: {str(e)}")
+
     except requests.RequestException as e:
-        raise AuthenticationFailed(f"Failed to verify Apple token: {str(e)}")
+        raise AuthenticationFailed(f"Failed to reach Apple servers: {str(e)}")
+
     except Exception as e:
         raise AuthenticationFailed(f"Apple authentication error: {str(e)}")
 

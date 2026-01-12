@@ -10,7 +10,7 @@ from apps.events.constants import EventType, EventFormat, EventStatus
 class Event(TimeStampedUUIDModel):
     # --- Core fields ---
     title = models.CharField(max_length=255)
-    description = models.TextField()
+    description = models.TextField(null=True)
 
     event_type = models.CharField(
         max_length=30,
@@ -18,10 +18,10 @@ class Event(TimeStampedUUIDModel):
     )
     specialization = models.CharField(max_length=100,  null=True)
     # Dates and times split to match frontend DTO
-    start_date = models.DateField()
-    end_date = models.DateField()
-    start_time = models.TimeField()
-    end_time = models.TimeField()
+    start_date = models.DateField(null=True)
+    end_date = models.DateField(null=True)
+    start_time = models.TimeField(null=True)
+    end_time = models.TimeField(null=True)
 
     format = models.CharField(
         max_length=20,

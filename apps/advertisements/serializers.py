@@ -5,7 +5,7 @@ from apps.advertisements.models import Advertisement
 class AdvertisementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Advertisement
-        fields = ['id', 'title', 'url', 'image', 'status', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'url', 'image', 'specializations', 'status', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate_url(self, value):
@@ -19,4 +19,4 @@ class AdvertisementListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for listing advertisements"""
     class Meta:
         model = Advertisement
-        fields = ['id', 'title', 'url', 'image', 'status', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'url', 'image', 'specializations', 'status', 'created_at', 'updated_at']

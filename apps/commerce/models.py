@@ -208,3 +208,32 @@ class Category(TimeStampedUUIDModel):
 
     def __str__(self):
         return self.name
+
+
+class Wishlist(TimeStampedUUIDModel):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="wishlist"
+    )
+
+    def __str__(self):
+        return f"{self.user.email}'s Wishlist"
+
+class WishlistItem(TimeStampedUUIDModel):
+    wishlist = models.ForeignKey(
+        Wishlist,
+        on_delete=models.CASCADE,
+        related_name="items"
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="wishlist_entries"
+    )
+
+    class Meta:
+        unique_together = ("wishlist", "product")
+
+    def __str__(self):
+        return f"{self.product.name} in {self.wishlist}"

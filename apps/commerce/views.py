@@ -10,11 +10,12 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 
 from core.permissions import IsAdmin
-from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview
+from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem
 from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
     AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer,
-    ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer
+    ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer,
+    WishlistSerializer, AddToWishlistSerializer, WishlistItem
 )
 
 
@@ -341,6 +342,62 @@ class OrderHistoryView(APIView):
     def get(self, request):
         return Response({"message": "Order history not implemented yet"})
     
+# Get Wishlist
+class WishlistDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(responses={200: WishlistSerializer()})
+    def get(self, request):
+        wishlist, _ = Wishlist.objects.get_or_create(user=request.user)
+        serializer = WishlistSerializer(wishlist)
+        return Response({"success": True, "data": serializer.data})
+
+# Add Item to Wishlist
+class AddToWishlistView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=AddToWishlistSerializer,
+        responses={201: "Added to wishlist"}
+    )
+    def post(self, request):
+        serializer = AddToWishlistSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        wishlist, _ = Wishlist.objects.get_or_create(user=request.user)
+        product_id = serializer.validated_data["product_id"]
+
+        item, created = WishlistItem.objects.get_or_create(
+            wishlist=wishlist,
+            product_id=product_id
+        )
+
+        if not created:
+            return Response(
+                {"success": False, "detail": "Product already in wishlist"},
+                status=400
+            )
+
+        return Response(
+            {"success": True, "message": "Added to wishlist"},
+            status=201
+        )
+
+# Remove item from Wishlist
+class RemoveFromWishlistView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(responses={200: "Removed from wishlist"})
+    def delete(self, request, item_id):
+        deleted, _ = WishlistItem.objects.filter(
+            id=item_id,
+            wishlist__user=request.user
+        ).delete()
+
+        if not deleted:
+            return Response({"detail": "Item not found"}, status=404)
+
+        return Response({"success": True, "message": "Removed from wishlist"})
 
 
 #### ADMIN APIS FOR PRODUCTS ####

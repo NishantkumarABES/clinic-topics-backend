@@ -1,7 +1,9 @@
 import uuid
 from django.db import models
 from rest_framework import serializers
-from apps.commerce.models import Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon
+from apps.commerce.models import (
+    Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem
+)
 
 
 
@@ -248,6 +250,28 @@ class AddressUpdateSerializer(AddressCreateSerializer):
     pass
 
 
+
+class WishlistItemSerializer(serializers.ModelSerializer):
+    product = ProductListSerializer(read_only=True)
+
+    class Meta:
+        model = WishlistItem
+        fields = ["id", "product", "created_at"]
+
+class WishlistSerializer(serializers.ModelSerializer):
+    items = WishlistItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ["id", "items"]
+
+class AddToWishlistSerializer(serializers.Serializer):
+    product_id = serializers.UUIDField()
+
+    def validate_product_id(self, value):
+        if not Product.objects.filter(id=value, is_active=True).exists():
+            raise serializers.ValidationError("Product not found")
+        return value
 
 
 ########### ADMIN SERIALIZERS ###########

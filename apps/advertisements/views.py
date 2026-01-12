@@ -64,7 +64,6 @@ class AdvertisementCreateView(APIView):
             status=status.HTTP_400_BAD_REQUEST
         )
 
-
 class AdvertisementUpdateView(APIView):
     permission_classes = [IsAdmin]
     parser_classes = [MultiPartParser, FormParser]
@@ -135,7 +134,6 @@ class AdvertisementUpdateView(APIView):
             },
             status=status.HTTP_400_BAD_REQUEST
         )
-
 
 class AdvertisementListView(APIView):
     permission_classes = [IsAdmin]
@@ -224,7 +222,6 @@ class AdvertisementListView(APIView):
         response_data['success'] = True
         # Return paginated response
         return Response(response_data, status=status.HTTP_200_OK)
-
 
 class AdvertisementDetailView(APIView):
     permission_classes = [IsAdmin]
