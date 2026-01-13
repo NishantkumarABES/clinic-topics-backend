@@ -656,6 +656,31 @@ class AdminUserListView(APIView):
 
         return Response(response_data)
 
+class AdminAllUserListView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = AdminUserListPagination
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request):
+        search_term = request.query_params.get('search', '')
+        users = User.objects.filter(role__in=[UserRole.PATIENT, UserRole.DOCTOR])
+        users = users.order_by('-created_at')
+
+        if search_term:
+            users = users.filter(
+                Q(full_name__icontains=search_term) |
+                Q(email__icontains=search_term) |
+                Q(phone__icontains=search_term)
+            )
+        
+        paginator = self.pagination_class()
+        paginated_users = paginator.paginate_queryset(users, request)
+        serializer = UserListSerializer(paginated_users, many=True)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data['success'] = True
+
+        return Response(response_data)
+
 class UpdateUserView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     parser_classes = [JSONParser, MultiPartParser, FormParser]

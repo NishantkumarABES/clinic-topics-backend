@@ -108,7 +108,6 @@ class CouponSerializer(serializers.ModelSerializer):
             "is_active"
         ]
 
-    
 class ApplyCouponSerializer(serializers.Serializer):
     code = serializers.CharField()
 
@@ -262,11 +261,6 @@ class AddressCreateSerializer(serializers.ModelSerializer):
             "is_default",
         ]
 
-class AddressUpdateSerializer(AddressCreateSerializer):
-    pass
-
-
-
 class WishlistItemSerializer(serializers.ModelSerializer):
     product = ProductListSerializer(read_only=True)
 
@@ -289,7 +283,6 @@ class AddToWishlistSerializer(serializers.Serializer):
             raise serializers.ValidationError("Product not found")
         return value
 
-
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name", read_only=True)
     product_id = serializers.UUIDField(source="product.id", read_only=True)
@@ -303,7 +296,6 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "quantity",
             "price_at_purchase"
         ]
-
 
 class OrderHistorySerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
@@ -383,7 +375,6 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
 
         return instance
 
-
 ########### ADMIN ORDER SERIALIZERS ###########
 
 class AdminOrderItemSerializer(serializers.ModelSerializer):
@@ -418,7 +409,6 @@ class AdminOrderItemSerializer(serializers.ModelSerializer):
             "sku": product.sku,
         }
 
-
 class AdminAddressSerializer(serializers.ModelSerializer):
     """Address serializer for admin order views."""
 
@@ -434,7 +424,6 @@ class AdminAddressSerializer(serializers.ModelSerializer):
             "country",
         ]
 
-
 class AdminUserSerializer(serializers.Serializer):
     """User serializer for admin order views."""
     id = serializers.UUIDField()
@@ -443,23 +432,25 @@ class AdminUserSerializer(serializers.Serializer):
     phone = serializers.SerializerMethodField()
 
     def get_phone(self, obj):
-        return getattr(obj, "phone_number", None)
-
+        return getattr(obj, "phone", None)
 
 class AdminOrderListSerializer(serializers.ModelSerializer):
     """Order serializer for admin list view."""
     user = AdminUserSerializer(read_only=True)
+    address = AdminAddressSerializer(read_only=True)
     items_count = serializers.SerializerMethodField()
-
+    items = AdminOrderItemSerializer(many=True, read_only=True)
     class Meta:
         model = Order
         fields = [
             "id",
             "user",
+            "address",
             "status",
             "total_amount",
             "payment_method",
             "payment_reference",
+            "items",
             "items_count",
             "created_at",
             "updated_at",
@@ -467,7 +458,6 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
 
     def get_items_count(self, obj):
         return obj.items.count()
-
 
 class AdminOrderDetailSerializer(serializers.ModelSerializer):
     """Detailed order serializer for admin detail view."""
@@ -490,7 +480,6 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
 
-
 class UpdateOrderStatusSerializer(serializers.Serializer):
     """Serializer for updating order status."""
     status = serializers.ChoiceField(choices=[
@@ -498,3 +487,40 @@ class UpdateOrderStatusSerializer(serializers.Serializer):
         "shipped", "delivered", "cancelled", "refunded"
     ])
     note = serializers.CharField(required=False, allow_blank=True)
+
+class AdminCreateOrderItemSerializer(serializers.Serializer):
+    """Serializer for order items when creating an order."""
+    product_id = serializers.UUIDField()
+    quantity = serializers.IntegerField(min_value=1)
+
+class AdminCreateOrderSerializer(serializers.Serializer):
+    """Serializer for admin manual order creation."""
+    user_id = serializers.UUIDField()
+    address_id = serializers.UUIDField()
+    items = AdminCreateOrderItemSerializer(many=True, min_length=1)
+    payment_method = serializers.ChoiceField(choices=[
+        "card", "upi", "netbanking", "wallet", "cod"
+    ])
+    payment_reference = serializers.CharField(required=False, allow_blank=True, default="")
+    status = serializers.ChoiceField(
+        choices=["pending_payment", "paid", "processing", "shipped", "delivered", "cancelled", "refunded"],
+        default="pending_payment"
+    )
+
+    def validate_user_id(self, value):
+        from apps.accounts.models import User
+        if not User.objects.filter(id=value).exists():
+            raise serializers.ValidationError("User not found")
+        return value
+
+    def validate_address_id(self, value):
+        if not Address.objects.filter(id=value).exists():
+            raise serializers.ValidationError("Address not found")
+        return value
+
+    def validate_items(self, value):
+        for item in value:
+            if not Product.objects.filter(id=item["product_id"]).exists():
+                raise serializers.ValidationError(f"Product {item['product_id']} not found")
+        return value
+

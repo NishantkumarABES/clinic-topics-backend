@@ -10,13 +10,13 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 
 from core.permissions import IsAdmin
-from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order
+from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order, OrderItem
 from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
     AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer,
     ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer,
     WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer,
-    AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer
+    AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer, AdminCreateOrderSerializer
 )
 from django.utils import timezone
 from django.db.models import Sum
@@ -159,7 +159,6 @@ class RemoveCouponView(APIView):
             "success": True,
             "message": "Coupon removed"
         })
-
 
 class CartDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -522,7 +521,7 @@ class AdminCouponListCreateView(APIView):
     permission_classes = [IsAdmin]
     pagination_class = AdminCouponPagination
 
-    @swagger_auto_schema(responses={200: CouponSerializer(many=True)})
+    @swagger_auto_schema(responses={200: CouponSerializer(many=True)}, auto_schema=None)
     def get(self, request):
         search_term = request.query_params.get("search", None)
         status = request.query_params.get("status", None)
@@ -550,7 +549,8 @@ class AdminCouponListCreateView(APIView):
 
     @swagger_auto_schema(
         request_body=CouponSerializer,
-        responses={201: "Coupon created"}
+        responses={201: "Coupon created"},
+        auto_schema=None
     )
     def post(self, request):
         serializer = CouponSerializer(data=request.data)
@@ -563,7 +563,8 @@ class AdminCouponUpdateDestroyView(APIView):
 
     @swagger_auto_schema(
         request_body=CouponSerializer,
-        responses={200: "Coupon updated"}
+        responses={200: "Coupon updated"},
+        auto_schema=None
     )
     def patch(self, request, coupon_id):
         coupon = get_object_or_404(Coupon, id=coupon_id)
@@ -572,7 +573,7 @@ class AdminCouponUpdateDestroyView(APIView):
         coupon = serializer.save()
         return Response({"success": True, "data": CouponSerializer(coupon).data})
     
-    @swagger_auto_schema(responses={200: "Coupon deleted"})
+    @swagger_auto_schema(responses={200: "Coupon deleted"}, auto_schema=None)
     def delete(self, request, coupon_id):
         coupon = get_object_or_404(Coupon, id=coupon_id)
         coupon.delete()
@@ -585,7 +586,6 @@ class AdminOrderPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
-
 
 class AdminOrderListAPIView(APIView):
     """Admin endpoint to list orders with filters and analytics."""
@@ -630,6 +630,92 @@ class AdminOrderListAPIView(APIView):
 
         return Response(response_data)
 
+    @swagger_auto_schema(auto_schema=None)
+    def post(self, request):
+        """Create a new order manually."""
+        from apps.accounts.models import User
+        from decimal import Decimal
+        
+        serializer = AdminCreateOrderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        # Get user and address
+        user = User.objects.get(id=data["user_id"])
+        address = Address.objects.get(id=data["address_id"])
+
+        # Calculate total amount from items
+        total_amount = Decimal("0.00")
+        order_items_data = []
+        
+        for item in data["items"]:
+            product = Product.objects.get(id=item["product_id"])
+            # Calculate final price (with discount and tax)
+            price = product.price
+            if product.discount_percentage > 0:
+                price -= (price * product.discount_percentage / Decimal("100"))
+            tax = price * (product.tax_percentage / Decimal("100"))
+            final_price = round(price + tax, 2) * item["quantity"]
+            
+            total_amount += final_price
+            order_items_data.append({
+                "product": product,
+                "quantity": item["quantity"],
+                "price_at_purchase": final_price
+            })
+
+        # Create order
+        with transaction.atomic():
+            order = Order.objects.create(
+                user=user,
+                address=address,
+                status=data.get("status", "pending_payment"),
+                total_amount=total_amount,
+                payment_method=data["payment_method"],
+                payment_reference=data.get("payment_reference", "")
+            )
+
+            # Create order items
+            for item_data in order_items_data:
+                OrderItem.objects.create(
+                    order=order,
+                    product=item_data["product"],
+                    quantity=item_data["quantity"],
+                    price_at_purchase=item_data["price_at_purchase"]
+                )
+
+        return Response(
+            {
+                "success": True,
+                "message": "Order created successfully",
+                "data": AdminOrderDetailSerializer(order, context={"request": request}).data
+            },
+            status=status.HTTP_201_CREATED
+        )
+
+class AdminUserAddressListView(APIView):
+    """Admin endpoint to get addresses for a specific user."""
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request, user_id):
+        from apps.accounts.models import User
+        
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"success": False, "detail": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        addresses = Address.objects.filter(user=user).order_by("-is_default", "-created_at")
+        serializer = AddressSerializer(addresses, many=True)
+        
+        return Response({
+            "success": True,
+            "results": serializer.data
+        })
 
 class AdminOrderAnalyticsAPIView(APIView):
     """Admin endpoint to get order analytics."""
@@ -665,7 +751,6 @@ class AdminOrderAnalyticsAPIView(APIView):
             "total_revenue_today": float(total_revenue_today),
         })
 
-
 class AdminOrderDetailAPIView(APIView):
     """Admin endpoint to get order details."""
     permission_classes = [IsAdmin]
@@ -678,7 +763,6 @@ class AdminOrderDetailAPIView(APIView):
             "success": True,
             "data": serializer.data
         })
-
 
 class AdminOrderUpdateStatusAPIView(APIView):
     """Admin endpoint to update order status."""

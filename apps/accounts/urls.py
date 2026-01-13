@@ -2,7 +2,7 @@ from django.urls import path
 from apps.accounts.views import (
     LogoutView, PhoneOTPRequestView, PhoneOTPVerifyView, PasswordResetRequestView, PasswordResetConfirmView,
     DeactivateAccountView, ReactivateAccountView, DeleteAccountView, EmailOTPRequestView, EmailOTPVerifyView, RegisterView, UserMeView,
-    AdminUserListView, EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView
+    AdminUserListView, EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView, AdminAllUserListView
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -34,4 +34,5 @@ urlpatterns = [
 
     # Admin endpoints
     path("admin/users/<str:role>", AdminUserListView.as_view(), name="admin-user-list"),
+    path("admin/all-users/", AdminAllUserListView.as_view(), name="admin-all-user-list"),
 ]
