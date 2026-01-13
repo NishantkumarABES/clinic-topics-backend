@@ -2,10 +2,8 @@ import uuid
 from django.db import models
 from rest_framework import serializers
 from apps.commerce.models import (
-    Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem,
-    Order, OrderItem
+    Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem, Order, OrderItem
 )
-
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -261,6 +259,23 @@ class AddressCreateSerializer(serializers.ModelSerializer):
             "is_default",
         ]
 
+class AddressUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Address
+        fields = [
+            "name",
+            "phone",
+            "country_code",
+            "address_line",
+            "address_line2",
+            "city",
+            "state",
+            "postal_code",
+            "country",
+            "address_type",
+            "is_default",
+        ]
+
 class WishlistItemSerializer(serializers.ModelSerializer):
     product = ProductListSerializer(read_only=True)
 
@@ -317,6 +332,14 @@ class OrderHistorySerializer(serializers.ModelSerializer):
     def get_address_summary(self, obj):
         addr = obj.address
         return f"{addr.address_line}, {addr.city}, {addr.state}, {addr.postal_code}"
+
+
+
+
+
+
+
+
 ########### ADMIN SERIALIZERS ###########
 class AdminProductImageSerializer(serializers.ModelSerializer):
     class Meta:
