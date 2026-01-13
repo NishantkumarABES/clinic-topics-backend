@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -7,6 +8,7 @@ from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
+from apps.accounts.constants import UserRole
 from apps.advertisements.models import Advertisement
 from apps.advertisements.serializers import AdvertisementSerializer, AdvertisementListSerializer
 from core.permissions import IsAdmin
@@ -17,6 +19,58 @@ class AdvertisementPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+class UserAdvertisementListView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = AdvertisementPagination
+
+    @swagger_auto_schema(
+        operation_description="List user's advertisements",
+        responses={
+            200: openapi.Response(
+                description="List of advertisements",
+                schema=AdvertisementListSerializer(many=True),
+            ),
+            401: openapi.Response(
+                description="Unauthorized",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                        "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                    },
+                ),
+            ),
+        },
+    )
+    def get(self, request):
+        user = request.user
+
+        # Start with only enabled advertisements
+        queryset = Advertisement.objects.filter(status='enabled')
+
+        if user.role == UserRole.DOCTOR:
+            # For doctors, filter by matching specialization
+            try:
+                doctor_profile = user.doctor_profile
+                doctor_specialty = doctor_profile.specialization
+
+                if doctor_specialty:
+                    # Filter advertisements where specializations contains the doctor's specialty
+                    queryset = queryset.filter(specializations__contains=[doctor_specialty])
+            except AttributeError:
+                # Doctor profile doesn't exist, return empty queryset
+                queryset = Advertisement.objects.none()
+
+        # Paginate results
+        paginator = self.pagination_class()
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
+
+        # Serialize data
+        serializer = AdvertisementListSerializer(paginated_queryset, many=True)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data['success'] = True
+
+        return Response(response_data, status=status.HTTP_200_OK)
 
 class AdvertisementCreateView(APIView):
     permission_classes = [IsAdmin]

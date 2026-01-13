@@ -2,11 +2,13 @@ from django.db import models
 from django.conf import settings
 from core.models import TimeStampedUUIDModel
 
+
 class PageType(models.TextChoices):
     PRIVACY_POLICY = "privacy_policy", "Privacy Policy"
-    TERMS = "terms_conditions", "Terms & Conditions"
+    TERMS_CONDITIONS = "terms_and_conditions", "Terms & Conditions"
     ABOUT = "about_us", "About Us"
     COOKIE = "cookie_policy", "Cookie Policy"
+    CONTACT = "contact_us", "Contact Us"
 
 
 class StaticPage(models.Model):
@@ -45,6 +47,7 @@ class StaticPageVersion(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.page.page_type} v{self.version}"
+
 
 class ContactUsSubmission(TimeStampedUUIDModel):
     name = models.CharField(max_length=255)

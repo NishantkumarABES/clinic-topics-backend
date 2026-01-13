@@ -1,30 +1,36 @@
 class OrderStatus:
-    PENDING = 'pending'
+    PENDING_PAYMENT = 'pending_payment'
     PAID = 'paid'
     PROCESSING = 'processing'
     SHIPPED = 'shipped'
     DELIVERED = 'delivered'
-    CANCELED = 'canceled'
+    CANCELLED = 'cancelled'
+    REFUNDED = 'refunded'
 
     CHOICES = [
-        (PENDING, 'Pending'),
+        (PENDING_PAYMENT, 'Pending Payment'),
         (PAID, 'Paid'),
         (PROCESSING, 'Processing'),
         (SHIPPED, 'Shipped'),
         (DELIVERED, 'Delivered'),
-        (CANCELED, 'Canceled'),
+        (CANCELLED, 'Cancelled'),
+        (REFUNDED, 'Refunded'),
     ]
 
 
 class PaymentMethod:
-    CREDIT_CARD = 'credit_card'
-    PAYPAL = 'paypal'
-    BANK_TRANSFER = 'bank_transfer'
+    CARD = 'card'
+    UPI = 'upi'
+    NETBANKING = 'netbanking'
+    WALLET = 'wallet'
+    COD = 'cod'
 
     CHOICES = [
-        (CREDIT_CARD, 'Credit Card'),
-        (PAYPAL, 'PayPal'),
-        (BANK_TRANSFER, 'Bank Transfer'),
+        (CARD, 'Credit/Debit Card'),
+        (UPI, 'UPI'),
+        (NETBANKING, 'Net Banking'),
+        (WALLET, 'Wallet'),
+        (COD, 'Cash on Delivery'),
     ]
 
 

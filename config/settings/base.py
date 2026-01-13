@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.cms.app.CMSConfig",
     "apps.advertisements.app.AdvertisementsConfig",
     "apps.CIMS.app.CIMSConfig",
+    "apps.advisory.app.AdvisoryConfig",
     "core.app.CoreConfig",
 ]
 

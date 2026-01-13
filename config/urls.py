@@ -48,6 +48,8 @@ urlpatterns = [
     path("api/v1/analytics/", include(("apps.analytics.urls", "analytics"), namespace="analytics")),
     path("api/v1/cms/", include(("apps.cms.urls", "cms"), namespace="cms")),
     path("api/v1/advertisements/", include(("apps.advertisements.urls", "advertisements"), namespace="advertisements")),
+    path("api/v1/", include(("apps.CIMS.urls", "cims"), namespace="cims")),
+    path("api/v1/", include(("apps.advisory.urls", "advisory"), namespace="advisory")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

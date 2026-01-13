@@ -1,11 +1,27 @@
 from django.urls import path
-from apps.cms.views import StaticPageView, AdminStaticPageUpdateView, AdminPublishStaticPageView
+from apps.cms.views import (
+    StaticPageView, 
+    ContactUsSubmitView,
+    AdminSettingsListView,
+    AdminSettingDetailView,
+    AdminSettingVersionsView,
+    AdminPublishVersionView,
+    AdminContactListView,
+    AdminContactUpdateView,
+)
 
 urlpatterns = [
-    # Public
-    path("pages/<str:page_type>/", StaticPageView.as_view()),
+    # Public endpoints
+    path("pages/<str:page_type>/", StaticPageView.as_view(), name="static-page"),
+    path("contact/submit/", ContactUsSubmitView.as_view(), name="contact-submit"),
 
-    # Admin CMS
-    path("admin/pages/<str:page_type>/update/", AdminStaticPageUpdateView.as_view()),
-    path("admin/pages/version/<uuid:version_id>/publish/", AdminPublishStaticPageView.as_view()),
+    # Admin Settings endpoints
+    path("admin/settings/", AdminSettingsListView.as_view(), name="admin-settings-list"),
+    path("admin/settings/<str:page_type>/", AdminSettingDetailView.as_view(), name="admin-setting-detail"),
+    path("admin/settings/<str:page_type>/versions/", AdminSettingVersionsView.as_view(), name="admin-setting-versions"),
+    path("admin/versions/<uuid:version_id>/publish/", AdminPublishVersionView.as_view(), name="admin-publish-version"),
+
+    # Admin Contact endpoints
+    path("admin/contacts/", AdminContactListView.as_view(), name="admin-contact-list"),
+    path("admin/contacts/<uuid:contact_id>/", AdminContactUpdateView.as_view(), name="admin-contact-update"),
 ]

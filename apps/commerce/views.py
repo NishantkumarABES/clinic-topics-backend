@@ -15,8 +15,12 @@ from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
     AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer,
     ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer,
-    WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer
+    WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer,
+    AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer
 )
+from django.utils import timezone
+from django.db.models import Sum
+from datetime import timedelta
 
 
 class ProductListPagination(PageNumberPagination):
@@ -573,3 +577,125 @@ class AdminCouponUpdateDestroyView(APIView):
         coupon = get_object_or_404(Coupon, id=coupon_id)
         coupon.delete()
         return Response({"success": True, "message": "Coupon deleted"})
+
+
+#### ADMIN APIS FOR ORDERS ####
+
+class AdminOrderPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
+
+class AdminOrderListAPIView(APIView):
+    """Admin endpoint to list orders with filters and analytics."""
+    permission_classes = [IsAdmin]
+    pagination_class = AdminOrderPagination
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request):
+        # Get filter parameters
+        search = request.query_params.get("search")
+        status_filter = request.query_params.get("status")
+        date_from = request.query_params.get("date_from")
+        date_to = request.query_params.get("date_to")
+
+        # Base queryset
+        queryset = Order.objects.all().order_by("-created_at")
+
+        # Apply filters
+        if search:
+            queryset = queryset.filter(
+                Q(id__icontains=search) |
+                Q(user__full_name__icontains=search) |
+                Q(user__email__icontains=search)
+            )
+
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        if date_from:
+            queryset = queryset.filter(created_at__date__gte=date_from)
+
+        if date_to:
+            queryset = queryset.filter(created_at__date__lte=date_to)
+
+        # Paginate
+        paginator = self.pagination_class()
+        paginated_orders = paginator.paginate_queryset(queryset, request)
+
+        serializer = AdminOrderListSerializer(paginated_orders, many=True, context={"request": request})
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data["success"] = True
+
+        return Response(response_data)
+
+
+class AdminOrderAnalyticsAPIView(APIView):
+    """Admin endpoint to get order analytics."""
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request):
+        today = timezone.now().date()
+        today_start = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.min.time()))
+
+        # Get today's orders
+        today_orders = Order.objects.filter(created_at__gte=today_start)
+
+        # Calculate analytics
+        total_orders_today = today_orders.count()
+        pending_payments = Order.objects.filter(status="pending_payment").count()
+        processing_orders = Order.objects.filter(status="processing").count()
+        delivered_orders = Order.objects.filter(status="delivered").count()
+        cancelled_orders = Order.objects.filter(status="cancelled").count()
+
+        # Today's revenue (from delivered orders)
+        total_revenue_today = today_orders.filter(
+            status__in=["paid", "processing", "shipped", "delivered"]
+        ).aggregate(total=Sum("total_amount"))["total"] or 0
+
+        return Response({
+            "success": True,
+            "total_orders_today": total_orders_today,
+            "pending_payments": pending_payments,
+            "processing_orders": processing_orders,
+            "delivered_orders": delivered_orders,
+            "cancelled_orders": cancelled_orders,
+            "total_revenue_today": float(total_revenue_today),
+        })
+
+
+class AdminOrderDetailAPIView(APIView):
+    """Admin endpoint to get order details."""
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+        serializer = AdminOrderDetailSerializer(order, context={"request": request})
+        return Response({
+            "success": True,
+            "data": serializer.data
+        })
+
+
+class AdminOrderUpdateStatusAPIView(APIView):
+    """Admin endpoint to update order status."""
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(auto_schema=None)
+    def patch(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+
+        serializer = UpdateOrderStatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        order.status = serializer.validated_data["status"]
+        order.save(update_fields=["status", "updated_at"])
+
+        return Response({
+            "success": True,
+            "message": "Order status updated successfully",
+            "data": AdminOrderDetailSerializer(order, context={"request": request}).data
+        })

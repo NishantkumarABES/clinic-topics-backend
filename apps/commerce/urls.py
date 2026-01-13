@@ -3,7 +3,8 @@ from apps.commerce.views import (
     ProductListView, ProductDetailView, CartDetailView, AddToCartView, UpdateCartItemView, RemoveCartItemView, AddressListCreateView, 
     AddressDetailView, AdminProductListCreateAPIView, AdminProductUpdateAPIView, ProductReviewListView, CreateUpdateProductReviewView, 
     ApplyCouponView, RemoveCouponView, AdminCouponListCreateView, AdminCouponUpdateDestroyView, WishlistDetailView, AddToWishlistView, 
-    RemoveFromWishlistView, OrderHistoryView, OrderDetailView
+    RemoveFromWishlistView, OrderHistoryView, OrderDetailView,
+    AdminOrderListAPIView, AdminOrderAnalyticsAPIView, AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView
 )
 
 urlpatterns = [
@@ -33,4 +34,11 @@ urlpatterns = [
     path("admin/products/<uuid:product_id>/", AdminProductUpdateAPIView.as_view()),
     path("admin/coupons/", AdminCouponListCreateView.as_view()),
     path("admin/coupons/<uuid:coupon_id>/", AdminCouponUpdateDestroyView.as_view()),
+
+    # Admin Order endpoints
+    path("admin/orders/", AdminOrderListAPIView.as_view(), name="admin-order-list"),
+    path("admin/orders/analytics/", AdminOrderAnalyticsAPIView.as_view(), name="admin-order-analytics"),
+    path("admin/orders/<uuid:order_id>/", AdminOrderDetailAPIView.as_view(), name="admin-order-detail"),
+    path("admin/orders/<uuid:order_id>/status/", AdminOrderUpdateStatusAPIView.as_view(), name="admin-order-status"),
 ]
+

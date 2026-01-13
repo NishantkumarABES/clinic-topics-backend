@@ -382,3 +382,119 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
                 ProductImage.objects.create(product=instance, image=image)
 
         return instance
+
+
+########### ADMIN ORDER SERIALIZERS ###########
+
+class AdminOrderItemSerializer(serializers.ModelSerializer):
+    """Order item serializer for admin with product details."""
+    product = serializers.SerializerMethodField()
+    final_price = serializers.DecimalField(source="price_at_purchase", max_digits=10, decimal_places=2)
+
+    class Meta:
+        model = OrderItem
+        fields = [
+            "id",
+            "product",
+            "quantity",
+            "final_price",
+        ]
+
+    def get_product(self, obj):
+        product = obj.product
+        image_obj = product.images.first()
+        image_url = None
+        if image_obj and image_obj.image:
+            request = self.context.get("request")
+            if request:
+                image_url = request.build_absolute_uri(image_obj.image.url)
+            else:
+                image_url = image_obj.image.url
+
+        return {
+            "id": str(product.id),
+            "name": product.name,
+            "image_url": image_url,
+            "sku": product.sku,
+        }
+
+
+class AdminAddressSerializer(serializers.ModelSerializer):
+    """Address serializer for admin order views."""
+
+    class Meta:
+        model = Address
+        fields = [
+            "name",
+            "phone",
+            "address_line",
+            "city",
+            "state",
+            "postal_code",
+            "country",
+        ]
+
+
+class AdminUserSerializer(serializers.Serializer):
+    """User serializer for admin order views."""
+    id = serializers.UUIDField()
+    name = serializers.CharField(source="full_name")
+    email = serializers.EmailField()
+    phone = serializers.SerializerMethodField()
+
+    def get_phone(self, obj):
+        return getattr(obj, "phone_number", None)
+
+
+class AdminOrderListSerializer(serializers.ModelSerializer):
+    """Order serializer for admin list view."""
+    user = AdminUserSerializer(read_only=True)
+    items_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "user",
+            "status",
+            "total_amount",
+            "payment_method",
+            "payment_reference",
+            "items_count",
+            "created_at",
+            "updated_at",
+        ]
+
+    def get_items_count(self, obj):
+        return obj.items.count()
+
+
+class AdminOrderDetailSerializer(serializers.ModelSerializer):
+    """Detailed order serializer for admin detail view."""
+    user = AdminUserSerializer(read_only=True)
+    address = AdminAddressSerializer(read_only=True)
+    items = AdminOrderItemSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Order
+        fields = [
+            "id",
+            "user",
+            "address",
+            "status",
+            "total_amount",
+            "payment_method",
+            "payment_reference",
+            "items",
+            "created_at",
+            "updated_at",
+        ]
+
+
+class UpdateOrderStatusSerializer(serializers.Serializer):
+    """Serializer for updating order status."""
+    status = serializers.ChoiceField(choices=[
+        "pending_payment", "paid", "processing", 
+        "shipped", "delivered", "cancelled", "refunded"
+    ])
+    note = serializers.CharField(required=False, allow_blank=True)
