@@ -7,6 +7,7 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 
+from apps.profiles.models import DoctorProfile
 from apps.advisory.models import AdvisoryMember
 from apps.advisory.serializers import (
     AdvisoryMemberReadSerializer,
@@ -67,6 +68,59 @@ class AdminAdvisoryListCreateAPIView(APIView):
         )
 
 
+class AdminAdvisoryFromDoctorAPIView(APIView):
+    """Admin endpoint to create advisory member from existing doctor."""
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(auto_schema=None)
+    def post(self, request):
+        
+        
+        doctor_id = request.data.get("doctor_id")
+        if not doctor_id:
+            return Response(
+                {"success": False, "error": "doctor_id is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        try:
+            doctor = DoctorProfile.objects.select_related("user").get(user_id=doctor_id)
+        except DoctorProfile.DoesNotExist:
+            return Response(
+                {"success": False, "error": "Doctor not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Check if advisory member with this email already exists
+        if AdvisoryMember.objects.filter(email=doctor.user.email).exists():
+            return Response(
+                {"success": False, "error": "This doctor is already an advisory member"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Create advisory member from doctor data
+        member = AdvisoryMember.objects.create(
+            full_name=doctor.user.full_name,
+            email=doctor.user.email,
+            phone=doctor.user.phone or "",
+            gender=doctor.user.gender,
+            date_of_birth=doctor.user.date_of_birth,
+            specialization=doctor.specialization or "",
+            years_of_experience=doctor.years_of_experience or 0,
+            bio=doctor.bio or "",
+            image=doctor.profile_photo if doctor.profile_photo else None,
+            status="active"
+        )
+        
+        return Response(
+            {
+                "success": True,
+                "message": "Doctor added to advisory panel successfully",
+                "data": AdvisoryMemberReadSerializer(member).data
+            },
+            status=status.HTTP_201_CREATED
+        )
+
 class AdminAdvisoryUpdateDeleteAPIView(APIView):
     """Admin endpoint to update or delete advisory members."""
     permission_classes = [IsAdminUser]
@@ -106,28 +160,6 @@ class AdminAdvisoryUpdateDeleteAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
-
-class AdminAdvisoryAnalyticsAPIView(APIView):
-    """Admin endpoint to get advisory analytics."""
-    permission_classes = [IsAdminUser]
-
-    @swagger_auto_schema(auto_schema=None)
-    def get(self, request):
-        total_members = AdvisoryMember.objects.count()
-        active_members = AdvisoryMember.objects.filter(status="active").count()
-        inactive_members = AdvisoryMember.objects.filter(status="inactive").count()
-
-        return Response(
-            {
-                "success": True,
-                "total_members": total_members,
-                "active_members": active_members,
-                "inactive_members": inactive_members,
-            },
-            status=status.HTTP_200_OK
-        )
-
-
 # ============================================
 # USER ENDPOINTS (Authenticated Users)
 # ============================================
@@ -159,7 +191,6 @@ class AdvisoryListAPIView(APIView):
         response = paginator.get_paginated_response(serializer.data)
         response.data["success"] = True
         return response
-
 
 class AdvisoryDetailAPIView(APIView):
     """Get a single active advisory member for authenticated users."""

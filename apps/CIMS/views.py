@@ -18,6 +18,8 @@ class AdminCIMSListCreateAPIView(APIView):
     def get(self, request):
         search = request.query_params.get("search")
         status_filter = request.query_params.get("status")
+        therapeutic_category_filter = request.query_params.get("therapeutic_category")
+        drug_class_filter = request.query_params.get("drug_class")
 
         queryset = CIMS.objects.all()
 
@@ -30,6 +32,12 @@ class AdminCIMSListCreateAPIView(APIView):
 
         if status_filter:
             queryset = queryset.filter(status=status_filter)
+        
+        if therapeutic_category_filter:
+            queryset = queryset.filter(therapeutic_category=therapeutic_category_filter)
+
+        if drug_class_filter:
+            queryset = queryset.filter(drug_class=drug_class_filter)
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
