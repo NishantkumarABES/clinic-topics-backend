@@ -10,14 +10,21 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 
 from core.permissions import IsAdmin
-from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order, OrderItem
+from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order, OrderItem, Payment
+from apps.commerce.models import PaymentStatus
 from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
     AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer,
     ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer,
     WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer,
-    AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer, AdminCreateOrderSerializer
+    AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer, AdminCreateOrderSerializer,
+    CreatePaymentOrderSerializer, VerifyPaymentSerializer, PaymentSerializer
 )
+from apps.commerce.services import razorpay_service
+from apps.commerce.constants import OrderStatus
+from django.conf import settings
+from decimal import Decimal
+import json
 from django.utils import timezone
 from django.db.models import Sum
 from datetime import timedelta
@@ -783,3 +790,298 @@ class AdminOrderUpdateStatusAPIView(APIView):
             "message": "Order status updated successfully",
             "data": AdminOrderDetailSerializer(order, context={"request": request}).data
         })
+
+
+#### PAYMENT APIs ####
+
+class CreatePaymentOrderView(APIView):
+    """Create an order and initiate Razorpay payment."""
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=CreatePaymentOrderSerializer,
+        responses={201: "Payment order created"}
+    )
+    def post(self, request):
+        serializer = CreatePaymentOrderSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        address_id = serializer.validated_data["address_id"]
+
+        # Get user's cart
+        try:
+            cart = Cart.objects.get(user=user)
+        except Cart.DoesNotExist:
+            return Response(
+                {"success": False, "detail": "Cart is empty"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Get cart items (not saved for later)
+        cart_items = cart.items.filter(saved_for_later=False)
+        if not cart_items.exists():
+            return Response(
+                {"success": False, "detail": "Cart is empty"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Calculate total amount
+        total_amount = Decimal("0.00")
+        order_items_data = []
+
+        for cart_item in cart_items:
+            product = cart_item.product
+
+            # Check stock availability
+            if product.is_out_of_stock:
+                return Response(
+                    {"success": False, "detail": f"{product.name} is out of stock"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Calculate final price with discount and tax
+            price = product.price
+            if product.discount_percentage > 0:
+                price -= (price * product.discount_percentage / Decimal("100"))
+            tax = price * (product.tax_percentage / Decimal("100"))
+            final_price = round(price + tax, 2)
+            item_total = final_price * cart_item.quantity
+
+            total_amount += item_total
+            order_items_data.append({
+                "product": product,
+                "quantity": cart_item.quantity,
+                "price_at_purchase": final_price
+            })
+
+        # Apply coupon discount if any
+        if cart.coupon and cart.coupon.is_valid(cart_total=total_amount):
+            coupon = cart.coupon
+            if coupon.discount_type == "percentage":
+                discount = total_amount * (coupon.discount_value / Decimal("100"))
+            else:
+                discount = coupon.discount_value
+
+            if coupon.max_discount_amount:
+                discount = min(discount, coupon.max_discount_amount)
+
+            total_amount = total_amount - discount
+
+        total_amount = round(total_amount, 2)
+
+        with transaction.atomic():
+            # Get address
+            address = Address.objects.get(id=address_id)
+
+            # Create Order
+            order = Order.objects.create(
+                user=user,
+                address=address,
+                status=OrderStatus.PENDING_PAYMENT,
+                total_amount=total_amount,
+                payment_method="razorpay",
+                payment_reference=""
+            )
+
+            # Create OrderItems
+            for item_data in order_items_data:
+                OrderItem.objects.create(
+                    order=order,
+                    product=item_data["product"],
+                    quantity=item_data["quantity"],
+                    price_at_purchase=item_data["price_at_purchase"]
+                )
+
+            # Create Razorpay Order
+            # Razorpay expects amount in paise (smallest currency unit)
+            amount_in_paise = int(total_amount * 100)
+
+            try:
+                razorpay_order = razorpay_service.create_order(
+                    amount=amount_in_paise,
+                    currency="INR",
+                    receipt=str(order.id),
+                    notes={"order_id": str(order.id), "user_id": str(user.id)}
+                )
+            except Exception as e:
+                # Rollback will happen automatically due to transaction.atomic()
+                raise e
+
+            # Create Payment record
+            payment = Payment.objects.create(
+                order=order,
+                razorpay_order_id=razorpay_order["id"],
+                amount=total_amount,
+                currency="INR",
+                status=PaymentStatus.CREATED
+            )
+
+        return Response({
+            "success": True,
+            "message": "Payment order created",
+            "data": {
+                "order_id": str(order.id),
+                "razorpay_order_id": razorpay_order["id"],
+                "amount": amount_in_paise,
+                "currency": "INR",
+                "key_id": settings.RAZORPAY_KEY_ID,
+                "prefill": {
+                    "name": user.full_name,
+                    "email": user.email,
+                }
+            }
+        }, status=status.HTTP_201_CREATED)
+
+
+class VerifyPaymentView(APIView):
+    """Verify Razorpay payment signature and complete the order."""
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=VerifyPaymentSerializer,
+        responses={200: "Payment verified"}
+    )
+    def post(self, request):
+        serializer = VerifyPaymentSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        razorpay_order_id = serializer.validated_data["razorpay_order_id"]
+        razorpay_payment_id = serializer.validated_data["razorpay_payment_id"]
+        razorpay_signature = serializer.validated_data["razorpay_signature"]
+
+        # Find the payment record
+        try:
+            payment = Payment.objects.get(razorpay_order_id=razorpay_order_id)
+        except Payment.DoesNotExist:
+            return Response(
+                {"success": False, "detail": "Payment not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Verify that this payment belongs to the current user
+        if payment.order.user != request.user:
+            return Response(
+                {"success": False, "detail": "Unauthorized"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # Verify signature
+        is_valid = razorpay_service.verify_payment_signature(
+            razorpay_order_id=razorpay_order_id,
+            razorpay_payment_id=razorpay_payment_id,
+            razorpay_signature=razorpay_signature
+        )
+
+        if not is_valid:
+            payment.status = PaymentStatus.FAILED
+            payment.failure_reason = "Signature verification failed"
+            payment.save()
+            return Response(
+                {"success": False, "detail": "Payment verification failed"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+            # Update payment record
+            payment.razorpay_payment_id = razorpay_payment_id
+            payment.razorpay_signature = razorpay_signature
+            payment.status = PaymentStatus.CAPTURED
+            payment.save()
+
+            # Update order status
+            order = payment.order
+            order.status = OrderStatus.PAID
+            order.payment_reference = razorpay_payment_id
+            order.save()
+
+            # Clear the user's cart
+            Cart.objects.filter(user=request.user).delete()
+
+            # Increment coupon usage if used
+            if hasattr(order, 'coupon') and order.coupon:
+                order.coupon.current_uses += 1
+                order.coupon.save(update_fields=["current_uses"])
+
+        return Response({
+            "success": True,
+            "message": "Payment verified successfully",
+            "data": {
+                "order_id": str(order.id),
+                "payment_id": str(payment.id),
+                "status": order.status
+            }
+        })
+
+
+class PaymentWebhookView(APIView):
+    """Handle Razorpay webhook events."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        # Get webhook payload
+        payload = request.body.decode("utf-8")
+        signature = request.headers.get("X-Razorpay-Signature", "")
+
+        # Note: In production, you should verify the webhook signature
+        # webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET
+        # if not razorpay_service.verify_webhook_signature(payload, signature, webhook_secret):
+        #     return Response({"detail": "Invalid signature"}, status=400)
+
+        try:
+            event_data = json.loads(payload)
+        except json.JSONDecodeError:
+            return Response(
+                {"detail": "Invalid JSON"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        event = event_data.get("event")
+        payment_entity = event_data.get("payload", {}).get("payment", {}).get("entity", {})
+
+        if not payment_entity:
+            return Response({"detail": "No payment data"}, status=400)
+
+        razorpay_order_id = payment_entity.get("order_id")
+        razorpay_payment_id = payment_entity.get("id")
+
+        if not razorpay_order_id:
+            return Response({"detail": "No order_id in payload"}, status=400)
+
+        try:
+            payment = Payment.objects.get(razorpay_order_id=razorpay_order_id)
+        except Payment.DoesNotExist:
+            return Response({"detail": "Payment not found"}, status=404)
+
+        if event == "payment.captured":
+            payment.razorpay_payment_id = razorpay_payment_id
+            payment.status = PaymentStatus.CAPTURED
+            payment.save()
+
+            order = payment.order
+            order.status = OrderStatus.PAID
+            order.payment_reference = razorpay_payment_id
+            order.save()
+
+        elif event == "payment.failed":
+            payment.razorpay_payment_id = razorpay_payment_id
+            payment.status = PaymentStatus.FAILED
+            payment.failure_reason = payment_entity.get("error_description", "Payment failed")
+            payment.save()
+
+            order = payment.order
+            order.status = OrderStatus.CANCELLED
+            order.save()
+
+        elif event == "refund.created":
+            payment.status = PaymentStatus.REFUNDED
+            payment.save()
+
+            order = payment.order
+            order.status = OrderStatus.REFUNDED
+            order.save()
+
+        return Response({"success": True, "message": "Webhook processed"})

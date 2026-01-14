@@ -46,3 +46,18 @@ class ProductCategory:
         (MONITORING, 'Monitoring'),
         (SUPPLIES, 'Supplies'),
     ]
+
+class PaymentStatus:
+    CREATED = 'created'
+    AUTHORIZED = 'authorized'
+    CAPTURED = 'captured'
+    FAILED = 'failed'
+    REFUNDED = 'refunded'
+
+    CHOICES = [
+        (CREATED, 'Created'),
+        (AUTHORIZED, 'Authorized'),
+        (CAPTURED, 'Captured'),
+        (FAILED, 'Failed'),
+        (REFUNDED, 'Refunded'),
+    ]

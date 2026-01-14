@@ -7,12 +7,24 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
     phone = serializers.CharField(source="user.phone", read_only=True)
     country_code = serializers.CharField(source="user.country_code", read_only=True)
-    date_of_birth = serializers.DateField(source="user.date_of_birth", read_only=True)
-    gender = serializers.CharField(source="user.gender", read_only=True)
+    # Writable mapped fields
+    date_of_birth = serializers.DateField(source="user.date_of_birth", required=False)
+    gender = serializers.CharField(source="user.gender", required=False)
     
     class Meta:
         model = DoctorProfile
         exclude = ("id", "created_at", "updated_at", "user")
+    
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", {})
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        user = instance.user
+        for attr, value in user_data.items():
+            setattr(user, attr, value)
+        user.save()
+        return instance
 
 
 class PatientProfileSerializer(serializers.ModelSerializer):
@@ -20,14 +32,24 @@ class PatientProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source="user.email", read_only=True)
     phone = serializers.CharField(source="user.phone", read_only=True)
     country_code = serializers.CharField(source="user.country_code", read_only=True)
-    date_of_birth = serializers.DateField(source="user.date_of_birth", read_only=True)
-    gender = serializers.CharField(source="user.gender", read_only=True)
+    # Writable mapped fields
+    date_of_birth = serializers.DateField(source="user.date_of_birth", required=False)
+    gender = serializers.CharField(source="user.gender", required=False)
 
     class Meta:
         model = PatientProfile
         exclude = ("id", "created_at", "updated_at", "user")
 
-    
+    def update(self, instance, validated_data):
+        user_data = validated_data.pop("user", {})
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        user = instance.user
+        for attr, value in user_data.items():
+            setattr(user, attr, value)
+        user.save()
+        return instance
 
 
 

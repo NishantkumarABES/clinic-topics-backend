@@ -158,3 +158,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 FRONTEND_BASE_URL = "http://localhost:3000"
 DEFAULT_FROM_EMAIL = "nishant543099@gmail.com"
 OTP_EXPIRY_MINUTES = 5
+
+# Razorpay Configuration
+RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID')
+RAZORPAY_KEY_SECRET = os.getenv('RAZORPAY_KEY_SECRET')

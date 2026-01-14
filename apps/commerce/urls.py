@@ -4,7 +4,8 @@ from apps.commerce.views import (
     AddressDetailView, AdminProductListCreateAPIView, AdminProductUpdateAPIView, ProductReviewListView, CreateUpdateProductReviewView, 
     ApplyCouponView, RemoveCouponView, AdminCouponListCreateView, AdminCouponUpdateDestroyView, WishlistDetailView, AddToWishlistView, 
     RemoveFromWishlistView, OrderHistoryView, OrderDetailView,
-    AdminOrderListAPIView, AdminOrderAnalyticsAPIView, AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView
+    AdminOrderListAPIView, AdminOrderAnalyticsAPIView, AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView,
+    CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView
 )
 
 urlpatterns = [
@@ -30,6 +31,11 @@ urlpatterns = [
     path("orders/", OrderHistoryView.as_view()),
     path("orders/<uuid:order_id>/", OrderDetailView.as_view()),
 
+    # Payment endpoints
+    path("payment/create-order/", CreatePaymentOrderView.as_view(), name="payment-create-order"),
+    path("payment/verify/", VerifyPaymentView.as_view(), name="payment-verify"),
+    path("payment/webhook/", PaymentWebhookView.as_view(), name="payment-webhook"),
+
     path("admin/products/", AdminProductListCreateAPIView.as_view()),
     path("admin/products/<uuid:product_id>/", AdminProductUpdateAPIView.as_view()),
     path("admin/coupons/", AdminCouponListCreateView.as_view()),
@@ -44,4 +50,3 @@ urlpatterns = [
     # Admin user addresses endpoint
     path("admin/users/<uuid:user_id>/addresses/", AdminUserAddressListView.as_view(), name="admin-user-addresses"),
 ]
-

@@ -2,7 +2,7 @@ import uuid
 from django.db import models
 from rest_framework import serializers
 from apps.commerce.models import (
-    Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem, Order, OrderItem
+    Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem, Order, OrderItem, Payment
 )
 
 
@@ -547,3 +547,40 @@ class AdminCreateOrderSerializer(serializers.Serializer):
                 raise serializers.ValidationError(f"Product {item['product_id']} not found")
         return value
 
+
+########### PAYMENT SERIALIZERS ###########
+
+class CreatePaymentOrderSerializer(serializers.Serializer):
+    """Serializer for creating a Razorpay order."""
+    address_id = serializers.UUIDField()
+
+    def validate_address_id(self, value):
+        request = self.context.get("request")
+        if not Address.objects.filter(id=value, user=request.user).exists():
+            raise serializers.ValidationError("Address not found")
+        return value
+
+
+class VerifyPaymentSerializer(serializers.Serializer):
+    """Serializer for verifying Razorpay payment."""
+    razorpay_order_id = serializers.CharField()
+    razorpay_payment_id = serializers.CharField()
+    razorpay_signature = serializers.CharField()
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    """Read serializer for Payment model."""
+    order_id = serializers.UUIDField(source="order.id", read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "order_id",
+            "razorpay_order_id",
+            "razorpay_payment_id",
+            "amount",
+            "currency",
+            "status",
+            "created_at",
+        ]

@@ -5,9 +5,7 @@ from decimal import Decimal
 
 from core.models import TimeStampedUUIDModel
 from apps.accounts.models import User
-from apps.commerce.constants import ProductCategory
-from apps.commerce.constants import OrderStatus
-
+from apps.commerce.constants import ProductCategory, OrderStatus, PaymentStatus
 
 class Product(TimeStampedUUIDModel):
     name = models.CharField(max_length=255)
@@ -267,3 +265,32 @@ class WishlistItem(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.product.name} in {self.wishlist}"
+
+
+
+
+class Payment(TimeStampedUUIDModel):
+    """Model to track Razorpay payment transactions."""
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="payments"
+    )
+    razorpay_order_id = models.CharField(max_length=100, unique=True)
+    razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=255, blank=True, null=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=10, default="INR")
+    status = models.CharField(
+        max_length=20,
+        choices=PaymentStatus.CHOICES,
+        default=PaymentStatus.CREATED
+    )
+    failure_reason = models.TextField(blank=True, null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Payment {self.razorpay_order_id} - {self.status}"
+
