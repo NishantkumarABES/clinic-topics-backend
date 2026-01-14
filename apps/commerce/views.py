@@ -20,8 +20,8 @@ from apps.commerce.serializers import (
     AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer, AdminCreateOrderSerializer,
     CreatePaymentOrderSerializer, VerifyPaymentSerializer, PaymentSerializer
 )
-from apps.commerce.services import razorpay_service
 from apps.commerce.constants import OrderStatus
+from external.razorpay.service import razorpay_service
 from django.conf import settings
 from decimal import Decimal
 import json

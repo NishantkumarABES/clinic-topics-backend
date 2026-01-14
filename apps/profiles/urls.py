@@ -1,8 +1,12 @@
 from django.urls import path
-from apps.profiles.views import ProfileMeView
+from apps.profiles.views import ProfileMeView, DoctorRatingView
 
 urlpatterns = [
     path("profile/me/", ProfileMeView.as_view()),
+    
+    # Doctor ratings
+    path("doctors/<uuid:doctor_id>/ratings/", DoctorRatingView.as_view(), name="doctor-ratings"),
+    
     # # Doctor APIs Endpoints
     # path("doctor-profile/", DoctorProfileView.as_view()),
     # path("doctor-profile/overview/", DoctorOverviewUpdateView.as_view()),
@@ -23,3 +27,4 @@ urlpatterns = [
     # # Admin APIs Endpoints
     # path("doctors/", AdminDoctorListView.as_view()),
 ]
+

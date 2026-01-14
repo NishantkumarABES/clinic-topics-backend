@@ -128,5 +128,107 @@ class ProfileMeView(APIView):
 
 
 
+class DoctorRatingView(APIView):
+    """
+    View and submit ratings for doctors.
+    GET: List ratings for a doctor (public)
+    POST: Submit a rating (patient only)
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response(
+                description="Doctor ratings",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "ratings": openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
+                        "average_rating": openapi.Schema(type=openapi.TYPE_NUMBER),
+                        "total_ratings": openapi.Schema(type=openapi.TYPE_INTEGER),
+                    }
+                )
+            ),
+        },
+    )
+    def get(self, request, doctor_id):
+        """Get ratings for a specific doctor."""
+        from apps.profiles.models import DoctorRating
+        from apps.profiles.serializers import DoctorRatingSerializer
+        from apps.accounts.models import User
+        from django.db.models import Avg, Count
+
+        try:
+            doctor = User.objects.get(id=doctor_id, role="doctor")
+        except User.DoesNotExist:
+            return Response(
+                {"detail": "Doctor not found", "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        ratings = DoctorRating.objects.filter(doctor=doctor).order_by("-created_at")
+
+        # Calculate aggregates
+        aggregates = ratings.aggregate(
+            average_rating=Avg("rating"),
+            total_ratings=Count("id")
+        )
+
+        # Rating breakdown
+        breakdown = {}
+        for i in range(1, 6):
+            breakdown[str(i)] = ratings.filter(rating=i).count()
+
+        serializer = DoctorRatingSerializer(ratings[:20], many=True)  # Latest 20
+
+        return Response({
+            "doctor_id": str(doctor_id),
+            "doctor_name": doctor.full_name,
+            "ratings": serializer.data,
+            "average_rating": round(aggregates["average_rating"] or 0, 1),
+            "total_ratings": aggregates["total_ratings"],
+            "rating_breakdown": breakdown,
+            "success": True
+        })
+
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=["second_opinion_doctor_request_id", "rating"],
+            properties={
+                "second_opinion_doctor_request_id": openapi.Schema(type=openapi.TYPE_STRING, format="uuid"),
+                "rating": openapi.Schema(type=openapi.TYPE_INTEGER, minimum=1, maximum=5),
+                "review": openapi.Schema(type=openapi.TYPE_STRING),
+            }
+        ),
+        responses={
+            201: openapi.Response(description="Rating created"),
+            400: openapi.Response(description="Validation error"),
+        },
+    )
+    def post(self, request, doctor_id):
+        """Submit a rating for a doctor after completed second opinion."""
+        from apps.profiles.serializers import DoctorRatingCreateSerializer
+        from apps.accounts.constants import UserRole
+
+        # Verify user is a patient
+        if request.user.role != UserRole.PATIENT:
+            return Response(
+                {"detail": "Only patients can submit ratings", "success": False},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = DoctorRatingCreateSerializer(
+            data=request.data,
+            context={"request": request, "doctor_id": doctor_id}
+        )
+        serializer.is_valid(raise_exception=True)
+        rating = serializer.save()
+
+        return Response({
+            "detail": "Rating submitted successfully",
+            "rating_id": str(rating.id),
+            "success": True
+        }, status=status.HTTP_201_CREATED)
 
 

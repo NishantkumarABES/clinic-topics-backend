@@ -1,8 +1,10 @@
 from django.db import models
+from django.core.validators import MinValueValidator, MaxValueValidator
 from core.models import TimeStampedUUIDModel
 from decimal import Decimal
 
 from apps.accounts.models import User
+from apps.accounts.constants import UserRole
 from apps.profiles.constants import BloodGroup
 
 
@@ -72,6 +74,10 @@ class DoctorProfile(TimeStampedUUIDModel):
     bio = models.TextField(blank=True)
     awards = models.TextField(blank=True)
 
+    def average_rating(self):
+        return self.user.ratings_received.aggregate(
+            avg=models.Avg("rating")
+        )["avg"] or 0
 
     def __str__(self):
         return f"DoctorProfile({self.user.full_name})"
@@ -113,3 +119,35 @@ class PatientProfile(TimeStampedUUIDModel):
     def __str__(self):
         return f"PatientProfile({self.user.full_name})"
 
+class DoctorRating(TimeStampedUUIDModel):
+    doctor = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="ratings_received",
+        limit_choices_to={"role": UserRole.DOCTOR}
+    )
+    patient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="ratings_given",
+        limit_choices_to={"role": UserRole.PATIENT}
+    )
+
+    second_opinion_doctor_request = models.OneToOneField(
+        "second_opinion.SecondOpinionDoctorRequest",
+        on_delete=models.CASCADE,
+        related_name="rating",
+        null=True,
+        blank=True
+    )
+
+    rating = models.PositiveIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+    review = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Rating for Dr. {self.doctor.get_full_name()} - {self.rating}/5"

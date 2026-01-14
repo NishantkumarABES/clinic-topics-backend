@@ -50,6 +50,7 @@ urlpatterns = [
     path("api/v1/advertisements/", include(("apps.advertisements.urls", "advertisements"), namespace="advertisements")),
     path("api/v1/", include(("apps.CIMS.urls", "cims"), namespace="cims")),
     path("api/v1/", include(("apps.advisory.urls", "advisory"), namespace="advisory")),
+    path("api/v1/second-opinion/", include(("apps.second_opinion.urls", "second_opinion"), namespace="second_opinion")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

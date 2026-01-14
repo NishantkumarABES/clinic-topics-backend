@@ -561,12 +561,18 @@ class CreatePaymentOrderSerializer(serializers.Serializer):
         if not Address.objects.filter(id=value, user=request.user).exists():
             raise serializers.ValidationError("Address not found")
         return value
+    
+    class Meta:
+        ref_name = "CommerceCreatePaymentOrderSerializer"
 
 class VerifyPaymentSerializer(serializers.Serializer):
     """Serializer for verifying Razorpay payment."""
     razorpay_order_id = serializers.CharField()
     razorpay_payment_id = serializers.CharField()
     razorpay_signature = serializers.CharField()
+
+    class Meta:
+        ref_name = "CommerceVerifyPaymentSerializer"
 
 class PaymentSerializer(serializers.ModelSerializer):
     """Read serializer for Payment model."""

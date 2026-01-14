@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     "apps.advertisements.app.AdvertisementsConfig",
     "apps.CIMS.app.CIMSConfig",
     "apps.advisory.app.AdvisoryConfig",
+    "apps.second_opinion.app.SecondOpinionConfig",
     "core.app.CoreConfig",
 ]
 

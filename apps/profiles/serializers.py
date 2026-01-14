@@ -52,6 +52,82 @@ class PatientProfileSerializer(serializers.ModelSerializer):
         return instance
 
 
+class DoctorRatingCreateSerializer(serializers.Serializer):
+    """Serializer for creating a doctor rating."""
+    second_opinion_doctor_request_id = serializers.UUIDField()
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    review = serializers.CharField(required=False, allow_blank=True)
+
+    def validate_second_opinion_doctor_request_id(self, value):
+        from apps.second_opinion.models import SecondOpinionDoctorRequest
+        from apps.second_opinion.constants import SecondOpinionStatus
+
+        user = self.context["request"].user
+
+        try:
+            doctor_request = SecondOpinionDoctorRequest.objects.select_related(
+                "second_opinion_request", "doctor"
+            ).get(id=value)
+        except SecondOpinionDoctorRequest.DoesNotExist:
+            raise serializers.ValidationError("Doctor request not found")
+
+        # Verify patient owns this request
+        if doctor_request.second_opinion_request.patient != user:
+            raise serializers.ValidationError("You can only rate your own requests")
+
+        # Verify request is completed
+        if doctor_request.status != SecondOpinionStatus.COMPLETED:
+            raise serializers.ValidationError(
+                "Can only rate after doctor has responded"
+            )
+
+        # Check if already rated
+        if hasattr(doctor_request, "rating"):
+            raise serializers.ValidationError("Already rated this request")
+
+        self._doctor_request = doctor_request
+        return value
+
+    def validate(self, data):
+        data["_doctor_request"] = self._doctor_request
+        return data
+
+    def create(self, validated_data):
+        from apps.profiles.models import DoctorRating
+
+        doctor_request = validated_data.pop("_doctor_request")
+
+        rating = DoctorRating.objects.create(
+            doctor=doctor_request.doctor,
+            patient=self.context["request"].user,
+            second_opinion_doctor_request=doctor_request,
+            rating=validated_data["rating"],
+            review=validated_data.get("review", "")
+        )
+        return rating
+
+
+class DoctorRatingSerializer(serializers.ModelSerializer):
+    """Serializer for displaying doctor ratings."""
+    patient_name = serializers.CharField(source="patient.full_name", read_only=True)
+
+    class Meta:
+        from apps.profiles.models import DoctorRating
+        model = DoctorRating
+        fields = [
+            "id", "patient_name", "rating", "review", "created_at"
+        ]
+        read_only_fields = fields
+
+
+class DoctorAverageRatingSerializer(serializers.Serializer):
+    """Serializer for doctor's aggregate rating info."""
+    average_rating = serializers.FloatField()
+    total_ratings = serializers.IntegerField()
+    rating_breakdown = serializers.DictField()
+
+
+
 
 
 
