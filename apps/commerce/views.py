@@ -880,7 +880,7 @@ class CreatePaymentOrderView(APIView):
                 status=OrderStatus.PENDING_PAYMENT,
                 total_amount=total_amount,
                 payment_method="razorpay",
-                payment_reference=""
+                payment_reference="",
                 coupon=cart.coupon
             )
 
