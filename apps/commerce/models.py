@@ -23,7 +23,7 @@ class Product(TimeStampedUUIDModel):
     discount_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
     is_active = models.BooleanField(default=True)
-    is_out_of_stock = models.BooleanField(default=False)
+    # is_out_of_stock = models.BooleanField(default=False)
     stock_quantity = models.PositiveIntegerField(default=0)
 
     class Meta:
@@ -33,6 +33,21 @@ class Product(TimeStampedUUIDModel):
                 name="unique_product_name_brand"
             )
         ]
+    
+    @property
+    def is_out_of_stock(self):
+        return self.stock_quantity <= 0
+    
+    def get_unit_final_price(self):
+        price = self.price
+
+        if self.discount_percentage > 0:
+            price -= (price * self.discount_percentage / Decimal("100"))
+
+        if self.tax_percentage > 0:
+            price += (price * self.tax_percentage / Decimal("100"))
+
+        return round(price, 2)
 
     def __str__(self):
         return self.name
@@ -141,26 +156,19 @@ class Cart(TimeStampedUUIDModel):
     )
 
 class CartItem(TimeStampedUUIDModel):
-    cart = models.ForeignKey(
-        Cart,
-        on_delete=models.CASCADE,
-        related_name="items"
-    )
+    cart = models.ForeignKey(Cart, on_delete=models.CASCADE, related_name="items")
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
     quantity = models.PositiveIntegerField(default=1)
     saved_for_later = models.BooleanField(default=False)
 
-    def get_final_price(self):
-        price = self.product.price
-
-        if self.product.discount_percentage > 0:
-            price -= (price * self.product.discount_percentage / Decimal("100"))
-
-        tax = price * (self.product.tax_percentage / Decimal("100"))
-        return round(price + tax, 2)
-
     class Meta:
         unique_together = ("cart", "product")
+    
+    def get_unit_price(self):
+        return self.product.get_unit_final_price()
+
+    def get_total_price(self):
+        return round(self.get_unit_price() * self.quantity, 2)
 
 class Address(TimeStampedUUIDModel):
     user = models.ForeignKey(
@@ -210,6 +218,13 @@ class Order(TimeStampedUUIDModel):
     payment_method = models.CharField(max_length=50)
     payment_reference = models.CharField(max_length=255, blank=True)
 
+    coupon = models.ForeignKey(
+        Coupon,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="orders"
+    )
     def __str__(self):
         return f"Order {self.id}"
 
@@ -265,9 +280,6 @@ class WishlistItem(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.product.name} in {self.wishlist}"
-
-
-
 
 class Payment(TimeStampedUUIDModel):
     """Model to track Razorpay payment transactions."""

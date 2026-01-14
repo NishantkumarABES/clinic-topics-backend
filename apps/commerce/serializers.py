@@ -174,7 +174,7 @@ class CartItemSerializer(serializers.ModelSerializer):
         return image_obj.image.url
 
     def get_final_price(self, obj):
-        return obj.get_final_price()
+        return obj.product.get_unit_final_price()
 
 class CartSerializer(serializers.ModelSerializer):
     items = CartItemSerializer(many=True, read_only=True)
@@ -197,7 +197,7 @@ class CartSerializer(serializers.ModelSerializer):
     def get_total_amount(self, obj):
         total = 0
         for item in obj.items.filter(saved_for_later=False):
-            total += item.get_final_price() * item.quantity
+            total += item.product.get_unit_final_price() * item.quantity
         return round(total, 2)
 
     def get_discount(self, obj):
@@ -301,6 +301,8 @@ class AddToWishlistSerializer(serializers.Serializer):
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name", read_only=True)
     product_id = serializers.UUIDField(source="product.id", read_only=True)
+    unit_price = serializers.DecimalField(source="price_at_purchase", max_digits=10, decimal_places=2)
+    final_total = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
@@ -309,8 +311,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "product_id",
             "product_name",
             "quantity",
-            "price_at_purchase"
+            "unit_price",
+            "final_total"
         ]
+    
+    def get_final_total(self, obj):
+        return round(obj.unit_price * obj.quantity, 2)
 
 class OrderHistorySerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
@@ -332,13 +338,6 @@ class OrderHistorySerializer(serializers.ModelSerializer):
     def get_address_summary(self, obj):
         addr = obj.address
         return f"{addr.address_line}, {addr.city}, {addr.state}, {addr.postal_code}"
-
-
-
-
-
-
-
 
 ########### ADMIN SERIALIZERS ###########
 class AdminProductImageSerializer(serializers.ModelSerializer):
@@ -374,8 +373,6 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         images = validated_data.pop("images", [])
-        is_out_of_stock = False if validated_data["stock_quantity"] > 0 else True
-        validated_data["is_out_of_stock"] = is_out_of_stock
         validated_data["sku"] = uuid.uuid4().hex
         product = Product.objects.create(**validated_data)
 
@@ -403,7 +400,8 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
 class AdminOrderItemSerializer(serializers.ModelSerializer):
     """Order item serializer for admin with product details."""
     product = serializers.SerializerMethodField()
-    final_price = serializers.DecimalField(source="price_at_purchase", max_digits=10, decimal_places=2)
+    unit_price = serializers.DecimalField(source="price_at_purchase", max_digits=10, decimal_places=2)
+    final_total = serializers.SerializerMethodField()
 
     class Meta:
         model = OrderItem
@@ -411,8 +409,12 @@ class AdminOrderItemSerializer(serializers.ModelSerializer):
             "id",
             "product",
             "quantity",
-            "final_price",
+            "unit_price",
+            "final_total",
         ]
+
+    def get_final_total(self, obj):
+        return round(obj.price_at_purchase * obj.quantity, 2)
 
     def get_product(self, obj):
         product = obj.product
@@ -560,13 +562,11 @@ class CreatePaymentOrderSerializer(serializers.Serializer):
             raise serializers.ValidationError("Address not found")
         return value
 
-
 class VerifyPaymentSerializer(serializers.Serializer):
     """Serializer for verifying Razorpay payment."""
     razorpay_order_id = serializers.CharField()
     razorpay_payment_id = serializers.CharField()
     razorpay_signature = serializers.CharField()
-
 
 class PaymentSerializer(serializers.ModelSerializer):
     """Read serializer for Payment model."""

@@ -11,7 +11,7 @@ class ProductAnalyticsView(APIView):
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         total_products = Product.objects.count()
-        out_of_stock_products = Product.objects.filter(is_out_of_stock=True).count()
+        out_of_stock_products = Product.objects.filter(stock_quantity__lte=0).count()
         in_stock_products = total_products - out_of_stock_products
 
 

@@ -27,7 +27,6 @@ from decimal import Decimal
 import json
 from django.utils import timezone
 from django.db.models import Sum
-from datetime import timedelta
 
 
 class ProductListPagination(PageNumberPagination):
@@ -46,7 +45,7 @@ class ProductListView(APIView):
         min_price = request.query_params.get("min_price", 0)
         max_price = request.query_params.get("max_price", 999999999)
         brand = request.query_params.get("brand")
-        queryset = Product.objects.filter(is_out_of_stock=False)
+        queryset = Product.objects.filter(stock_quantity__gt=0)
 
         if min_price:
             queryset = queryset.filter(price__gte=min_price)
@@ -128,14 +127,18 @@ class ApplyCouponView(APIView):
         serializer.is_valid(raise_exception=True)
 
         code = serializer.validated_data["code"]
-        coupon = Coupon.objects.get(code__iexact=code)
+        try:
+            coupon = Coupon.objects.get(code__iexact=code)
+        except Coupon.DoesNotExist:
+            return Response({"success": False, "detail": "Invalid coupon"}, status=400)
 
+        # Get cart
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
         # Calculate cart total
-        total = 0
+        total = Decimal("0.00")
         for item in cart.items.filter(saved_for_later=False):
-            total += item.get_final_price() * item.quantity
+            total += item.get_total_price()
 
         total = round(total, 2)
 
@@ -533,7 +536,8 @@ class AdminCouponListCreateView(APIView):
         search_term = request.query_params.get("search", None)
         status = request.query_params.get("status", None)
         coupon_type = request.query_params.get("coupon_type", None)
-
+        coupons = Coupon.objects.all().order_by("-created_at")
+        
         if search_term:
             coupons = Coupon.objects.filter(
                 Q(code__icontains=search_term) |
@@ -544,7 +548,7 @@ class AdminCouponListCreateView(APIView):
         if coupon_type:
             coupons = coupons.filter(coupon_type=coupon_type)
 
-        coupons = Coupon.objects.all().order_by("-created_at")
+        
         serializer = CouponSerializer(coupons, many=True)
         paginator = self.pagination_class()
         paginated_coupons = paginator.paginate_queryset(coupons, request)
@@ -658,17 +662,13 @@ class AdminOrderListAPIView(APIView):
         for item in data["items"]:
             product = Product.objects.get(id=item["product_id"])
             # Calculate final price (with discount and tax)
-            price = product.price
-            if product.discount_percentage > 0:
-                price -= (price * product.discount_percentage / Decimal("100"))
-            tax = price * (product.tax_percentage / Decimal("100"))
-            final_price = round(price + tax, 2) * item["quantity"]
-            
-            total_amount += final_price
+            unit_price = product.get_unit_final_price()
+            line_total = unit_price * item["quantity"]
+            total_amount += line_total
             order_items_data.append({
                 "product": product,
                 "quantity": item["quantity"],
-                "price_at_purchase": final_price
+                "price_at_purchase": unit_price
             })
 
         # Create order
@@ -837,28 +837,24 @@ class CreatePaymentOrderView(APIView):
             product = cart_item.product
 
             # Check stock availability
-            if product.is_out_of_stock:
+            if product.stock_quantity < cart_item.quantity:
                 return Response(
                     {"success": False, "detail": f"{product.name} is out of stock"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
             # Calculate final price with discount and tax
-            price = product.price
-            if product.discount_percentage > 0:
-                price -= (price * product.discount_percentage / Decimal("100"))
-            tax = price * (product.tax_percentage / Decimal("100"))
-            final_price = round(price + tax, 2)
-            item_total = final_price * cart_item.quantity
-
+            unit_price = product.get_unit_final_price()
+            item_total = unit_price * cart_item.quantity
             total_amount += item_total
             order_items_data.append({
                 "product": product,
                 "quantity": cart_item.quantity,
-                "price_at_purchase": final_price
+                "price_at_purchase": unit_price
             })
 
         # Apply coupon discount if any
+        applied_coupon = None
         if cart.coupon and cart.coupon.is_valid(cart_total=total_amount):
             coupon = cart.coupon
             if coupon.discount_type == "percentage":
@@ -919,6 +915,8 @@ class CreatePaymentOrderView(APIView):
                 currency="INR",
                 status=PaymentStatus.CREATED
             )
+            cart.coupon = None
+            cart.save(update_fields=["coupon"])
 
         return Response({
             "success": True,
@@ -935,7 +933,6 @@ class CreatePaymentOrderView(APIView):
                 }
             }
         }, status=status.HTTP_201_CREATED)
-
 
 class VerifyPaymentView(APIView):
     """Verify Razorpay payment signature and complete the order."""
@@ -998,11 +995,16 @@ class VerifyPaymentView(APIView):
             order.payment_reference = razorpay_payment_id
             order.save()
 
+            for item in order.items.select_related("product"):
+                product = item.product
+                product.stock_quantity -= item.quantity
+                product.save(update_fields=["stock_quantity"])
+
             # Clear the user's cart
             Cart.objects.filter(user=request.user).delete()
 
             # Increment coupon usage if used
-            if hasattr(order, 'coupon') and order.coupon:
+            if order.coupon:
                 order.coupon.current_uses += 1
                 order.coupon.save(update_fields=["current_uses"])
 
@@ -1015,7 +1017,6 @@ class VerifyPaymentView(APIView):
                 "status": order.status
             }
         })
-
 
 class PaymentWebhookView(APIView):
     """Handle Razorpay webhook events."""
