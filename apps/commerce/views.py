@@ -881,6 +881,7 @@ class CreatePaymentOrderView(APIView):
                 total_amount=total_amount,
                 payment_method="razorpay",
                 payment_reference=""
+                coupon=cart.coupon
             )
 
             # Create OrderItems
