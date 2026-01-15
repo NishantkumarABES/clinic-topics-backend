@@ -73,6 +73,7 @@ class DoctorProfile(TimeStampedUUIDModel):
     # ---------- About ----------
     bio = models.TextField(blank=True)
     awards = models.TextField(blank=True)
+    website_url = models.URLField(null=True, blank=True)
 
     def average_rating(self):
         return self.user.ratings_received.aggregate(

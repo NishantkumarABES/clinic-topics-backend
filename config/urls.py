@@ -44,13 +44,13 @@ urlpatterns = [
     path("api/v1/commerce/", include(("apps.commerce.urls", "commerce"), namespace="commerce")),
     path("api/v1/events/", include(("apps.events.urls", "events"), namespace="events")),
     path("api/v1/topics/", include(("apps.topics.urls", "topics"), namespace="topics")),
-
     path("api/v1/analytics/", include(("apps.analytics.urls", "analytics"), namespace="analytics")),
     path("api/v1/cms/", include(("apps.cms.urls", "cms"), namespace="cms")),
     path("api/v1/advertisements/", include(("apps.advertisements.urls", "advertisements"), namespace="advertisements")),
     path("api/v1/", include(("apps.CIMS.urls", "cims"), namespace="cims")),
     path("api/v1/", include(("apps.advisory.urls", "advisory"), namespace="advisory")),
     path("api/v1/second-opinion/", include(("apps.second_opinion.urls", "second_opinion"), namespace="second_opinion")),
+    path("api/v1/appointments/", include(("apps.appointments.urls", "appointments"), namespace="appointments")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -1,4 +1,4 @@
-import random, secrets
+import os, random, secrets, requests
 from django.db import transaction
 from django.utils import timezone
 from django.core.mail import send_mail
@@ -63,45 +63,39 @@ def generate_otp():
 def send_phone_otp(phone: str) -> dict:
     otp = generate_otp()
     expires_at = timezone.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
-
+    print(phone, otp, expires_at)
     PhoneOTP.objects.create(
-        phone=phone,
-        otp=otp,
+        phone=phone, otp=otp,
         expires_at=expires_at
     )
+    if phone.startswith("+91"):
+        api_key = os.environ.get("SMS_API_KEY")
+        sid = os.environ.get("SMS_SENDER_ID")
+        tid = os.environ.get("SMS_TEMPLATE_ID")
+
+        if not all([api_key, sid, tid]):
+            raise ValueError("Missing SMS environment variables")
+
+        msg = f"{otp} is your ClinicTopics verification code. Thanks, Team Promedica Health Communication Pvt. Ltd."
+
+        url = (
+            "https://smsapi.edumarcsms.com/api/v1/sendsms?"
+            f"apikey={api_key}&senderId={sid}&message={msg}&number=[{phone}]&templateId={tid}"
+        )
+    else:
+        api_key = os.environ.get("INTERNATION_API_KEY")
+        if not api_key:
+            raise ValueError("Missing INTERNATIONAL SMS API KEY")
+
+        msg = f"{otp} is your account verification code PROMEDICA HEALTH COMMUNICATION PRIVATE LIMITED"
+
+        url = (
+            "https://www.smsgatewayhub.com/api/mt/SendSMS?"
+            f"APIKey={api_key}&senderid=SMSHUB&channel=INT&DCS=0&flashsms=0"
+            f"&number={phone}&text={msg}&route=16"
+        )
+    response = requests.get(url, timeout=10)
     return otp
-    # authkey = os.environ.get("MSG91_OTP_AUTH_KEY")
-    # if not authkey:
-    #     raise ValueError("MSG91_OTP_AUTH_KEY is not set in environment variables")
-
-    # if not phone or not otp:
-    #     raise ValueError("Phone and OTP are required")
-    
-    # phone = phone.strip().lstrip('+91')
-    # conn = http.client.HTTPSConnection("api.msg91.com")
-
-    # payload = {
-    #     "mobile": f"91{phone}",
-    #     "authkey": authkey,
-    #     "sender": "AESSDW",      
-    #     "otp": otp,
-    #     "message": f"Your Clinic Topics verification code is {otp}. Valid for 5 minutes."
-    # }
-
-    # headers = {
-    #     "Content-Type": "application/json"
-    # }
-
-    # try:
-    #     conn.request("POST", "/api/v5/otp", body=json.dumps(payload), headers=headers)
-    #     response = conn.getresponse()
-    #     data = response.read().decode("utf-8")
-    #     conn.close()
-    #     result = json.loads(data)
-    #     return result
-
-    # except Exception as e:
-    #     return {"success": False, "error": str(e)}
 
 def normalize_phone(phone: str, country_code: str = "+91") -> str:
     phone = phone.strip()

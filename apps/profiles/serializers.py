@@ -26,7 +26,6 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
         user.save()
         return instance
 
-
 class PatientProfileSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source="user.full_name", read_only=True)
     email = serializers.EmailField(source="user.email", read_only=True)
@@ -50,7 +49,6 @@ class PatientProfileSerializer(serializers.ModelSerializer):
             setattr(user, attr, value)
         user.save()
         return instance
-
 
 class DoctorRatingCreateSerializer(serializers.Serializer):
     """Serializer for creating a doctor rating."""
@@ -106,7 +104,6 @@ class DoctorRatingCreateSerializer(serializers.Serializer):
         )
         return rating
 
-
 class DoctorRatingSerializer(serializers.ModelSerializer):
     """Serializer for displaying doctor ratings."""
     patient_name = serializers.CharField(source="patient.full_name", read_only=True)
@@ -118,7 +115,6 @@ class DoctorRatingSerializer(serializers.ModelSerializer):
             "id", "patient_name", "rating", "review", "created_at"
         ]
         read_only_fields = fields
-
 
 class DoctorAverageRatingSerializer(serializers.Serializer):
     """Serializer for doctor's aggregate rating info."""

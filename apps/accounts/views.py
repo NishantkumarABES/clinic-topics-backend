@@ -29,8 +29,6 @@ from core.permissions import IsAdmin
 from config import settings
 
 
-
-
 class EmailOTPRequestView(APIView):
     permission_classes = [AllowAny]
 

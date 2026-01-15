@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     "apps.CIMS.app.CIMSConfig",
     "apps.advisory.app.AdvisoryConfig",
     "apps.second_opinion.app.SecondOpinionConfig",
+    "apps.appointments.app.AppointmentsConfig",
     "core.app.CoreConfig",
 ]
 

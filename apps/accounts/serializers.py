@@ -344,13 +344,14 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     years_of_experience = serializers.IntegerField(required=False, min_value=0)
     license_number = serializers.CharField(required=False, allow_blank=True)
     clinic_address = serializers.CharField(required=False, allow_blank=True)
+    website_url = serializers.URLField(required=False, allow_blank=True)
 
     class Meta:
         model = User
         fields = [
             "full_name", "phone", "country_code", "date_of_birth",
             "gender", "is_active", "specialization", "years_of_experience",
-            "license_number", "clinic_address"
+            "license_number", "clinic_address", "website_url"
         ]
 
     def validate_phone(self, value):
@@ -376,6 +377,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             "years_of_experience": validated_data.pop("years_of_experience", None),
             "license_number": validated_data.pop("license_number", None),
             "clinic_address": validated_data.pop("clinic_address", None),
+            "website_url": validated_data.pop("website_url", None),
         }
         updatation_time = timezone.now()
 
