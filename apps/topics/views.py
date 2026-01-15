@@ -3,9 +3,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
-from django.utils.timezone import now
+from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from django.utils.timezone import now
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 
@@ -14,9 +16,9 @@ from apps.topics.services import inshort_generator
 from apps.topics.models import Topic
 from apps.topics.serializers import (
     TopicListSerializer, TopicDetailSerializer, ArticleExtractionSerializer, CleanupImagesSerializer, AdminTopicReadSerializer,
-    AdminTopicWriteSerializer
+    AdminTopicWriteSerializer, DoctorTopicCreateSerializer, TopicCreateSuccessResponseSerializer
 )
-from core.permissions import IsAdmin 
+from core.permissions import IsAdmin, IsDoctor
 from external.cloudinary.utils import CloudinaryService
 cloudinary = CloudinaryService()
 
@@ -211,3 +213,98 @@ class CleanupUnwantedImages(APIView):
             status=status.HTTP_200_OK,
         )
 
+
+class DoctorTopicCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated, IsDoctor]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        operation_summary="Create / Upload new educational topic (Doctors only)",
+        operation_description=(
+            "Allows authenticated doctors to upload a new topic with video.\n\n"
+            "• Video is uploaded to Cloudinary\n"
+            "• Topic is created with publish_status=False\n"
+            "• Requires admin approval before becoming public\n\n"
+            "**Content-Type: multipart/form-data** required"
+        ),
+        tags=['Doctor - Topics'],
+        manual_parameters=[
+            openapi.Parameter(
+                name='title',
+                in_=openapi.IN_FORM,
+                description='Title of the topic (max 255 characters)',
+                type=openapi.TYPE_STRING,
+                required=True,
+                example="Understanding Type 2 Diabetes"
+            ),
+            openapi.Parameter(
+                name='description',
+                in_=openapi.IN_FORM,
+                description='Detailed description of the topic',
+                type=openapi.TYPE_STRING,
+                required=True,
+                example="In this topic we explain the pathophysiology, symptoms and basic management of type 2 diabetes..."
+            ),
+            openapi.Parameter(
+                name='video_file',
+                in_=openapi.IN_FORM,
+                description='Video file (mp4, mov, webm recommended)',
+                type=openapi.TYPE_FILE,
+                required=True,
+            ),
+        ],
+        request_body=None,  # We're using form parameters instead
+        responses={
+            status.HTTP_201_CREATED: openapi.Response(
+                description="Topic successfully created and queued for approval",
+                schema=TopicCreateSuccessResponseSerializer,
+                examples={
+                    "application/json": {
+                        "success": True,
+                        "message": "Topic uploaded successfully and sent for admin approval.",
+                        "data": {
+                            "id": 47,
+                            "title": "Understanding Type 2 Diabetes",
+                            "description": "Detailed explanation...",
+                            "video_url": "https://res.cloudinary.com/.../topic_123_1698765432.mp4",
+                            "publish_status": False,
+                            "publishing_time": "2025-01-15T12:34:56Z",
+                            "author": {
+                                "id": 123,
+                                "full_name": "Dr. Rajesh Sharma",
+                                # ... other fields from AdminTopicReadSerializer
+                            }
+                        }
+                    }
+                }
+            ),
+            status.HTTP_400_BAD_REQUEST: openapi.Response(
+                description="Validation error (missing fields, invalid file, etc.)",
+                examples={
+                    "application/json": {
+                        "title": ["This field is required."],
+                        "video_file": ["The submitted data was not a file. Check the encoding type on the form."]
+                    }
+                }
+            ),
+            status.HTTP_401_UNAUTHORIZED: "Authentication credentials were not provided.",
+            status.HTTP_403_FORBIDDEN: "You do not have permission to perform this action.",
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: "Unsupported media type (use multipart/form-data)",
+        }
+    )
+    def post(self, request):
+        serializer = DoctorTopicCreateSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        topic = serializer.save()
+
+        return Response(
+            {
+                "success": True,
+                "message": "Topic uploaded successfully and sent for admin approval.",
+                "data": AdminTopicReadSerializer(topic).data
+            },
+            status=status.HTTP_201_CREATED
+        )

@@ -4,25 +4,30 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
-from django.db.models import Q
 from django.db import transaction
-from drf_yasg.utils import swagger_auto_schema
+from django.db.models import Q, Avg, Count
+
 from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from decimal import Decimal
 
-from core.permissions import IsPatient
+from core.permissions import IsPatient, IsDoctor
 from apps.second_opinion.models import (
-    SecondOpinionRequest, SecondOpinionDocument, SecondOpinionPayment
+    SecondOpinionRequest, SecondOpinionDocument, SecondOpinionPayment, SecondOpinionDoctorRequest
 )
 from apps.second_opinion.serializers import (
     CalculateChargesSerializer, CalculateChargesResponseSerializer, CreateSecondOpinionRequestSerializer,
     SecondOpinionRequestListSerializer, SecondOpinionRequestDetailSerializer, CreatePaymentOrderSerializer,
-    VerifyPaymentSerializer, DoctorBasicInfoSerializer
+    VerifyPaymentSerializer, DoctorBasicInfoSerializer, DoctorSecondOpinionListSerializer, DoctorSecondOpinionDetailSerializer, 
+    DoctorStartReviewSerializer, DoctorSubmitResponseSerializer, DoctorRatingSerializer
 )
 from apps.second_opinion.constants import SecondOpinionPaymentStatus
 from apps.accounts.models import User
 from apps.accounts.constants import UserRole
 from external.razorpay.service import razorpay_service
+
+
+
 
 
 
@@ -197,9 +202,6 @@ class SecondOpinionRequestDetailView(APIView):
         })
 
 class CreateSecondOpinionPaymentView(APIView):
-    """
-    Create a Razorpay payment order for a second opinion request.
-    """
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
@@ -245,13 +247,21 @@ class CreateSecondOpinionPaymentView(APIView):
         )
 
         # Create payment record
-        payment = SecondOpinionPayment.objects.create(
+        payment, created = SecondOpinionPayment.objects.get_or_create(
             second_opinion_request=second_opinion_request,
-            razorpay_order_id=razorpay_order["id"],
-            amount=second_opinion_request.total_amount,
-            currency="INR",
-            status=SecondOpinionPaymentStatus.PENDING
+            defaults={
+                "razorpay_order_id": razorpay_order["id"],
+                "amount": second_opinion_request.total_amount,
+                "currency": "INR",
+                "status": SecondOpinionPaymentStatus.PENDING
+            }
         )
+
+        # If payment already existed, update Razorpay order id
+        if not created:
+            payment.razorpay_order_id = razorpay_order["id"]
+            payment.status = SecondOpinionPaymentStatus.PENDING
+            payment.save(update_fields=["razorpay_order_id", "status"])
 
         from django.conf import settings
 
@@ -357,8 +367,12 @@ class AvailableDoctorsListView(APIView):
     def get(self, request):
         doctors = User.objects.filter(
             role=UserRole.DOCTOR, is_active=True
-        ).select_related("doctor_profile")
-
+        ).select_related(
+            "doctor_profile"
+        ).annotate(
+            avg_rating=Avg("ratings_received__rating"),
+            total_ratings=Count("ratings_received")
+        )
         # Optional specialization filter
         specialization = request.query_params.get("specialization")
         search_terms = request.query_params.get("search_terms")
@@ -379,3 +393,170 @@ class AvailableDoctorsListView(APIView):
         response_data["success"] = True
         return Response(response_data)
     
+
+# ===================== Doctor Side Views =====================
+
+class DoctorSecondOpinionPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 50
+
+class DoctorSecondOpinionListView(APIView):
+    """
+    List all paid second opinion requests assigned to the logged-in doctor.
+    """
+    permission_classes = [IsAuthenticated, IsDoctor]
+    pagination_class = DoctorSecondOpinionPagination
+
+    @swagger_auto_schema(
+        responses={200: DoctorSecondOpinionListSerializer(many=True)},
+        manual_parameters=[
+            openapi.Parameter(
+                "status",
+                openapi.IN_QUERY,
+                description="Filter by request status",
+                type=openapi.TYPE_STRING
+            ),
+        ],
+    )
+    def get(self, request):
+        queryset = SecondOpinionDoctorRequest.objects.paid().filter(
+            doctor=request.user
+        ).select_related(
+            "second_opinion_request__patient"
+        )
+
+        status_filter = request.query_params.get("status")
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        serializer = DoctorSecondOpinionListSerializer(page, many=True)
+        response = paginator.get_paginated_response(serializer.data).data
+        response["success"] = True
+        return Response(response)
+
+class DoctorSecondOpinionDetailView(APIView):
+    """
+    Retrieve full details of a specific second opinion request for doctor.
+    """
+    permission_classes = [IsAuthenticated, IsDoctor]
+
+    @swagger_auto_schema(
+        responses={200: DoctorSecondOpinionDetailSerializer},
+    )
+    def get(self, request, doctor_request_id):
+        try:
+            doctor_request = SecondOpinionDoctorRequest.objects.paid().select_related(
+                "second_opinion_request__patient"
+            ).prefetch_related(
+                "second_opinion_request__documents"
+            ).get(
+                id=doctor_request_id,
+                doctor=request.user
+            )
+        except SecondOpinionDoctorRequest.DoesNotExist:
+            return Response(
+                {"detail": "Request not found", "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = DoctorSecondOpinionDetailSerializer(doctor_request)
+        return Response({**serializer.data, "success": True})
+
+class DoctorStartReviewView(APIView):
+    """
+    Doctor marks a request as in-review.
+    """
+    permission_classes = [IsAuthenticated, IsDoctor]
+
+    @swagger_auto_schema(
+        responses={200: openapi.Response(description="Marked as in-review")}
+    )
+    def patch(self, request, doctor_request_id):
+        try:
+            doctor_request = SecondOpinionDoctorRequest.objects.paid().get(
+                id=doctor_request_id,
+                doctor=request.user
+            )
+        except SecondOpinionDoctorRequest.DoesNotExist:
+            return Response(
+                {"detail": "Request not found", "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = DoctorStartReviewSerializer(
+            data={},
+            context={"doctor_request": doctor_request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "detail": "Request marked as in-review",
+            "success": True
+        })
+
+class DoctorSubmitResponseView(APIView):
+    """
+    Doctor submits final opinion.
+    """
+    permission_classes = [IsAuthenticated, IsDoctor]
+
+    @swagger_auto_schema(
+        request_body=DoctorSubmitResponseSerializer,
+        responses={200: openapi.Response(description="Response submitted")}
+    )
+    def patch(self, request, doctor_request_id):
+        try:
+            doctor_request = SecondOpinionDoctorRequest.objects.paid().get(
+                id=doctor_request_id,
+                doctor=request.user
+            )
+        except SecondOpinionDoctorRequest.DoesNotExist:
+            return Response(
+                {"detail": "Request not found", "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        serializer = DoctorSubmitResponseSerializer(
+            data=request.data,
+            context={"doctor_request": doctor_request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "detail": "Response submitted successfully",
+            "success": True
+        })
+
+
+class SubmitDoctorRatingView(APIView):
+    """
+    Patient submits rating for a doctor after completed second opinion.
+    """
+    permission_classes = [IsAuthenticated, IsPatient]
+
+    @swagger_auto_schema(
+        request_body=DoctorRatingSerializer,
+        responses={201: DoctorRatingSerializer}
+    )
+    def post(self, request):
+        serializer = DoctorRatingSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+        rating = serializer.save()
+
+        return Response(
+            {
+                "detail": "Rating submitted successfully",
+                "rating": DoctorRatingSerializer(rating).data,
+                "success": True
+            },
+            status=status.HTTP_201_CREATED
+        )

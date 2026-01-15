@@ -15,7 +15,8 @@ from drf_spectacular.utils import extend_schema
 from apps.accounts.serializers import (
     EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer, PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer, EmailOTPRequestSerializer, EmailOTPVerifySerializer, RegisterSerializer, UserMeSerializer,
-    UserListSerializer, UserUpdateSerializer, LoginResponseSerializer, RegisterResponseSerializer
+    UserListSerializer, UserUpdateSerializer, LoginResponseSerializer, RegisterResponseSerializer, ChangePasswordSerializer,
+    AdminChangePasswordSerializer
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
@@ -738,5 +739,48 @@ class UpdateUserView(APIView):
         })
 
 
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(request_body=ChangePasswordSerializer)
+    def post(self, request):
+        serializer = ChangePasswordSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        new_password = serializer.validated_data["new_password"]
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+
+        return Response({
+            "detail": "Password changed successfully",
+            "success": True
+        })
+    
+class AdminChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(request_body=AdminChangePasswordSerializer, auto_schema=None)
+    def post(self, request):
+        serializer = AdminChangePasswordSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        target_user = serializer.context["target_user"]
+        new_password = serializer.validated_data["new_password"]
+
+        target_user.set_password(new_password)
+        target_user.save(update_fields=["password"])
+
+        return Response({
+            "detail": f"Password changed for user {target_user.email}",
+            "success": True
+        })
 
 

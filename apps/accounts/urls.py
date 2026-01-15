@@ -2,7 +2,7 @@ from django.urls import path
 from apps.accounts.views import (
     LogoutView, PhoneOTPRequestView, PhoneOTPVerifyView, PasswordResetRequestView, PasswordResetConfirmView,
     DeactivateAccountView, ReactivateAccountView, DeleteAccountView, EmailOTPRequestView, EmailOTPVerifyView, RegisterView, UserMeView,
-    AdminUserListView, EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView, AdminAllUserListView
+    AdminUserListView, EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView, AdminAllUserListView, ChangePasswordView, AdminChangePasswordView
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 
@@ -29,10 +29,12 @@ urlpatterns = [
     path("deactivate/", DeactivateAccountView.as_view()),
     path("reactivate/", ReactivateAccountView.as_view()),
     path("delete/", DeleteAccountView.as_view()),
+    path("change-password/", ChangePasswordView.as_view(), name="change-password"),
 
     path("token/refresh/", TokenRefreshView.as_view()),
 
     # Admin endpoints
     path("admin/users/<str:role>", AdminUserListView.as_view(), name="admin-user-list"),
     path("admin/all-users/", AdminAllUserListView.as_view(), name="admin-all-user-list"),
+    path("admin/change-password/", AdminChangePasswordView.as_view(), name="admin-change-password"),
 ]

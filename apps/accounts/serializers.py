@@ -414,7 +414,42 @@ class RegisterResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField()
 
 
+##################  Change password serializers ###################
 
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(write_only=True)
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate(self, data):
+        user = self.context["request"].user
+        
+        if not user.check_password(data["old_password"]):
+            raise ValidationError({"old_password": "Old password is incorrect"})
+        
+        if data["old_password"] == data["new_password"]:
+            raise ValidationError({"new_password": "New password cannot be same as old password"})
+        
+        return data
+
+class AdminChangePasswordSerializer(serializers.Serializer):
+    user_id = serializers.UUIDField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate_user_id(self, value):
+        try:
+            user = User.objects.get(id=value)
+        except User.DoesNotExist:
+            raise ValidationError("User not found")
+        self.context["target_user"] = user
+        return value
 
 
 

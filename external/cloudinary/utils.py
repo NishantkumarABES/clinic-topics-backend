@@ -18,6 +18,16 @@ class CloudinaryService:
         response = destroy(public_id)
         return response
 
+    @staticmethod
+    def upload_video(content, folder, public_id):
+        response = upload(
+            content,
+            folder=folder,
+            public_id=public_id,
+            resource_type="video"
+        )
+        return response
+
 
     def extract_public_id(cloudinary_url: str) -> str:
         parsed = urlparse(cloudinary_url)

@@ -1,20 +1,28 @@
 from django.db import models
+from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from decimal import Decimal
 
 from core.models import TimeStampedUUIDModel
+from apps.accounts.constants import UserRole
 from apps.accounts.models import User
 from apps.second_opinion.constants import (
     SecondOpinionStatus, SecondOpinionPaymentStatus, DocumentType
 )
 
 
+class PaidDoctorRequestQuerySet(models.QuerySet):
+    def paid(self):
+        return self.filter(
+            second_opinion_request__payment_status=SecondOpinionPaymentStatus.COMPLETED
+        )
+
 class SecondOpinionRequest(TimeStampedUUIDModel):
     patient = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
         related_name="second_opinion_requests",
-        limit_choices_to={"role": "patient"}
+        limit_choices_to={"role": UserRole.PATIENT}
     )
 
     notes = models.TextField(
@@ -37,7 +45,7 @@ class SecondOpinionRequest(TimeStampedUUIDModel):
         choices=SecondOpinionPaymentStatus.CHOICES,
         default=SecondOpinionPaymentStatus.PENDING
     )
-
+    objects = PaidDoctorRequestQuerySet.as_manager()
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Second Opinion Request"
@@ -60,7 +68,6 @@ class SecondOpinionRequest(TimeStampedUUIDModel):
             status=SecondOpinionStatus.COMPLETED
         ).count()
 
-
 class SecondOpinionDoctorRequest(TimeStampedUUIDModel):
     second_opinion_request = models.ForeignKey(
         SecondOpinionRequest,
@@ -71,7 +78,7 @@ class SecondOpinionDoctorRequest(TimeStampedUUIDModel):
         User,
         on_delete=models.CASCADE,
         related_name="received_second_opinions",
-        limit_choices_to={"role": "doctor"}
+        limit_choices_to={"role": UserRole.DOCTOR}
     )
 
     # Status tracking
@@ -107,11 +114,26 @@ class SecondOpinionDoctorRequest(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"Request to Dr. {self.doctor.full_name} - {self.status}"
+    
+    def mark_in_review(self):
+        """Doctor starts reviewing the case."""
+        if self.status != SecondOpinionStatus.SUBMITTED:
+            raise ValueError("Only submitted requests can be moved to in-review")
+        self.status = SecondOpinionStatus.IN_REVIEW
+        self.save(update_fields=["status", "updated_at"])
+
+    def mark_completed(self, response_text: str):
+        """Doctor submits final opinion."""
+        if self.status not in [SecondOpinionStatus.SUBMITTED, SecondOpinionStatus.IN_REVIEW]:
+            raise ValueError("Only active requests can be completed")
+        self.status = SecondOpinionStatus.COMPLETED
+        self.response = response_text
+        self.responded_at = timezone.now()
+        self.save(update_fields=["status", "response", "responded_at", "updated_at"])
 
     @property
     def is_completed(self):
         return self.status == SecondOpinionStatus.COMPLETED
-
 
 class SecondOpinionDocument(TimeStampedUUIDModel):
     second_opinion_request = models.ForeignKey(
@@ -146,12 +168,11 @@ class SecondOpinionDocument(TimeStampedUUIDModel):
     def __str__(self):
         return f"{self.file_name} ({self.file_type})"
 
-
 class SecondOpinionPayment(TimeStampedUUIDModel):
-    second_opinion_request = models.ForeignKey(
+    second_opinion_request = models.OneToOneField(
         SecondOpinionRequest,
         on_delete=models.CASCADE,
-        related_name="payments"
+        related_name="payment"
     )
 
     # Razorpay integration

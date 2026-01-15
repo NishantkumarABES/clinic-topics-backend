@@ -7,6 +7,7 @@ from apps.second_opinion.models import SecondOpinionRequest, SecondOpinionDoctor
 from apps.second_opinion.constants import SecondOpinionStatus, SecondOpinionPaymentStatus, DocumentType
 from apps.accounts.models import User
 from apps.accounts.constants import UserRole
+from apps.profiles.models import DoctorRating
 
 
 # ===================== Input Serializers =====================
@@ -163,12 +164,10 @@ class DoctorBasicInfoSerializer(serializers.ModelSerializer):
         return None
 
     def get_average_rating(self, obj):
-        # ratings_received comes from DoctorRating.related_name
-        data = obj.ratings_received.aggregate(avg=models.Avg("rating"))
-        return round(data["avg"], 2) if data["avg"] else 0.0
+        return round(obj.avg_rating, 2) if obj.avg_rating else 0.0
 
     def get_total_ratings(self, obj):
-        return obj.ratings_received.count()
+        return obj.total_ratings or 0
 
 class SecondOpinionDocumentSerializer(serializers.ModelSerializer):
     """Serializer for documents."""
@@ -289,12 +288,18 @@ class VerifyPaymentSerializer(serializers.Serializer):
     razorpay_signature = serializers.CharField()
 
     def validate_razorpay_order_id(self, value):
+        request = self.context["request"]
+
         try:
             payment = SecondOpinionPayment.objects.select_related(
                 "second_opinion_request"
             ).get(razorpay_order_id=value)
         except SecondOpinionPayment.DoesNotExist:
             raise serializers.ValidationError("Payment order not found")
+
+        # ✅ Ownership check
+        if payment.second_opinion_request.patient != request.user:
+            raise serializers.ValidationError("Unauthorized payment verification attempt")
 
         if payment.status == SecondOpinionPaymentStatus.COMPLETED:
             raise serializers.ValidationError("Payment already verified")
@@ -308,3 +313,153 @@ class VerifyPaymentSerializer(serializers.Serializer):
 
     class Meta:
         ref_name = "SecondOpinionVerifyPaymentSerializer"
+
+
+# ===================== Doctor Side Serializers =====================
+
+class PatientBasicInfoSerializer(serializers.ModelSerializer):
+    """Basic patient info for doctor-side display."""
+
+    class Meta:
+        model = User
+        fields = ["id", "full_name", "email"]
+
+class DoctorSecondOpinionListSerializer(serializers.ModelSerializer):
+    """List serializer for doctors to see incoming requests."""
+
+    patient = PatientBasicInfoSerializer(
+        source="second_opinion_request.patient",
+        read_only=True
+    )
+    question = serializers.CharField(
+        source="second_opinion_request.question",
+        read_only=True
+    )
+    created_at = serializers.DateTimeField(
+        source="second_opinion_request.created_at",
+        read_only=True
+    )
+
+    class Meta:
+        model = SecondOpinionDoctorRequest
+        fields = [
+            "id",
+            "patient",
+            "question",
+            "status",
+            "consultation_fee",
+            "created_at"
+        ]
+
+class DoctorSecondOpinionDetailSerializer(serializers.ModelSerializer):
+    """Detailed view for a doctor to review a case."""
+
+    patient = PatientBasicInfoSerializer(
+        source="second_opinion_request.patient",
+        read_only=True
+    )
+    notes = serializers.CharField(
+        source="second_opinion_request.notes",
+        read_only=True
+    )
+    question = serializers.CharField(
+        source="second_opinion_request.question",
+        read_only=True
+    )
+    documents = SecondOpinionDocumentSerializer(
+        source="second_opinion_request.documents",
+        many=True,
+        read_only=True
+    )
+
+    class Meta:
+        model = SecondOpinionDoctorRequest
+        fields = [
+            "id",
+            "patient",
+            "notes",
+            "question",
+            "documents",
+            "status",
+            "consultation_fee",
+            "response",
+            "responded_at",
+            "created_at"
+        ]
+
+class DoctorStartReviewSerializer(serializers.Serializer):
+    """Serializer to mark request as in-review."""
+
+    def save(self, **kwargs):
+        doctor_request = self.context["doctor_request"]
+        doctor_request.mark_in_review()
+        return doctor_request
+
+class DoctorSubmitResponseSerializer(serializers.Serializer):
+    """Serializer for doctor submitting opinion."""
+
+    response = serializers.CharField(min_length=20)
+
+    def save(self, **kwargs):
+        doctor_request = self.context["doctor_request"]
+        response_text = self.validated_data["response"]
+        doctor_request.mark_completed(response_text)
+        return doctor_request
+
+# ====================== Doctor rating Serializer =======================
+class DoctorRatingSerializer(serializers.ModelSerializer):
+    second_opinion_doctor_request_id = serializers.UUIDField(write_only=True)
+
+    class Meta:
+        model = DoctorRating
+        fields = [
+            "id",
+            "second_opinion_doctor_request_id",
+            "rating",
+            "review",
+            "created_at"
+        ]
+        read_only_fields = ["id", "created_at"]
+        ref_name = "DoctorRatingSerializer"
+
+    def validate_second_opinion_doctor_request_id(self, value):
+        request = self.context["request"]
+
+        try:
+            doctor_request = SecondOpinionDoctorRequest.objects.select_related(
+                "second_opinion_request", "doctor"
+            ).get(id=value)
+        except SecondOpinionDoctorRequest.DoesNotExist:
+            raise serializers.ValidationError("Second opinion request not found")
+
+        # Ensure the logged-in user owns the request
+        if doctor_request.second_opinion_request.patient != request.user:
+            raise serializers.ValidationError("You are not allowed to rate this request")
+
+        # Ensure request is completed
+        if doctor_request.status != SecondOpinionStatus.COMPLETED:
+            raise serializers.ValidationError("Doctor has not completed this request yet")
+
+        # Prevent duplicate rating (OneToOneField enforces this too, but we validate early)
+        if hasattr(doctor_request, "rating"):
+            raise serializers.ValidationError("Rating already submitted for this request")
+
+        self._doctor_request = doctor_request
+        return value
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        doctor_request = self._doctor_request
+
+        rating = DoctorRating.objects.create(
+            doctor=doctor_request.doctor,
+            patient=request.user,
+            second_opinion_doctor_request=doctor_request,
+            rating=validated_data["rating"],
+            review=validated_data.get("review", "")
+        )
+
+        return rating
+
+    
+        
