@@ -25,9 +25,6 @@ STORAGES = {
 }
 
 
-
-
-
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),
     "API_KEY": os.getenv("CLOUDINARY_API_KEY"),
@@ -36,7 +33,6 @@ CLOUDINARY_STORAGE = {
 
 # Workaround for django-cloudinary-storage Django 6.0 compatibility
 # The package checks for STATICFILES_STORAGE which is removed in Django 6.0
-STATICFILES_STORAGE = 'cloudinary_storage.storage.StaticHashedCloudinaryStorage'
 
 
 ALLOWED_HOSTS = [
