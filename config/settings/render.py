@@ -33,7 +33,7 @@ CLOUDINARY_STORAGE = {
 
 # Workaround for django-cloudinary-storage Django 6.0 compatibility
 # The package checks for STATICFILES_STORAGE which is removed in Django 6.0
-
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 ALLOWED_HOSTS = [
     "localhost",
