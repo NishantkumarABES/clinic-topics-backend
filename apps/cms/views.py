@@ -5,7 +5,7 @@ from rest_framework.permissions import AllowAny
 from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 
-from apps.cms.models import StaticPage, StaticPageVersion, ContactUsSubmission, PageType
+from apps.cms.models import StaticPage, StaticPageVersion, ContactUsSubmission, PageType, SiteConfiguration
 from apps.cms.serializers import (
     StaticPageVersionSerializer, 
     AdminStaticPageUpdateSerializer, 
@@ -14,6 +14,7 @@ from apps.cms.serializers import (
     AdminSettingVersionSerializer,
     AdminContactSubmissionSerializer,
     ContactSubmissionPagination,
+    SiteConfigurationSerializer,
 )
 from core.permissions import IsAdmin
 
@@ -279,5 +280,35 @@ class AdminContactUpdateView(APIView):
         serializer = AdminContactSubmissionSerializer(contact)
         return Response({
             "success": True,
+            "data": serializer.data
+        })
+
+
+class AdminSiteConfigurationView(APIView):
+    """Admin view to get and update site configuration."""
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request):
+        config = SiteConfiguration.get_config()
+        serializer = SiteConfigurationSerializer(config)
+        return Response({
+            "success": True,
+            "data": serializer.data
+        })
+
+    @swagger_auto_schema(auto_schema=None)
+    def patch(self, request):
+        config = SiteConfiguration.get_config()
+        serializer = SiteConfigurationSerializer(
+            config,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({
+            "success": True,
+            "message": "Site configuration updated successfully",
             "data": serializer.data
         })

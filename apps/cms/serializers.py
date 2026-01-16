@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from rest_framework.pagination import PageNumberPagination
-from apps.cms.models import StaticPageVersion, StaticPage, ContactUsSubmission
+from apps.cms.models import StaticPageVersion, StaticPage, ContactUsSubmission, SiteConfiguration
 
 
 class StaticPageVersionSerializer(serializers.ModelSerializer):
@@ -122,3 +122,17 @@ class AdminContactSubmissionSerializer(serializers.ModelSerializer):
             "is_resolved",
             "created_at",
         )
+
+
+class SiteConfigurationSerializer(serializers.ModelSerializer):
+    """Serializer for site-wide configuration settings."""
+
+    class Meta:
+        model = SiteConfiguration
+        fields = (
+            "id",
+            "ad_interval",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = ("id", "created_at", "updated_at")

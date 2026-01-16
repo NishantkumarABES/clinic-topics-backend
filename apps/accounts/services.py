@@ -115,6 +115,9 @@ def verify_phone_otp(phone: str, otp: str) -> PhoneOTP:
         except PhoneOTP.DoesNotExist:
             raise ValidationError("Invalid or already used OTP")
 
+        if otp_obj.attempts >= otp_obj.MAX_ATTEMPTS:
+            raise ValidationError("OTP locked due to too many attempts")
+
         if not otp_obj.is_valid():
             raise ValidationError("OTP expired")
 
@@ -143,6 +146,14 @@ def can_resend_otp(phone):
     return True
 
 def resolve_social_user(social_user):
+    """
+    Resolves a social login to an existing user.
+    Priority:
+    1) Existing AuthProvider link
+    2) Existing user with same email (auto-link)
+    3) None → registration required
+    """
+    # Case 1: Already linked social account
     try:
         auth = AuthProvider.objects.select_related("user").get(
             provider=social_user.provider,
@@ -150,7 +161,28 @@ def resolve_social_user(social_user):
         )
         return auth.user
     except AuthProvider.DoesNotExist:
-        return None
+        pass
+
+    # Case 2: No link exists, but email matches an existing user
+    if social_user.email:
+        try:
+            user = User.objects.get(email=social_user.email)
+
+            # Auto-link this social provider to existing user
+            AuthProvider.objects.create(
+                user=user,
+                provider=social_user.provider,
+                provider_user_id=social_user.provider_user_id,
+                email=social_user.email
+            )
+
+            return user
+
+        except User.DoesNotExist:
+            pass
+
+    # Case 3: No match → registration required
+    return None
 
 def generate_reset_token():
     return secrets.token_urlsafe(32)

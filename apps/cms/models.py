@@ -64,3 +64,33 @@ class ContactUsSubmission(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.name} - {self.email}"
+
+
+class SiteConfiguration(TimeStampedUUIDModel):
+    """
+    Singleton model for site-wide configuration settings.
+    Only one instance should exist.
+    """
+    ad_interval = models.PositiveIntegerField(
+        default=5,
+        help_text="Number of topics to display before showing an advertisement in the feed"
+    )
+
+    class Meta:
+        verbose_name = "Site Configuration"
+        verbose_name_plural = "Site Configuration"
+
+    def save(self, *args, **kwargs):
+        # Ensure only one instance exists
+        if not self.pk and SiteConfiguration.objects.exists():
+            raise ValueError("Only one SiteConfiguration instance is allowed")
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_config(cls):
+        """Get or create the singleton configuration instance"""
+        config, _ = cls.objects.get_or_create(pk=cls.objects.first().pk if cls.objects.exists() else None)
+        return config
+
+    def __str__(self):
+        return "Site Configuration"

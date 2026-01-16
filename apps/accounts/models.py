@@ -162,7 +162,8 @@ class PhoneOTP(TimeStampedUUIDModel):
         default=False,
         db_index=True
     )
-
+    MAX_ATTEMPTS = 5
+    attempts = models.PositiveIntegerField(default=0)
     class Meta:
         indexes = [
             Index(fields=["phone", "otp", "is_used"]),
@@ -177,6 +178,12 @@ class PhoneOTP(TimeStampedUUIDModel):
             not self.is_used
             and timezone.now() <= self.expires_at
         )
+
+    def register_failure(self):
+        self.attempts += 1
+        if self.attempts >= self.MAX_ATTEMPTS:
+            self.is_used = True
+        self.save(update_fields=["attempts", "is_used"])
 
     def marks_as_used(self):
         self.is_used = True
@@ -215,12 +222,20 @@ class EmailOTP(TimeStampedUUIDModel):
     otp = models.CharField(max_length=6)
     expires_at = models.DateTimeField()
     is_used = models.BooleanField(default=False)
+    attempts = models.PositiveIntegerField(default=0)
+    MAX_ATTEMPTS = 5
 
     def is_valid(self):
         return (
             not self.is_used and 
             timezone.now() <= self.expires_at
         )
+    
+    def register_failure(self):
+        self.attempts += 1
+        if self.attempts >= self.MAX_ATTEMPTS:
+            self.is_used = True
+        self.save(update_fields=["attempts", "is_used"])
 
     def mark_as_used(self):
         self.is_used = True

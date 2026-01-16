@@ -308,3 +308,135 @@ class DoctorTopicCreateAPIView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+
+class TopicsFeedPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = 'page_size'
+    max_page_size = 50
+
+class TopicsFeedView(APIView):
+    permission_classes = [permissions.AllowAny]
+    pagination_class = TopicsFeedPagination
+
+    @swagger_auto_schema(
+        operation_summary="Get topics feed with advertisements",
+        operation_description=(
+            "Returns a paginated list of topics with advertisements inserted "
+            "after every N topics. The interval is admin-configurable.\n\n"
+            "Each item in the feed has a 'type' field that is either 'topic' or 'advertisement'."
+        ),
+        tags=['Advt - Topics'],
+        manual_parameters=[
+            openapi.Parameter(
+                'page',
+                openapi.IN_QUERY,
+                description='Page number',
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+            openapi.Parameter(
+                'page_size',
+                openapi.IN_QUERY,
+                description='Number of items per page (max 50)',
+                type=openapi.TYPE_INTEGER,
+                required=False,
+            ),
+        ],
+        responses={
+            200: openapi.Response(
+                description="Feed items retrieved successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                        "count": openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "next": openapi.Schema(type=openapi.TYPE_STRING, nullable=True),
+                        "previous": openapi.Schema(type=openapi.TYPE_STRING, nullable=True),
+                        "ad_interval": openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "results": openapi.Schema(
+                            type=openapi.TYPE_ARRAY,
+                            items=openapi.Schema(
+                                type=openapi.TYPE_OBJECT,
+                                properties={
+                                    "type": openapi.Schema(
+                                        type=openapi.TYPE_STRING,
+                                        enum=["topic", "advertisement"]
+                                    ),
+                                }
+                            )
+                        ),
+                    },
+                ),
+            ),
+        },
+    )
+    def get(self, request):
+        from apps.cms.models import SiteConfiguration
+        from apps.advertisements.models import Advertisement
+        from apps.topics.serializers import TopicFeedItemSerializer, AdvertisementFeedItemSerializer
+        from apps.accounts.constants import UserRole
+        import random
+
+        # Get ad interval from site configuration
+        try:
+            config = SiteConfiguration.get_config()
+            ad_interval = config.ad_interval
+        except Exception:
+            ad_interval = 5  # Default fallback
+
+        # Get published topics ordered by publishing time
+        topics_queryset = Topic.objects.filter(publish_status=True).order_by("-publishing_time")
+
+        # Get enabled advertisements, filtered by specialization for doctors
+        ads_queryset = Advertisement.objects.filter(status='enabled')
+
+        user = request.user
+        if user.is_authenticated and user.role == UserRole.DOCTOR:
+            # For doctors, filter by matching specialization
+            try:
+                doctor_profile = user.doctor_profile
+                doctor_specialty = doctor_profile.specialization
+
+                if doctor_specialty:
+                    # Filter advertisements where specializations contains the doctor's specialty
+                    ads_queryset = ads_queryset.filter(specializations__contains=[doctor_specialty])
+            except AttributeError:
+                # Doctor profile doesn't exist, show no ads
+                ads_queryset = Advertisement.objects.none()
+
+        enabled_ads = list(ads_queryset)
+
+        # Paginate topics
+        paginator = self.pagination_class()
+        paginated_topics = paginator.paginate_queryset(topics_queryset, request)
+
+        # Build feed with ads inserted
+        feed_items = []
+        topic_counter = 0
+
+        for topic in paginated_topics:
+            # Add topic to feed
+            topic_data = TopicFeedItemSerializer(topic).data
+            feed_items.append(topic_data)
+            topic_counter += 1
+
+            # Insert ad after every ad_interval topics
+            if topic_counter % ad_interval == 0 and enabled_ads:
+                # Pick a random advertisement
+                ad = random.choice(enabled_ads)
+                ad_data = {
+                    "type": "advertisement",
+                    "id": str(ad.id),
+                    "title": ad.title,
+                    "url": ad.url,
+                    "image": request.build_absolute_uri(ad.image.url) if ad.image else None,
+                }
+                feed_items.append(ad_data)
+
+        # Build response
+        response_data = paginator.get_paginated_response(feed_items).data
+        response_data['success'] = True
+        response_data['ad_interval'] = ad_interval
+
+        return Response(response_data, status=status.HTTP_200_OK)

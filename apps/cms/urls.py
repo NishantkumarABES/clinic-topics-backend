@@ -8,6 +8,7 @@ from apps.cms.views import (
     AdminPublishVersionView,
     AdminContactListView,
     AdminContactUpdateView,
+    AdminSiteConfigurationView,
 )
 
 urlpatterns = [
@@ -20,6 +21,9 @@ urlpatterns = [
     path("admin/settings/<str:page_type>/", AdminSettingDetailView.as_view(), name="admin-setting-detail"),
     path("admin/settings/<str:page_type>/versions/", AdminSettingVersionsView.as_view(), name="admin-setting-versions"),
     path("admin/versions/<uuid:version_id>/publish/", AdminPublishVersionView.as_view(), name="admin-publish-version"),
+
+    # Admin Site Configuration endpoints
+    path("admin/site-configuration/", AdminSiteConfigurationView.as_view(), name="admin-site-configuration"),
 
     # Admin Contact endpoints
     path("admin/contacts/", AdminContactListView.as_view(), name="admin-contact-list"),

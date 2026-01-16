@@ -7,6 +7,7 @@ from datetime import timedelta
 from apps.commerce.models import Product
 from apps.accounts.models import User
 from apps.topics.models import Topic
+from apps.advertisements.models import Advertisement, AdvertisementStatus
 from core.permissions import IsAdmin
 
 
@@ -79,4 +80,20 @@ class AdminDashboardMetricsAPIView(APIView):
             }
         }
 
+        return Response(data)
+
+
+
+class AdminDashboardPendingActionAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        total_out_of_stock_products = Product.objects.filter(stock_quantity=0).count()
+        total_unpublished_topics = Topic.objects.filter(publish_status=False).count()
+        total_unpublished_advt = Advertisement.objects.filter(status=AdvertisementStatus.DISABLED).count()
+        data = {
+            "out_of_stock_products": total_out_of_stock_products,
+            "unpublished_topics": total_unpublished_topics,
+            "unpublished_advt": total_unpublished_advt
+        }
         return Response(data)

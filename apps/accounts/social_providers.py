@@ -1,4 +1,5 @@
 import os, requests
+from django.core.cache import cache
 from rest_framework.exceptions import AuthenticationFailed
 from jwt.algorithms import RSAAlgorithm
 from jose import jwt
@@ -8,6 +9,10 @@ class SocialUser:
         self.provider = provider
         self.provider_user_id = provider_user_id
         self.email = email
+
+APPLE_PUBLIC_KEY_URL = "https://appleid.apple.com/auth/keys"
+APPLE_JWKS_CACHE_KEY = "apple_jwks_cache"
+APPLE_JWKS_TTL = 60 * 60 * 24  # 24 hours
 
 
 # -------- GOOGLE --------
@@ -47,55 +52,76 @@ def verify_facebook_token(token):
     )
 
 # -------- APPLE --------
-def verify_apple_token(token):
-    APPLE_PUBLIC_KEY_URL = "https://appleid.apple.com/auth/keys"
+def get_apple_public_keys():
+    # Try cache first
+    keys = cache.get(APPLE_JWKS_CACHE_KEY)
+    if keys:
+        return keys
 
+    # Fetch from Apple if not cached
     try:
-        # 1. Fetch Apple's public keys
         response = requests.get(APPLE_PUBLIC_KEY_URL, timeout=5)
         if response.status_code != 200:
             raise AuthenticationFailed("Unable to fetch Apple public keys")
 
-        apple_keys = response.json()
+        keys = response.json()
+        cache.set(APPLE_JWKS_CACHE_KEY, keys, APPLE_JWKS_TTL)
+        return keys
 
-        # 2. Read token header to find matching key id
+    except requests.RequestException:
+        # If Apple is down but cache exists, use stale cache
+        cached = cache.get(APPLE_JWKS_CACHE_KEY)
+        if cached:
+            return cached
+        raise AuthenticationFailed("Apple public key service unreachable")
+
+def verify_apple_token(token):
+    APPLE_CLIENT_ID = os.getenv("APPLE_CLIENT_ID")
+    APPLE_KEY_ID    = os.getenv("APPLE_KEY_ID")
+
+    if not all([APPLE_CLIENT_ID, APPLE_KEY_ID]):
+        raise AuthenticationFailed("Missing Apple environment configuration")
+
+    try:
+        # 1. Load keys (cached)
+        apple_keys = get_apple_public_keys()
+
+        # 2. Read token header
         unverified_header = jwt.get_unverified_header(token)
-        key_id = unverified_header.get("kid")
+        token_kid = unverified_header.get("kid")
 
-        if not key_id:
-            raise AuthenticationFailed("Invalid Apple token: missing key ID")
+        if not token_kid:
+            raise AuthenticationFailed("Invalid Apple token: missing key id")
 
-        # 3. Find corresponding Apple public key
+        # 3. Enforce expected signing key
+        if token_kid != APPLE_KEY_ID:
+            raise AuthenticationFailed("Unexpected Apple signing key")
+
+        # 4. Locate matching public key
         public_key = None
         for key in apple_keys.get("keys", []):
-            if key.get("kid") == key_id:
+            if key.get("kid") == token_kid:
                 public_key = RSAAlgorithm.from_jwk(key)
                 break
 
         if not public_key:
             raise AuthenticationFailed("Apple public key not found")
 
-        # 4. Verify and decode token
+        # 5. Verify token
         claims = jwt.decode(
             token,
             public_key,
             algorithms=["RS256"],
-            audience=os.getenv("APPLE_SUB"),  # Your app's client id (bundle id)
+            audience=APPLE_CLIENT_ID,
             issuer="https://appleid.apple.com"
         )
 
-        # 5. Validate issuer team id inside token
-        if claims.get("iss") != "https://appleid.apple.com":
-            raise AuthenticationFailed("Invalid issuer in Apple token")
-
-        # 6. Extract required fields
         provider_user_id = claims.get("sub")
         email = claims.get("email")
 
         if not provider_user_id:
             raise AuthenticationFailed("Invalid Apple token: missing subject")
 
-        # 7. Return standardized social user object
         return SocialUser(
             provider="apple",
             provider_user_id=provider_user_id,
@@ -103,13 +129,10 @@ def verify_apple_token(token):
         )
 
     except jwt.ExpiredSignatureError:
-        raise AuthenticationFailed("Apple token has expired")
+        raise AuthenticationFailed("Apple token expired")
 
     except jwt.JWTError as e:
         raise AuthenticationFailed(f"Invalid Apple token: {str(e)}")
-
-    except requests.RequestException as e:
-        raise AuthenticationFailed(f"Failed to reach Apple servers: {str(e)}")
 
     except Exception as e:
         raise AuthenticationFailed(f"Apple authentication error: {str(e)}")

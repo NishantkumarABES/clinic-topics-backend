@@ -199,35 +199,28 @@ class EmailOTPRequestSerializer(serializers.Serializer):
 
 class EmailOTPVerifySerializer(serializers.Serializer):
     email = serializers.EmailField()
-    otp = serializers.CharField(max_length=4)
+    otp = serializers.CharField(max_length=6)
 
     def validate(self, data):
         try:
             otp_obj = EmailOTP.objects.filter(
                 email=data["email"],
-                otp=data["otp"],
                 is_used=False
             ).latest("created_at")
         except EmailOTP.DoesNotExist:
-            data["otp_obj"] = None
-            data["message"] = "Invalid OTP or OTP already used"
-            data["is_valid"] = False
-            return data
-        
+            raise ValidationError("Invalid OTP")
+
+        if otp_obj.attempts >= otp_obj.MAX_ATTEMPTS:
+            raise ValidationError("OTP locked due to too many attempts")
+
         if not otp_obj.is_valid():
-            data["is_valid"] = False
-            data["otp_obj"] = otp_obj
-            data["message"] = "OTP expired"
-            return data
-        
+            raise ValidationError("OTP expired")
+
         if otp_obj.otp != data["otp"]:
-            data["is_valid"] = False
-            data["otp_obj"] = otp_obj
-            data["message"] = "Invalid OTP"
-            return data
-        
+            otp_obj.register_failure()
+            raise ValidationError("Invalid OTP")
+
         data["otp_obj"] = otp_obj
-        data["is_valid"] = True
         return data
 
 

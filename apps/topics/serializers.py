@@ -123,3 +123,36 @@ class TopicCreateSuccessResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField(default=True)
     message = serializers.CharField(default="Topic uploaded successfully and sent for admin approval.")
     data = AdminTopicReadSerializer()
+
+
+class TopicFeedItemSerializer(serializers.ModelSerializer):
+    """Serializer for topics in the feed with type discriminator"""
+    type = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Topic
+        fields = [
+            "type",
+            "id",
+            "title",
+            "description",
+            "publishing_time",
+            "publish_status",
+            "image",
+            "video_url",
+        ]
+
+    def get_type(self, obj):
+        return "topic"
+
+
+class AdvertisementFeedItemSerializer(serializers.Serializer):
+    """Serializer for advertisements in the feed with type discriminator"""
+    type = serializers.SerializerMethodField()
+    id = serializers.UUIDField()
+    title = serializers.CharField()
+    url = serializers.URLField()
+    image = serializers.ImageField()
+
+    def get_type(self, obj):
+        return "advertisement"
