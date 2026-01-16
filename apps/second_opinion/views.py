@@ -12,8 +12,9 @@ from drf_yasg.utils import swagger_auto_schema
 from decimal import Decimal
 
 from core.permissions import IsPatient, IsDoctor
+from apps.second_opinion.constants import SecondOpinionStatus
 from apps.second_opinion.models import (
-    SecondOpinionRequest, SecondOpinionDocument, SecondOpinionPayment, SecondOpinionDoctorRequest
+    SecondOpinionRequest, SecondOpinionPayment, SecondOpinionDoctorRequest
 )
 from apps.second_opinion.serializers import (
     CalculateChargesSerializer, CalculateChargesResponseSerializer, CreateSecondOpinionRequestSerializer,
@@ -55,6 +56,7 @@ class CalculateChargesView(APIView):
             200: CalculateChargesResponseSerializer,
             400: openapi.Response(description="Validation error - invalid doctor IDs"),
         },
+        auto_schema=None
     )
     def post(self, request):
         serializer = CalculateChargesSerializer(data=request.data)
@@ -109,9 +111,9 @@ class SecondOpinionRequestListCreateView(APIView):
             openapi.Parameter(
                 "status",
                 openapi.IN_QUERY,
-                description="Filter by payment status (pending/completed/failed)",
+                description="Filter by status (submitted/in-review/completed/)",
                 type=openapi.TYPE_STRING,
-                enum=["pending", "completed", "failed"]
+                enum=["submitted", "in-review", "completed"]
             ),
             openapi.Parameter(
                 "page", openapi.IN_QUERY,
@@ -132,7 +134,7 @@ class SecondOpinionRequestListCreateView(APIView):
         # Optional status filter
         status_filter = request.query_params.get("status")
         if status_filter:
-            queryset = queryset.filter(payment_status=status_filter)
+            queryset = queryset.filter(status=status_filter)
 
         # Pagination
         paginator = self.pagination_class()
@@ -149,26 +151,12 @@ class SecondOpinionRequestListCreateView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Create second opinion request",
-        operation_description=(
-            "Create a new second opinion request with selected doctors.\n\n"
-            "**Request Body (multipart/form-data):**\n"
-            "- `doctor_ids`: List of doctor UUIDs\n"
-            "- `chief_complaint`: Patient's main complaint\n"
-            "- `medical_history`: Relevant medical history\n"
-            "- `documents`: Optional file uploads (reports, scans)\n"
-            "- `document_types`: Type for each document (report/scan/prescription/other)\n"
-            "- `document_descriptions`: Description for each document\n\n"
-            "**Note:** Payment must be completed separately after creation."
-        ),
         tags=["Second Opinion - Patient"],
-        request_body=CreateSecondOpinionRequestSerializer,
-        responses={
-            201: SecondOpinionRequestDetailSerializer,
-            400: openapi.Response(description="Validation error - invalid doctors or missing fields"),
-        },
+        consumes=["multipart/form-data"],
+        request_body=None,  # Don't use serializer for swagger
+        responses={201: SecondOpinionRequestDetailSerializer},
     )
     def post(self, request):
-        """Create a new second opinion request."""
         serializer = CreateSecondOpinionRequestSerializer(
             data=request.data,
             context={"request": request}
@@ -176,32 +164,10 @@ class SecondOpinionRequestListCreateView(APIView):
         serializer.is_valid(raise_exception=True)
         second_opinion_request = serializer.save()
 
-        # Handle document uploads if present
-        documents = request.FILES.getlist("documents")
-        document_types = request.data.getlist("document_types") if hasattr(request.data, 'getlist') else []
-        document_descriptions = request.data.getlist("document_descriptions") if hasattr(request.data, 'getlist') else []
+        response_serializer = SecondOpinionRequestDetailSerializer(second_opinion_request)
+        return Response({**response_serializer.data, "success": True}, status=201)
 
-        for i, doc_file in enumerate(documents):
-            file_type = document_types[i] if i < len(document_types) else "other"
-            description = document_descriptions[i] if i < len(document_descriptions) else ""
 
-            SecondOpinionDocument.objects.create(
-                second_opinion_request=second_opinion_request,
-                file=doc_file,
-                file_name=doc_file.name,
-                file_type=file_type,
-                description=description
-            )
-
-        # Return created request
-        response_serializer = SecondOpinionRequestDetailSerializer(
-            second_opinion_request
-        )
-
-        return Response({
-            **response_serializer.data,
-            "success": True
-        }, status=status.HTTP_201_CREATED)
 
 class SecondOpinionRequestDetailView(APIView):
     """
@@ -624,7 +590,8 @@ class DoctorStartReviewView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
-
+        doctor_request.second_opinion_request.status = SecondOpinionStatus.IN_REVIEW
+        doctor_request.second_opinion_request.save(update_fields=["status"])
         return Response({
             "detail": "Request marked as in-review",
             "success": True
@@ -671,6 +638,12 @@ class DoctorSubmitResponseView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        req = doctor_request.second_opinion_request
+
+        # If all doctors completed → mark request completed
+        if req.completed_count == req.doctors_count:
+            req.status = SecondOpinionStatus.COMPLETED
+            req.save(update_fields=["status"])
 
         return Response({
             "detail": "Response submitted successfully",

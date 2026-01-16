@@ -55,45 +55,64 @@ class DocumentUploadSerializer(serializers.Serializer):
     )
 
 class CreateSecondOpinionRequestSerializer(serializers.Serializer):
-    """Serializer for creating a new second opinion request."""
     doctor_ids = serializers.ListField(
         child=serializers.UUIDField(),
-        min_length=1,
-        help_text="List of doctor UUIDs"
+        min_length=1
     )
-    notes = serializers.CharField(
-        required=False,
-        allow_blank=True
+    notes = serializers.CharField(required=False, allow_blank=True)
+    question = serializers.CharField(min_length=10)
+
+    # Swagger-safe single FileField, multiple handled manually
+    documents = serializers.FileField(write_only=True, required=True)
+
+    document_types = serializers.ListField(
+        child=serializers.ChoiceField(choices=DocumentType.CHOICES),
+        required=False
     )
-    question = serializers.CharField(
-        min_length=10,
-        help_text="Your specific question for doctors"
+    document_descriptions = serializers.ListField(
+        child=serializers.CharField(max_length=500),
+        required=False
     )
 
+    # ---------- Doctor validation ----------
     def validate_doctor_ids(self, value):
-        # Verify all doctors exist
         doctors = User.objects.filter(
             id__in=value,
             role=UserRole.DOCTOR
         ).select_related("doctor_profile")
 
         if len(doctors) != len(value):
-            raise serializers.ValidationError(
-                "One or more doctor IDs are invalid"
-            )
+            raise serializers.ValidationError("One or more doctor IDs are invalid")
 
-        # Store doctors for use in create
+        for doctor in doctors:
+            if not hasattr(doctor, "doctor_profile"):
+                raise serializers.ValidationError(
+                    f"Doctor {doctor.full_name} does not have a complete profile"
+                )
+
+        # Store queryset for create()
         self._doctors = doctors
         return value
 
+    # ---------- General validation ----------
     def validate(self, data):
-        data["_doctors"] = getattr(self, "_doctors", [])
+        files = self.context["request"].FILES.getlist("documents")
+        if not files:
+            raise serializers.ValidationError("At least one document is required")
+
+        data["_documents"] = files
+        data["_doctors"] = self._doctors
         return data
 
+    # ---------- Create implementation ----------
     @transaction.atomic
     def create(self, validated_data):
         patient = self.context["request"].user
         doctors = validated_data.pop("_doctors")
+        documents = validated_data.pop("_documents")
+
+        document_types = validated_data.pop("document_types", [])
+        document_descriptions = validated_data.pop("document_descriptions", [])
 
         # Calculate total amount
         total_amount = Decimal("0.00")
@@ -110,21 +129,28 @@ class CreateSecondOpinionRequestSerializer(serializers.Serializer):
             notes=validated_data.get("notes", ""),
             question=validated_data["question"],
             total_amount=total_amount,
-            payment_status=SecondOpinionPaymentStatus.PENDING
+            status=SecondOpinionStatus.SUBMITTED
         )
 
-        # Create individual doctor requests
-        doctor_requests = []
-        for doctor in doctors:
-            doctor_request = SecondOpinionDoctorRequest(
+        # Create doctor requests
+        SecondOpinionDoctorRequest.objects.bulk_create([
+            SecondOpinionDoctorRequest(
                 second_opinion_request=second_opinion_request,
                 doctor=doctor,
-                consultation_fee=doctor_fees[doctor.id],
-                status=SecondOpinionStatus.SUBMITTED
+                consultation_fee=doctor_fees[doctor.id]
             )
-            doctor_requests.append(doctor_request)
+            for doctor in doctors
+        ])
 
-        SecondOpinionDoctorRequest.objects.bulk_create(doctor_requests)
+        # Save uploaded documents
+        for i, doc in enumerate(documents):
+            SecondOpinionDocument.objects.create(
+                second_opinion_request=second_opinion_request,
+                file=doc,
+                file_name=doc.name,
+                file_type=document_types[i] if i < len(document_types) else DocumentType.OTHER,
+                description=document_descriptions[i] if i < len(document_descriptions) else ""
+            )
 
         return second_opinion_request
 
@@ -170,19 +196,22 @@ class DoctorBasicInfoSerializer(serializers.ModelSerializer):
         return None
 
     def get_average_rating(self, obj):
-        return round(obj.avg_rating, 2) if obj.avg_rating else 0.0
+        avg = getattr(obj, "avg_rating", None)
+        return round(avg, 2) if avg else 0.0
 
     def get_total_ratings(self, obj):
-        return obj.total_ratings or 0
+        total = getattr(obj, "total_ratings", None)
+        return total or 0
 
 class SecondOpinionDocumentSerializer(serializers.ModelSerializer):
     """Serializer for documents."""
     file_url = serializers.SerializerMethodField()
+    file_size = serializers.SerializerMethodField()
 
     class Meta:
         model = SecondOpinionDocument
         fields = [
-            "id", "file_name", "file_type",
+            "id", "file_name", "file_type", "file_size",
             "description", "file_url", "created_at"
         ]
 
@@ -190,6 +219,11 @@ class SecondOpinionDocumentSerializer(serializers.ModelSerializer):
         if obj.file:
             return obj.file.url
         return None
+    
+    def get_file_size(self, obj):
+        if obj.file:
+            return obj.file.size  
+        return 0
 
 class SecondOpinionDoctorRequestSerializer(serializers.ModelSerializer):
     """Serializer for individual doctor request."""
@@ -207,13 +241,14 @@ class SecondOpinionRequestListSerializer(serializers.ModelSerializer):
     doctors_count = serializers.IntegerField(read_only=True)
     completed_count = serializers.IntegerField(read_only=True)
     is_paid = serializers.BooleanField(read_only=True)
+    documents_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = SecondOpinionRequest
         fields = [
             "id", "question", "total_amount", "payment_status",
-            "is_paid", "doctors_count", "completed_count",
-            "created_at", "updated_at"
+            "status", "is_paid", "doctors_count", "completed_count", 
+            "documents_count", "created_at", "updated_at"
         ]
 
 class SecondOpinionRequestDetailSerializer(serializers.ModelSerializer):
@@ -231,7 +266,7 @@ class SecondOpinionRequestDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = SecondOpinionRequest
         fields = [
-            "id", "notes", "question", "total_amount",
+            "id", "notes", "question", "total_amount", "status",    
             "payment_status", "is_paid", "doctor_requests",
             "documents", "created_at", "updated_at"
         ]

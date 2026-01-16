@@ -10,9 +10,6 @@ from apps.profiles.models import DoctorProfile, PatientProfile
 from apps.profiles.serializers import DoctorProfileSerializer, PatientProfileSerializer
 from apps.accounts.constants import UserRole
 
-
-
-
 class ProfileMeView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -124,9 +121,6 @@ class ProfileMeView(APIView):
         serializer.save()
 
         return Response(serializer.data)
-
-
-
 
 class DoctorRatingView(APIView):
     """

@@ -28,6 +28,15 @@ class CloudinaryService:
         )
         return response
 
+    @staticmethod
+    def upload_raw(content, folder, public_id):
+        response = upload(
+            content,
+            folder=folder,
+            public_id=public_id,
+            resource_type="raw"   # ✅ This is the key
+        )
+        return response
 
     def extract_public_id(cloudinary_url: str) -> str:
         parsed = urlparse(cloudinary_url)

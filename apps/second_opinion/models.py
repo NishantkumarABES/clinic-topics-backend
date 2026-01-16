@@ -46,6 +46,12 @@ class SecondOpinionRequest(TimeStampedUUIDModel):
         default=SecondOpinionPaymentStatus.PENDING
     )
 
+    status = models.CharField(
+        max_length=20,
+        choices=SecondOpinionStatus.CHOICES,
+        default=SecondOpinionStatus.SUBMITTED
+    )
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Second Opinion Request"
@@ -67,6 +73,10 @@ class SecondOpinionRequest(TimeStampedUUIDModel):
         return self.doctor_requests.filter(
             status=SecondOpinionStatus.COMPLETED
         ).count()
+    
+    @property
+    def documents_count(self):
+        return self.documents.count()
 
 class SecondOpinionDoctorRequest(TimeStampedUUIDModel):
     second_opinion_request = models.ForeignKey(
