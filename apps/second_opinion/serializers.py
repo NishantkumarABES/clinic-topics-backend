@@ -138,6 +138,7 @@ class DoctorBasicInfoSerializer(serializers.ModelSerializer):
     profile_photo = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     total_ratings = serializers.SerializerMethodField()
+    years_of_experience = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -145,7 +146,7 @@ class DoctorBasicInfoSerializer(serializers.ModelSerializer):
             "id", "full_name", "email",
             "specialization", "consultation_fee",
             "profile_photo", "average_rating",
-            "total_ratings",
+            "total_ratings", "years_of_experience",
         ]
 
     def get_specialization(self, obj):
@@ -161,6 +162,11 @@ class DoctorBasicInfoSerializer(serializers.ModelSerializer):
     def get_profile_photo(self, obj):
         if hasattr(obj, "doctor_profile") and obj.doctor_profile.profile_photo:
             return obj.doctor_profile.profile_photo.url
+        return None
+    
+    def get_years_of_experience(self, obj):
+        if hasattr(obj, "doctor_profile"):
+            return obj.doctor_profile.years_of_experience
         return None
 
     def get_average_rating(self, obj):

@@ -28,9 +28,6 @@ from external.razorpay.service import razorpay_service
 
 
 
-
-
-
 class SecondOpinionPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
@@ -43,10 +40,20 @@ class CalculateChargesView(APIView):
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
+        operation_summary="Calculate consultation charges",
+        operation_description=(
+            "Calculate total consultation charges for selected doctors.\n\n"
+            "**Request Body:**\n"
+            "- `doctor_ids`: List of doctor UUIDs to calculate fees for\n\n"
+            "**Response includes:**\n"
+            "- Individual doctor fees with their details\n"
+            "- Total amount in INR"
+        ),
+        tags=["Second Opinion - Patient"],
         request_body=CalculateChargesSerializer,
         responses={
             200: CalculateChargesResponseSerializer,
-            400: openapi.Response(description="Validation error"),
+            400: openapi.Response(description="Validation error - invalid doctor IDs"),
         },
     )
     def post(self, request):
@@ -88,6 +95,13 @@ class SecondOpinionRequestListCreateView(APIView):
     pagination_class = SecondOpinionPagination
 
     @swagger_auto_schema(
+        operation_summary="List my second opinion requests",
+        operation_description=(
+            "Get all second opinion requests created by the logged-in patient.\n\n"
+            "**Pagination:** Supports `page` and `page_size` query params.\n"
+            "**Filter:** Use `status` param to filter by payment status (pending/completed/failed)."
+        ),
+        tags=["Second Opinion - Patient"],
         responses={
             200: SecondOpinionRequestListSerializer(many=True),
         },
@@ -95,8 +109,17 @@ class SecondOpinionRequestListCreateView(APIView):
             openapi.Parameter(
                 "status",
                 openapi.IN_QUERY,
-                description="Filter by payment status",
-                type=openapi.TYPE_STRING
+                description="Filter by payment status (pending/completed/failed)",
+                type=openapi.TYPE_STRING,
+                enum=["pending", "completed", "failed"]
+            ),
+            openapi.Parameter(
+                "page", openapi.IN_QUERY,
+                description="Page number", type=openapi.TYPE_INTEGER
+            ),
+            openapi.Parameter(
+                "page_size", openapi.IN_QUERY,
+                description="Items per page (max 50)", type=openapi.TYPE_INTEGER
             ),
         ],
     )
@@ -125,10 +148,23 @@ class SecondOpinionRequestListCreateView(APIView):
         return Response(response_data)
 
     @swagger_auto_schema(
+        operation_summary="Create second opinion request",
+        operation_description=(
+            "Create a new second opinion request with selected doctors.\n\n"
+            "**Request Body (multipart/form-data):**\n"
+            "- `doctor_ids`: List of doctor UUIDs\n"
+            "- `chief_complaint`: Patient's main complaint\n"
+            "- `medical_history`: Relevant medical history\n"
+            "- `documents`: Optional file uploads (reports, scans)\n"
+            "- `document_types`: Type for each document (report/scan/prescription/other)\n"
+            "- `document_descriptions`: Description for each document\n\n"
+            "**Note:** Payment must be completed separately after creation."
+        ),
+        tags=["Second Opinion - Patient"],
         request_body=CreateSecondOpinionRequestSerializer,
         responses={
             201: SecondOpinionRequestDetailSerializer,
-            400: openapi.Response(description="Validation error"),
+            400: openapi.Response(description="Validation error - invalid doctors or missing fields"),
         },
     )
     def post(self, request):
@@ -174,9 +210,19 @@ class SecondOpinionRequestDetailView(APIView):
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
+        operation_summary="Get second opinion request details",
+        operation_description=(
+            "Retrieve full details of a specific second opinion request.\n\n"
+            "**Response includes:**\n"
+            "- Request details (complaint, history, status)\n"
+            "- Assigned doctors with their response status\n"
+            "- Uploaded documents\n"
+            "- Doctor responses (if completed)"
+        ),
+        tags=["Second Opinion - Patient"],
         responses={
             200: SecondOpinionRequestDetailSerializer,
-            404: openapi.Response(description="Not found"),
+            404: openapi.Response(description="Request not found or not owned by user"),
         },
     )
     def get(self, request, request_id):
@@ -205,6 +251,16 @@ class CreateSecondOpinionPaymentView(APIView):
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
+        operation_summary="Create Razorpay payment order",
+        operation_description=(
+            "Create a Razorpay payment order for a second opinion request.\n\n"
+            "**Flow:**\n"
+            "1. Call this endpoint to get Razorpay order details\n"
+            "2. Use `razorpay_order_id` and `key_id` to open Razorpay checkout\n"
+            "3. After successful payment, call verify endpoint\n\n"
+            "**Note:** Amount is returned in paise (multiply by 100)."
+        ),
+        tags=["Second Opinion - Payment"],
         request_body=CreatePaymentOrderSerializer,
         responses={
             201: openapi.Response(
@@ -212,14 +268,16 @@ class CreateSecondOpinionPaymentView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        "razorpay_order_id": openapi.Schema(type=openapi.TYPE_STRING),
-                        "amount": openapi.Schema(type=openapi.TYPE_NUMBER),
-                        "currency": openapi.Schema(type=openapi.TYPE_STRING),
-                        "key_id": openapi.Schema(type=openapi.TYPE_STRING),
+                        "razorpay_order_id": openapi.Schema(type=openapi.TYPE_STRING, description="Use this to open Razorpay checkout"),
+                        "amount": openapi.Schema(type=openapi.TYPE_INTEGER, description="Amount in paise"),
+                        "currency": openapi.Schema(type=openapi.TYPE_STRING, description="INR"),
+                        "key_id": openapi.Schema(type=openapi.TYPE_STRING, description="Razorpay public key"),
+                        "payment_id": openapi.Schema(type=openapi.TYPE_STRING, description="Internal payment record ID"),
+                        "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
                     }
                 )
             ),
-            400: openapi.Response(description="Validation error"),
+            400: openapi.Response(description="Already paid or invalid request"),
         },
     )
     def post(self, request):
@@ -281,6 +339,17 @@ class VerifySecondOpinionPaymentView(APIView):
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
+        operation_summary="Verify Razorpay payment",
+        operation_description=(
+            "Verify payment after successful Razorpay transaction.\n\n"
+            "**Call this after Razorpay checkout success callback.**\n\n"
+            "**Request Body:**\n"
+            "- `second_opinion_request_id`: The request being paid for\n"
+            "- `razorpay_payment_id`: From Razorpay callback\n"
+            "- `razorpay_signature`: From Razorpay callback\n\n"
+            "**On success:** Request status changes to 'completed' and doctors are notified."
+        ),
+        tags=["Second Opinion - Payment"],
         request_body=VerifyPaymentSerializer,
         responses={
             200: openapi.Response(
@@ -289,11 +358,12 @@ class VerifySecondOpinionPaymentView(APIView):
                     type=openapi.TYPE_OBJECT,
                     properties={
                         "detail": openapi.Schema(type=openapi.TYPE_STRING),
+                        "second_opinion_request_id": openapi.Schema(type=openapi.TYPE_STRING),
                         "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
                     }
                 )
             ),
-            400: openapi.Response(description="Verification failed"),
+            400: openapi.Response(description="Signature verification failed"),
         },
     )
     @transaction.atomic
@@ -348,19 +418,37 @@ class AvailableDoctorsListView(APIView):
     pagination_class = SecondOpinionPagination
 
     @swagger_auto_schema(
+        operation_summary="List available doctors",
+        operation_description=(
+            "Get list of doctors available for second opinion consultations.\n\n"
+            "**Response includes for each doctor:**\n"
+            "- Name, specialization, consultation fee\n"
+            "- Profile photo, years of experience\n"
+            "- Average rating and total ratings count\n\n"
+            "**Use filters to narrow down doctors by specialty or search terms.**"
+        ),
+        tags=["Second Opinion - Patient"],
         responses={
             200: DoctorBasicInfoSerializer(many=True),
         },
         manual_parameters=[
             openapi.Parameter(
                 "specialization", openapi.IN_QUERY,
-                description="Filter by specialization",
+                description="Filter by specialization (e.g., Cardiology, Neurology)",
                 type=openapi.TYPE_STRING
             ),
             openapi.Parameter(
                 "search_terms", openapi.IN_QUERY,
-                description="Search by name or specialization",
+                description="Search by doctor name or specialization",
                 type=openapi.TYPE_STRING
+            ),
+            openapi.Parameter(
+                "page", openapi.IN_QUERY,
+                description="Page number", type=openapi.TYPE_INTEGER
+            ),
+            openapi.Parameter(
+                "page_size", openapi.IN_QUERY,
+                description="Items per page (max 50)", type=openapi.TYPE_INTEGER
             ),
         ],
     )
@@ -409,13 +497,31 @@ class DoctorSecondOpinionListView(APIView):
     pagination_class = DoctorSecondOpinionPagination
 
     @swagger_auto_schema(
+        operation_summary="List my assigned second opinion requests",
+        operation_description=(
+            "Get all paid second opinion requests assigned to the logged-in doctor.\n\n"
+            "**Note:** Only shows requests where payment is completed.\n\n"
+            "**Filter by status:**\n"
+            "- `pending`: Waiting for doctor to start review\n"
+            "- `in_review`: Doctor is currently reviewing\n"
+            "- `completed`: Doctor has submitted response"
+        ),
+        tags=["Second Opinion - Doctor"],
         responses={200: DoctorSecondOpinionListSerializer(many=True)},
         manual_parameters=[
             openapi.Parameter(
-                "status",
-                openapi.IN_QUERY,
+                "status", openapi.IN_QUERY,
                 description="Filter by request status",
-                type=openapi.TYPE_STRING
+                type=openapi.TYPE_STRING,
+                enum=["pending", "in_review", "completed"]
+            ),
+            openapi.Parameter(
+                "page", openapi.IN_QUERY,
+                description="Page number", type=openapi.TYPE_INTEGER
+            ),
+            openapi.Parameter(
+                "page_size", openapi.IN_QUERY,
+                description="Items per page (max 50)", type=openapi.TYPE_INTEGER
             ),
         ],
     )
@@ -445,7 +551,20 @@ class DoctorSecondOpinionDetailView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
 
     @swagger_auto_schema(
-        responses={200: DoctorSecondOpinionDetailSerializer},
+        operation_summary="Get second opinion request details",
+        operation_description=(
+            "Retrieve full details of a specific second opinion request.\n\n"
+            "**Response includes:**\n"
+            "- Patient details (name, age, contact)\n"
+            "- Chief complaint and medical history\n"
+            "- All uploaded documents (reports, scans)\n"
+            "- Current status of the request"
+        ),
+        tags=["Second Opinion - Doctor"],
+        responses={
+            200: DoctorSecondOpinionDetailSerializer,
+            404: openapi.Response(description="Request not found or not assigned to you"),
+        },
     )
     def get(self, request, doctor_request_id):
         try:
@@ -473,7 +592,19 @@ class DoctorStartReviewView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
 
     @swagger_auto_schema(
-        responses={200: openapi.Response(description="Marked as in-review")}
+        operation_summary="Start reviewing request",
+        operation_description=(
+            "Mark a second opinion request as 'in-review'.\n\n"
+            "**Call this when you start reviewing a patient's case.**\n\n"
+            "**Transitions:** pending → in_review\n"
+            "**Note:** Cannot be called if already in_review or completed."
+        ),
+        tags=["Second Opinion - Doctor"],
+        responses={
+            200: openapi.Response(description="Successfully marked as in-review"),
+            400: openapi.Response(description="Invalid status transition"),
+            404: openapi.Response(description="Request not found"),
+        }
     )
     def patch(self, request, doctor_request_id):
         try:
@@ -506,8 +637,21 @@ class DoctorSubmitResponseView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
 
     @swagger_auto_schema(
+        operation_summary="Submit opinion response",
+        operation_description=(
+            "Submit your final opinion/response for a second opinion request.\n\n"
+            "**Request Body:**\n"
+            "- `response_text`: Your detailed medical opinion\n\n"
+            "**Transitions:** in_review → completed\n"
+            "**Note:** Must be in 'in_review' status to submit response."
+        ),
+        tags=["Second Opinion - Doctor"],
         request_body=DoctorSubmitResponseSerializer,
-        responses={200: openapi.Response(description="Response submitted")}
+        responses={
+            200: openapi.Response(description="Response submitted successfully"),
+            400: openapi.Response(description="Invalid status - must be in_review"),
+            404: openapi.Response(description="Request not found"),
+        }
     )
     def patch(self, request, doctor_request_id):
         try:
@@ -533,7 +677,6 @@ class DoctorSubmitResponseView(APIView):
             "success": True
         })
 
-
 class SubmitDoctorRatingView(APIView):
     """
     Patient submits rating for a doctor after completed second opinion.
@@ -541,8 +684,22 @@ class SubmitDoctorRatingView(APIView):
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
+        operation_summary="Rate a doctor",
+        operation_description=(
+            "Submit a rating for a doctor after completed second opinion.\n\n"
+            "**Request Body:**\n"
+            "- `doctor_id`: UUID of the doctor to rate\n"
+            "- `second_opinion_request_id`: The completed request\n"
+            "- `rating`: 1-5 stars\n"
+            "- `review`: Optional text review\n\n"
+            "**Note:** Can only rate doctors for completed second opinions."
+        ),
+        tags=["Second Opinion - Patient"],
         request_body=DoctorRatingSerializer,
-        responses={201: DoctorRatingSerializer}
+        responses={
+            201: DoctorRatingSerializer,
+            400: openapi.Response(description="Already rated or request not completed"),
+        }
     )
     def post(self, request):
         serializer = DoctorRatingSerializer(

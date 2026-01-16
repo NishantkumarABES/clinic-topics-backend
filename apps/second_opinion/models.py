@@ -45,7 +45,7 @@ class SecondOpinionRequest(TimeStampedUUIDModel):
         choices=SecondOpinionPaymentStatus.CHOICES,
         default=SecondOpinionPaymentStatus.PENDING
     )
-    objects = PaidDoctorRequestQuerySet.as_manager()
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Second Opinion Request"
@@ -112,6 +112,8 @@ class SecondOpinionDoctorRequest(TimeStampedUUIDModel):
         verbose_name = "Doctor Request"
         verbose_name_plural = "Doctor Requests"
 
+    objects = PaidDoctorRequestQuerySet.as_manager()
+
     def __str__(self):
         return f"Request to Dr. {self.doctor.full_name} - {self.status}"
     
@@ -130,7 +132,7 @@ class SecondOpinionDoctorRequest(TimeStampedUUIDModel):
         self.response = response_text
         self.responded_at = timezone.now()
         self.save(update_fields=["status", "response", "responded_at", "updated_at"])
-
+    
     @property
     def is_completed(self):
         return self.status == SecondOpinionStatus.COMPLETED
