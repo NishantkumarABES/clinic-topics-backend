@@ -1,5 +1,4 @@
-import razorpay
-from django.conf import settings
+import os, razorpay
 
 
 class RazorpayService:
@@ -7,7 +6,10 @@ class RazorpayService:
 
     def __init__(self):
         self.client = razorpay.Client(
-            auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET)
+            auth=(
+                os.environ.get('RAZOR_PAY_API_KEY'), 
+                os.environ.get('RAZOR_PAY_API_SECRET')
+            )
         )
 
     def create_order(self, amount: int, currency: str = "INR", receipt: str = None, notes: dict = None) -> dict:

@@ -1,3 +1,4 @@
+import os
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -285,13 +286,11 @@ class CreateSecondOpinionPaymentView(APIView):
             payment.status = SecondOpinionPaymentStatus.PENDING
             payment.save(update_fields=["razorpay_order_id", "status"])
 
-        from django.conf import settings
-
         return Response({
             "razorpay_order_id": razorpay_order["id"],
             "amount": amount_paise,
             "currency": "INR",
-            "key_id": settings.RAZORPAY_KEY_ID,
+            "key_id": os.getenv("RAZOR_PAY_API_KEY"),
             "payment_id": str(payment.id),
             "success": True
         }, status=status.HTTP_201_CREATED)

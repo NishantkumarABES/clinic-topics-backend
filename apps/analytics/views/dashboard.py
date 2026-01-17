@@ -87,6 +87,7 @@ class AdminDashboardMetricsAPIView(APIView):
 class AdminDashboardPendingActionAPIView(APIView):
     permission_classes = [IsAdmin]
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         total_out_of_stock_products = Product.objects.filter(stock_quantity=0).count()
         total_unpublished_topics = Topic.objects.filter(publish_status=False).count()

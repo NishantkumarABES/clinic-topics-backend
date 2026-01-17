@@ -8,6 +8,7 @@ from django.db import transaction, IntegrityError
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from core.permissions import IsAdmin
 from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order, OrderItem, Payment
@@ -38,7 +39,21 @@ class ProductListView(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = ProductListPagination
     
-    @swagger_auto_schema(responses={200: ProductListSerializer(many=True)})
+    @swagger_auto_schema(
+        operation_id="list_products",
+        operation_description="List all products with optional filters for category, search, price range, and brand. Returns paginated results.",
+        tags=["Products"],
+        manual_parameters=[
+            openapi.Parameter('category', openapi.IN_QUERY, description="Filter by product category", type=openapi.TYPE_STRING),
+            openapi.Parameter('search', openapi.IN_QUERY, description="Search products by name", type=openapi.TYPE_STRING),
+            openapi.Parameter('min_price', openapi.IN_QUERY, description="Minimum price filter", type=openapi.TYPE_NUMBER),
+            openapi.Parameter('max_price', openapi.IN_QUERY, description="Maximum price filter", type=openapi.TYPE_NUMBER),
+            openapi.Parameter('brand', openapi.IN_QUERY, description="Filter by brand name", type=openapi.TYPE_STRING),
+            openapi.Parameter('page', openapi.IN_QUERY, description="Page number for pagination", type=openapi.TYPE_INTEGER),
+            openapi.Parameter('page_size', openapi.IN_QUERY, description="Number of items per page (max 100)", type=openapi.TYPE_INTEGER),
+        ],
+        responses={200: ProductListSerializer(many=True)}
+    )
     def get(self, request):
         category = request.query_params.get("category")
         search = request.query_params.get("search")
@@ -71,7 +86,15 @@ class ProductListView(APIView):
 class ProductDetailView(APIView):
     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(responses={200: ProductDetailSerializer()})
+    @swagger_auto_schema(
+        operation_id="get_product_detail",
+        operation_description="Get detailed information about a specific product including images, rating, and reviews count.",
+        tags=["Products"],
+        responses={
+            200: ProductDetailSerializer(),
+            404: openapi.Response(description="Product not found")
+        }
+    )
     def get(self, request, product_id):
         try:
             product = Product.objects.get(id=product_id)
@@ -87,7 +110,12 @@ class ProductDetailView(APIView):
 class ProductReviewListView(APIView):
     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(responses={200: ProductReviewSerializer(many=True)})
+    @swagger_auto_schema(
+        operation_id="list_product_reviews",
+        operation_description="Get all reviews for a specific product, ordered by most recent first.",
+        tags=["Products"],
+        responses={200: ProductReviewSerializer(many=True)}
+    )
     def get(self, request, product_id):
         reviews = ProductReview.objects.filter(product_id=product_id).order_by("-created_at")
         serializer = ProductReviewSerializer(reviews, many=True)
@@ -100,8 +128,14 @@ class CreateUpdateProductReviewView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_id="create_update_review",
+        operation_description="Create a new review or update an existing one for a product. Automatically marks as verified purchase if user has ordered the product.",
+        tags=["Products"],
         request_body=CreateUpdateReviewSerializer,
-        responses={200: ProductReviewSerializer}
+        responses={
+            200: ProductReviewSerializer,
+            400: openapi.Response(description="Validation error")
+        }
     )
     def post(self, request):
         serializer = CreateUpdateReviewSerializer(
@@ -119,8 +153,14 @@ class ApplyCouponView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_id="apply_coupon",
+        operation_description="Apply a coupon code to the user's cart. Validates coupon eligibility based on cart total and coupon rules.",
+        tags=["Cart"],
         request_body=ApplyCouponSerializer,
-        responses={200: "Coupon applied"}
+        responses={
+            200: openapi.Response(description="Coupon applied successfully"),
+            400: openapi.Response(description="Invalid or ineligible coupon")
+        }
     )
     def post(self, request):
         serializer = ApplyCouponSerializer(data=request.data)
@@ -161,6 +201,12 @@ class ApplyCouponView(APIView):
 class RemoveCouponView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_id="remove_coupon",
+        operation_description="Remove any applied coupon from the user's cart.",
+        tags=["Cart"],
+        responses={200: openapi.Response(description="Coupon removed successfully")}
+    )
     def delete(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         cart.coupon = None
@@ -173,7 +219,12 @@ class RemoveCouponView(APIView):
 class CartDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: CartSerializer()})
+    @swagger_auto_schema(
+        operation_id="get_cart",
+        operation_description="Get the current user's cart with all items, applied coupon, and calculated totals including discounts.",
+        tags=["Cart"],
+        responses={200: CartSerializer()}
+    )
     def get(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         serializer = CartSerializer(cart)
@@ -183,7 +234,16 @@ class AddToCartView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [JSONParser]
 
-    @swagger_auto_schema(request_body=AddToCartSerializer(), responses={201: "Item added to cart"})
+    @swagger_auto_schema(
+        operation_id="add_to_cart",
+        operation_description="Add a product to the cart. If the product already exists, the quantity is incremented.",
+        tags=["Cart"],
+        request_body=AddToCartSerializer(),
+        responses={
+            201: openapi.Response(description="Item added to cart"),
+            400: openapi.Response(description="Invalid product")
+        }
+    )
     def post(self, request):
         serializer = AddToCartSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -207,7 +267,22 @@ class AddToCartView(APIView):
 class UpdateCartItemView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(request_body=AddToCartSerializer(), responses={200: "Cart updated"})
+    @swagger_auto_schema(
+        operation_id="update_cart_item",
+        operation_description="Update cart item quantity or save for later status. Setting quantity to 0 or less removes the item.",
+        tags=["Cart"],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'quantity': openapi.Schema(type=openapi.TYPE_INTEGER, description='New quantity (0 or less removes item)'),
+                'saved_for_later': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Save item for later')
+            }
+        ),
+        responses={
+            200: openapi.Response(description="Cart updated"),
+            404: openapi.Response(description="Item not found")
+        }
+    )
     def patch(self, request, item_id):
         try:
             item = CartItem.objects.get(id=item_id, cart__user=request.user)
@@ -232,7 +307,12 @@ class UpdateCartItemView(APIView):
 class RemoveCartItemView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: "Item removed"})
+    @swagger_auto_schema(
+        operation_id="remove_cart_item",
+        operation_description="Remove an item from the cart.",
+        tags=["Cart"],
+        responses={200: openapi.Response(description="Item removed from cart")}
+    )
     def delete(self, request, item_id):
         CartItem.objects.filter(
             id=item_id, cart__user=request.user
@@ -242,7 +322,12 @@ class RemoveCartItemView(APIView):
 class AddressListCreateView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: AddressSerializer(many=True)})
+    @swagger_auto_schema(
+        operation_id="list_addresses",
+        operation_description="List all addresses for the current user, ordered by default status and creation date.",
+        tags=["Address"],
+        responses={200: AddressSerializer(many=True)}
+    )
     def get(self, request):
         addresses = Address.objects.filter(
             user=request.user
@@ -254,10 +339,13 @@ class AddressListCreateView(APIView):
         })
     
     @swagger_auto_schema(
+        operation_id="create_address",
+        operation_description="Create a new delivery address. If is_default is true, other addresses will be unmarked as default.",
+        tags=["Address"],
         request_body=AddressCreateSerializer,
         responses={
             201: AddressSerializer,
-            400: "Duplicate address"
+            400: openapi.Response(description="Duplicate address or validation error")
         }
     )
     def post(self, request):
@@ -296,7 +384,15 @@ class AddressListCreateView(APIView):
 class AddressDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: AddressSerializer()})
+    @swagger_auto_schema(
+        operation_id="get_address",
+        operation_description="Get details of a specific address.",
+        tags=["Address"],
+        responses={
+            200: AddressSerializer(),
+            404: openapi.Response(description="Address not found")
+        }
+    )
     def get(self, request, address_id):
         try:
             address = Address.objects.get(id=address_id, user=request.user)
@@ -311,8 +407,14 @@ class AddressDetailView(APIView):
         })
 
     @swagger_auto_schema(
+        operation_id="update_address",
+        operation_description="Update an existing address. Setting is_default to true will unmark other addresses.",
+        tags=["Address"],
         request_body=AddressUpdateSerializer,
-        responses={200: AddressSerializer}
+        responses={
+            200: AddressSerializer,
+            404: openapi.Response(description="Address not found")
+        }
     )
     def patch(self, request, address_id):
         try:
@@ -341,7 +443,13 @@ class AddressDetailView(APIView):
         })
 
     @swagger_auto_schema(
-        responses={200: "Address deleted", 404: "Address not found"}
+        operation_id="delete_address",
+        operation_description="Delete a delivery address.",
+        tags=["Address"],
+        responses={
+            200: openapi.Response(description="Address deleted successfully"),
+            404: openapi.Response(description="Address not found")
+        }
     )
     def delete(self, request, address_id):
         deleted_count, _ = Address.objects.filter(
@@ -365,7 +473,12 @@ class AddressDetailView(APIView):
 class WishlistDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: WishlistSerializer()})
+    @swagger_auto_schema(
+        operation_id="get_wishlist",
+        operation_description="Get the current user's wishlist with all saved products.",
+        tags=["Wishlist"],
+        responses={200: WishlistSerializer()}
+    )
     def get(self, request):
         wishlist, _ = Wishlist.objects.get_or_create(user=request.user)
         serializer = WishlistSerializer(wishlist)
@@ -376,8 +489,14 @@ class AddToWishlistView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_id="add_to_wishlist",
+        operation_description="Add a product to the wishlist. Returns error if product already exists in wishlist.",
+        tags=["Wishlist"],
         request_body=AddToWishlistSerializer,
-        responses={201: "Added to wishlist"}
+        responses={
+            201: openapi.Response(description="Product added to wishlist"),
+            400: openapi.Response(description="Product already in wishlist or invalid product")
+        }
     )
     def post(self, request):
         serializer = AddToWishlistSerializer(data=request.data)
@@ -406,7 +525,15 @@ class AddToWishlistView(APIView):
 class RemoveFromWishlistView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: "Removed from wishlist"})
+    @swagger_auto_schema(
+        operation_id="remove_from_wishlist",
+        operation_description="Remove a product from the wishlist.",
+        tags=["Wishlist"],
+        responses={
+            200: openapi.Response(description="Product removed from wishlist"),
+            404: openapi.Response(description="Item not found")
+        }
+    )
     def delete(self, request, item_id):
         deleted, _ = WishlistItem.objects.filter(
             id=item_id,
@@ -427,7 +554,16 @@ class OrderHistoryView(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = OrderHistoryPagination
 
-    @swagger_auto_schema(responses={200: OrderHistorySerializer(many=True)})
+    @swagger_auto_schema(
+        operation_id="list_orders",
+        operation_description="Get the order history for the current user with pagination.",
+        tags=["Orders"],
+        manual_parameters=[
+            openapi.Parameter('page', openapi.IN_QUERY, description="Page number", type=openapi.TYPE_INTEGER),
+            openapi.Parameter('page_size', openapi.IN_QUERY, description="Items per page (max 50)", type=openapi.TYPE_INTEGER),
+        ],
+        responses={200: OrderHistorySerializer(many=True)}
+    )
     def get(self, request):
         orders = Order.objects.filter(
             user=request.user
@@ -444,7 +580,15 @@ class OrderHistoryView(APIView):
 class OrderDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(responses={200: OrderHistorySerializer()})
+    @swagger_auto_schema(
+        operation_id="get_order_detail",
+        operation_description="Get detailed information about a specific order including items and address.",
+        tags=["Orders"],
+        responses={
+            200: OrderHistorySerializer(),
+            404: openapi.Response(description="Order not found")
+        }
+    )
     def get(self, request, order_id):
         try:
             order = Order.objects.get(id=order_id, user=request.user)
@@ -799,8 +943,33 @@ class CreatePaymentOrderView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_id="create_payment_order",
+        operation_description="Create a Razorpay payment order from the user's cart. Returns Razorpay order details for client-side payment initiation.",
+        tags=["Payment"],
         request_body=CreatePaymentOrderSerializer,
-        responses={201: "Payment order created"}
+        responses={
+            201: openapi.Response(
+                description="Payment order created successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING),
+                        'data': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'order_id': openapi.Schema(type=openapi.TYPE_STRING, description='Internal order ID'),
+                                'razorpay_order_id': openapi.Schema(type=openapi.TYPE_STRING, description='Razorpay order ID'),
+                                'amount': openapi.Schema(type=openapi.TYPE_INTEGER, description='Amount in paise'),
+                                'currency': openapi.Schema(type=openapi.TYPE_STRING),
+                                'key_id': openapi.Schema(type=openapi.TYPE_STRING, description='Razorpay key ID'),
+                            }
+                        )
+                    }
+                )
+            ),
+            400: openapi.Response(description="Cart is empty or stock unavailable")
+        }
     )
     def post(self, request):
         serializer = CreatePaymentOrderSerializer(
@@ -940,8 +1109,32 @@ class VerifyPaymentView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_id="verify_payment",
+        operation_description="Verify the Razorpay payment signature after successful payment. Completes the order and clears the cart.",
+        tags=["Payment"],
         request_body=VerifyPaymentSerializer,
-        responses={200: "Payment verified"}
+        responses={
+            200: openapi.Response(
+                description="Payment verified and order completed",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'success': openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING),
+                        'data': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'order_id': openapi.Schema(type=openapi.TYPE_STRING),
+                                'payment_id': openapi.Schema(type=openapi.TYPE_STRING),
+                                'status': openapi.Schema(type=openapi.TYPE_STRING)
+                            }
+                        )
+                    }
+                )
+            ),
+            400: openapi.Response(description="Payment verification failed"),
+            404: openapi.Response(description="Payment not found")
+        }
     )
     def post(self, request):
         serializer = VerifyPaymentSerializer(data=request.data)
@@ -1023,6 +1216,15 @@ class PaymentWebhookView(APIView):
     """Handle Razorpay webhook events."""
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_id="payment_webhook",
+        operation_description="Webhook endpoint for Razorpay to send payment event notifications. Do not call directly.",
+        tags=["Payment"],
+        responses={
+            200: openapi.Response(description="Webhook processed"),
+            400: openapi.Response(description="Invalid payload")
+        }
+    )
     def post(self, request):
         # Get webhook payload
         payload = request.body.decode("utf-8")
