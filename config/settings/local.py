@@ -14,17 +14,25 @@ DATABASES = {
 
 
 STORAGES = {
+    # Default → Images
     "default": {
-        "BACKEND": "cloudinary_storage.storage.RawMediaCloudinaryStorage",
-    },
-    "images": {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
+    # Raw files → PDFs, docs, zips
+    "raw": {
+        "BACKEND": "cloudinary_storage.storage.RawMediaCloudinaryStorage",
+    },
+    # Videos
+    "video": {
+        "BACKEND": "cloudinary_storage.storage.VideoMediaCloudinaryStorage",
+    },
+    # Static files (Whitenoise)
     "staticfiles": {
-        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
 
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 CLOUDINARY_STORAGE = {
     "CLOUD_NAME": os.getenv("CLOUDINARY_CLOUD_NAME"),

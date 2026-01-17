@@ -13,16 +13,26 @@ DATABASES["default"] = dj_database_url.parse(
 )
 
 STORAGES = {
+    # Default → Images
     "default": {
-        "BACKEND": "cloudinary_storage.storage.RawMediaCloudinaryStorage",
-    },
-    "images": {
         "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
     },
+    # Raw files → PDFs, docs, zips
+    "raw": {
+        "BACKEND": "cloudinary_storage.storage.RawMediaCloudinaryStorage",
+    },
+    # Videos
+    "video": {
+        "BACKEND": "cloudinary_storage.storage.VideoMediaCloudinaryStorage",
+    },
+    # Static files (Whitenoise)
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",
     },
 }
+
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+
 
 STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 

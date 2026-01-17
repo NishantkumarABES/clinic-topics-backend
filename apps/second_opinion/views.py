@@ -167,8 +167,6 @@ class SecondOpinionRequestListCreateView(APIView):
         response_serializer = SecondOpinionRequestDetailSerializer(second_opinion_request)
         return Response({**response_serializer.data, "success": True}, status=201)
 
-
-
 class SecondOpinionRequestDetailView(APIView):
     """
     Get details of a specific second opinion request.
