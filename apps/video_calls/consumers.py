@@ -1,9 +1,8 @@
 import json
-from django.utils import timezone
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.core.cache import cache
-from apps.accounts.models import User
+
 
 ONLINE_TIMEOUT = 180  # Increased from 60 → 3 minutes
 
@@ -57,16 +56,7 @@ class CallSignalingConsumer(AsyncWebsocketConsumer):
     def mark_user_online(self, user_id):
         cache.set(f"user_online_{user_id}", True, timeout=ONLINE_TIMEOUT)
 
-        User.objects.filter(id=user_id).update(
-            is_online=True,
-            last_seen=timezone.now()
-        )
-
     @database_sync_to_async
     def mark_user_offline(self, user_id):
         cache.delete(f"user_online_{user_id}")
 
-        User.objects.filter(id=user_id).update(
-            is_online=False,
-            last_seen=timezone.now()
-        )
