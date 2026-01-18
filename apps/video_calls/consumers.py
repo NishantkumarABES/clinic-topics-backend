@@ -10,9 +10,9 @@ ONLINE_TIMEOUT = 180  # Increased from 60 → 3 minutes
 
 class CallSignalingConsumer(AsyncWebsocketConsumer):
     async def connect(self):
-        self.user = self.scope["user"]
+        self.user = self.scope.get("user", None)
 
-        if not self.user.is_authenticated:
+        if self.user is None or not self.user.is_authenticated:
             await self.close()
             return
 
