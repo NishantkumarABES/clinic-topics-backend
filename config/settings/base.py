@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "drf_yasg",
+    "channels",
 
     # local
     "apps.accounts.app.AccountsConfig",
@@ -59,8 +60,20 @@ INSTALLED_APPS = [
     "apps.advisory.app.AdvisoryConfig",
     "apps.second_opinion.app.SecondOpinionConfig",
     "apps.appointments.app.AppointmentsConfig",
+    "apps.video_calls.app.VideoCallsConfig",
     "core.app.CoreConfig",
 ]
+
+ASGI_APPLICATION = "config.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [("127.0.0.1", 6379)],
+        },
+    },
+}
 
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
@@ -160,6 +173,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 FRONTEND_BASE_URL = "http://localhost:3000"
 DEFAULT_FROM_EMAIL = "nishant543099@gmail.com"
 OTP_EXPIRY_MINUTES = 5
+
+AGORA_TOKEN_EXPIRY=3600
 
 # Razorpay Configuration
 RAZORPAY_KEY_ID = os.getenv('RAZORPAY_KEY_ID')

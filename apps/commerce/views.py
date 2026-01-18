@@ -42,7 +42,7 @@ class ProductListView(APIView):
     @swagger_auto_schema(
         operation_id="list_products",
         operation_description="List all products with optional filters for category, search, price range, and brand. Returns paginated results.",
-        tags=["Products"],
+        tags=["Commerce - Products"],
         manual_parameters=[
             openapi.Parameter('category', openapi.IN_QUERY, description="Filter by product category", type=openapi.TYPE_STRING),
             openapi.Parameter('search', openapi.IN_QUERY, description="Search products by name", type=openapi.TYPE_STRING),
@@ -89,7 +89,7 @@ class ProductDetailView(APIView):
     @swagger_auto_schema(
         operation_id="get_product_detail",
         operation_description="Get detailed information about a specific product including images, rating, and reviews count.",
-        tags=["Products"],
+        tags=["Commerce - Products"],
         responses={
             200: ProductDetailSerializer(),
             404: openapi.Response(description="Product not found")
@@ -113,7 +113,7 @@ class ProductReviewListView(APIView):
     @swagger_auto_schema(
         operation_id="list_product_reviews",
         operation_description="Get all reviews for a specific product, ordered by most recent first.",
-        tags=["Products"],
+        tags=["Commerce - Products"],
         responses={200: ProductReviewSerializer(many=True)}
     )
     def get(self, request, product_id):
@@ -130,7 +130,7 @@ class CreateUpdateProductReviewView(APIView):
     @swagger_auto_schema(
         operation_id="create_update_review",
         operation_description="Create a new review or update an existing one for a product. Automatically marks as verified purchase if user has ordered the product.",
-        tags=["Products"],
+        tags=["Commerce - Products"],
         request_body=CreateUpdateReviewSerializer,
         responses={
             200: ProductReviewSerializer,
@@ -155,7 +155,7 @@ class ApplyCouponView(APIView):
     @swagger_auto_schema(
         operation_id="apply_coupon",
         operation_description="Apply a coupon code to the user's cart. Validates coupon eligibility based on cart total and coupon rules.",
-        tags=["Cart"],
+        tags=["Commerce - Cart"],
         request_body=ApplyCouponSerializer,
         responses={
             200: openapi.Response(description="Coupon applied successfully"),
@@ -204,7 +204,7 @@ class RemoveCouponView(APIView):
     @swagger_auto_schema(
         operation_id="remove_coupon",
         operation_description="Remove any applied coupon from the user's cart.",
-        tags=["Cart"],
+        tags=["Commerce - Cart"],
         responses={200: openapi.Response(description="Coupon removed successfully")}
     )
     def delete(self, request):
@@ -222,7 +222,7 @@ class CartDetailView(APIView):
     @swagger_auto_schema(
         operation_id="get_cart",
         operation_description="Get the current user's cart with all items, applied coupon, and calculated totals including discounts.",
-        tags=["Cart"],
+        tags=["Commerce - Cart"],
         responses={200: CartSerializer()}
     )
     def get(self, request):
@@ -237,7 +237,7 @@ class AddToCartView(APIView):
     @swagger_auto_schema(
         operation_id="add_to_cart",
         operation_description="Add a product to the cart. If the product already exists, the quantity is incremented.",
-        tags=["Cart"],
+        tags=["Commerce - Cart"],
         request_body=AddToCartSerializer(),
         responses={
             201: openapi.Response(description="Item added to cart"),
@@ -270,7 +270,7 @@ class UpdateCartItemView(APIView):
     @swagger_auto_schema(
         operation_id="update_cart_item",
         operation_description="Update cart item quantity or save for later status. Setting quantity to 0 or less removes the item.",
-        tags=["Cart"],
+        tags=["Commerce - Cart"],
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
@@ -310,7 +310,7 @@ class RemoveCartItemView(APIView):
     @swagger_auto_schema(
         operation_id="remove_cart_item",
         operation_description="Remove an item from the cart.",
-        tags=["Cart"],
+        tags=["Commerce - Cart"],
         responses={200: openapi.Response(description="Item removed from cart")}
     )
     def delete(self, request, item_id):
@@ -325,7 +325,7 @@ class AddressListCreateView(APIView):
     @swagger_auto_schema(
         operation_id="list_addresses",
         operation_description="List all addresses for the current user, ordered by default status and creation date.",
-        tags=["Address"],
+        tags=["Commerce - Address"],
         responses={200: AddressSerializer(many=True)}
     )
     def get(self, request):
@@ -341,7 +341,7 @@ class AddressListCreateView(APIView):
     @swagger_auto_schema(
         operation_id="create_address",
         operation_description="Create a new delivery address. If is_default is true, other addresses will be unmarked as default.",
-        tags=["Address"],
+        tags=["Commerce - Address"],
         request_body=AddressCreateSerializer,
         responses={
             201: AddressSerializer,
@@ -387,7 +387,7 @@ class AddressDetailView(APIView):
     @swagger_auto_schema(
         operation_id="get_address",
         operation_description="Get details of a specific address.",
-        tags=["Address"],
+        tags=["Commerce - Address"],
         responses={
             200: AddressSerializer(),
             404: openapi.Response(description="Address not found")
@@ -409,7 +409,7 @@ class AddressDetailView(APIView):
     @swagger_auto_schema(
         operation_id="update_address",
         operation_description="Update an existing address. Setting is_default to true will unmark other addresses.",
-        tags=["Address"],
+        tags=["Commerce - Address"],
         request_body=AddressUpdateSerializer,
         responses={
             200: AddressSerializer,
@@ -445,7 +445,7 @@ class AddressDetailView(APIView):
     @swagger_auto_schema(
         operation_id="delete_address",
         operation_description="Delete a delivery address.",
-        tags=["Address"],
+        tags=["Commerce - Address"],
         responses={
             200: openapi.Response(description="Address deleted successfully"),
             404: openapi.Response(description="Address not found")
@@ -476,7 +476,7 @@ class WishlistDetailView(APIView):
     @swagger_auto_schema(
         operation_id="get_wishlist",
         operation_description="Get the current user's wishlist with all saved products.",
-        tags=["Wishlist"],
+        tags=["Commerce - Wishlist"],
         responses={200: WishlistSerializer()}
     )
     def get(self, request):
@@ -491,7 +491,7 @@ class AddToWishlistView(APIView):
     @swagger_auto_schema(
         operation_id="add_to_wishlist",
         operation_description="Add a product to the wishlist. Returns error if product already exists in wishlist.",
-        tags=["Wishlist"],
+        tags=["Commerce - Wishlist"],
         request_body=AddToWishlistSerializer,
         responses={
             201: openapi.Response(description="Product added to wishlist"),
@@ -528,7 +528,7 @@ class RemoveFromWishlistView(APIView):
     @swagger_auto_schema(
         operation_id="remove_from_wishlist",
         operation_description="Remove a product from the wishlist.",
-        tags=["Wishlist"],
+        tags=["Commerce - Wishlist"],
         responses={
             200: openapi.Response(description="Product removed from wishlist"),
             404: openapi.Response(description="Item not found")
@@ -557,7 +557,7 @@ class OrderHistoryView(APIView):
     @swagger_auto_schema(
         operation_id="list_orders",
         operation_description="Get the order history for the current user with pagination.",
-        tags=["Orders"],
+        tags=["Commerce - Orders"],
         manual_parameters=[
             openapi.Parameter('page', openapi.IN_QUERY, description="Page number", type=openapi.TYPE_INTEGER),
             openapi.Parameter('page_size', openapi.IN_QUERY, description="Items per page (max 50)", type=openapi.TYPE_INTEGER),
@@ -583,7 +583,7 @@ class OrderDetailView(APIView):
     @swagger_auto_schema(
         operation_id="get_order_detail",
         operation_description="Get detailed information about a specific order including items and address.",
-        tags=["Orders"],
+        tags=["Commerce - Orders"],
         responses={
             200: OrderHistorySerializer(),
             404: openapi.Response(description="Order not found")
@@ -945,7 +945,7 @@ class CreatePaymentOrderView(APIView):
     @swagger_auto_schema(
         operation_id="create_payment_order",
         operation_description="Create a Razorpay payment order from the user's cart. Returns Razorpay order details for client-side payment initiation.",
-        tags=["Payment"],
+        tags=["Commerce - Payment"],
         request_body=CreatePaymentOrderSerializer,
         responses={
             201: openapi.Response(
@@ -1111,7 +1111,7 @@ class VerifyPaymentView(APIView):
     @swagger_auto_schema(
         operation_id="verify_payment",
         operation_description="Verify the Razorpay payment signature after successful payment. Completes the order and clears the cart.",
-        tags=["Payment"],
+        tags=["Commerce - Payment"],
         request_body=VerifyPaymentSerializer,
         responses={
             200: openapi.Response(
@@ -1219,7 +1219,7 @@ class PaymentWebhookView(APIView):
     @swagger_auto_schema(
         operation_id="payment_webhook",
         operation_description="Webhook endpoint for Razorpay to send payment event notifications. Do not call directly.",
-        tags=["Payment"],
+        tags=["Commerce - Payment"],
         responses={
             200: openapi.Response(description="Webhook processed"),
             400: openapi.Response(description="Invalid payload")
