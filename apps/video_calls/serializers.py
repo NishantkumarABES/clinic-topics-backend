@@ -14,3 +14,12 @@ class VideoCallSessionSerializer(serializers.ModelSerializer):
 
 class CallTokenSerializer(serializers.Serializer):
     call_id = serializers.UUIDField()
+
+
+class UserCallStatusSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    full_name = serializers.CharField()
+    email = serializers.EmailField()
+    phone = serializers.CharField()
+    role = serializers.CharField()
+    active_call = VideoCallSessionSerializer(allow_null=True)

@@ -1,5 +1,5 @@
 import os, uuid
-from django.db import transaction
+from django.db import models, transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.views import APIView
@@ -13,7 +13,7 @@ from apps.accounts.models import User
 from apps.accounts.constants import UserRole
 from apps.video_calls.models import VideoCallSession
 from apps.video_calls.serializers import (
-    CallInitiateSerializer, VideoCallSessionSerializer, CallTokenSerializer
+    CallInitiateSerializer, VideoCallSessionSerializer, CallTokenSerializer, UserCallStatusSerializer
 )
 from apps.video_calls.constants import CallStatus
  
@@ -100,14 +100,16 @@ class CallInitiateView(APIView):
                 }
             )
             call_status = "ringing"
+            print(
+                "send signal to the receiver"
+            )
 
         else:
-            # ---- FIX STARTS HERE ----
             call_status = "user_offline"
             call_session.status = CallStatus.MISSED
             call_session.ended_at = timezone.now()
             call_session.save(update_fields=["status", "ended_at"])
-            # ---- FIX ENDS HERE ----
+
 
         response_data = VideoCallSessionSerializer(call_session).data
         response_data["call_status"] = call_status
@@ -247,3 +249,35 @@ class CallEndView(BaseCallActionView):
         )
 
         return Response({"message": "Call ended"}, status=status.HTTP_200_OK)
+
+class UserCallStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(responses={200: UserCallStatusSerializer})
+    def get(self, request, user_id):
+        try:
+            user = User.objects.get(id=user_id)
+        except User.DoesNotExist:
+            return Response(
+                {"error": "User not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Get active or initiated call for this user
+        active_call = VideoCallSession.objects.filter(
+            status__in=[CallStatus.ACTIVE, CallStatus.INITIATED]
+        ).filter(
+            models.Q(doctor=user) | models.Q(patient=user)
+        ).first()
+
+        response_data = {
+            "id": user.id,
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone": user.phone,
+            "role": user.role,
+            "is_online": is_user_online(str(user.id)),
+            "active_call": VideoCallSessionSerializer(active_call).data if active_call else None
+        }
+
+        return Response(response_data, status=status.HTTP_200_OK)

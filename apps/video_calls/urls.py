@@ -1,5 +1,5 @@
 from django.urls import path, re_path
-from apps.video_calls.views import CallInitiateView, CallTokenView, CallAcceptView, CallRejectView, CallEndView
+from apps.video_calls.views import CallInitiateView, CallTokenView, CallAcceptView, CallRejectView, CallEndView, UserCallStatusView
 from apps.video_calls.consumers import CallSignalingConsumer
 
 
@@ -11,6 +11,7 @@ urlpatterns = [
     path("<uuid:id>/accept/", CallAcceptView.as_view(), name="accept-call"),
     path("<uuid:id>/reject/", CallRejectView.as_view(), name="reject-call"),
     path("<uuid:id>/end/", CallEndView.as_view(), name="end-call"),
+    path("user/<uuid:user_id>/status/", UserCallStatusView.as_view(), name="user-call-status"),
 ]
 
 
