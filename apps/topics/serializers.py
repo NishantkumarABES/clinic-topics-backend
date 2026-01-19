@@ -90,30 +90,21 @@ class CleanupImagesSerializer(serializers.Serializer):
     )
 
 class DoctorTopicCreateSerializer(serializers.ModelSerializer):
-    video_file = serializers.FileField(write_only=True)
+    video_url = serializers.URLField(write_only=True, required=True)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = Topic
-        fields = ["title", "description", "video_file"]
+        fields = ["title", "description", "video_url"]
 
     def create(self, validated_data):
         request = self.context["request"]
-        video_file = validated_data.pop("video_file")
-
-        # Cloudinary upload
-        upload_response = CloudinaryService.upload_video(
-            content=video_file,
-            folder="topics/videos",
-            public_id=f"topic_{request.user.id}_{now().timestamp()}"
-        )
-
-        video_url = upload_response["secure_url"]
 
         topic = Topic.objects.create(
             author=request.user,
             title=validated_data["title"],
-            description=validated_data["description"],
-            video_url=video_url,
+            description=validated_data.get("description"),
+            video_url=validated_data["video_url"],
             publish_status=False,
             publishing_time=now()
         )
@@ -123,7 +114,6 @@ class TopicCreateSuccessResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField(default=True)
     message = serializers.CharField(default="Topic uploaded successfully and sent for admin approval.")
     data = AdminTopicReadSerializer()
-
 
 class TopicFeedItemSerializer(serializers.ModelSerializer):
     """Serializer for topics in the feed with type discriminator"""

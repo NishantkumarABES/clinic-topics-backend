@@ -128,6 +128,10 @@ class RegisterSerializer(serializers.Serializer):
 
         password = validated_data.pop("password", None)
         role = validated_data["role"]
+        by_admin = validated_data.get("by_admin", False)
+
+        # Admin-created doctors start as inactive, they activate on first login
+        is_active = False if by_admin else True
 
         user = User.objects.create_user(
             email=validated_data["email"],
@@ -143,7 +147,8 @@ class RegisterSerializer(serializers.Serializer):
             gender=validated_data.get("gender"),
             is_email_verified=validated_data.get("is_email_verified"),
             is_phone_verified=validated_data.get("is_phone_verified"),
-            by_admin=validated_data.get("by_admin", False),
+            by_admin=by_admin,
+            is_active=is_active,
         )
 
         if role == UserRole.DOCTOR:
@@ -223,15 +228,31 @@ class EmailOTPVerifySerializer(serializers.Serializer):
         data["otp_obj"] = otp_obj
         return data
 
-
 class EmailLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
-    remember_me = serializers.BooleanField(required=False)
+    remember_me = serializers.BooleanField(required=False, default=False)
 
     def validate(self, data):
-        user = authenticate(email=data["email"], password=data["password"])
-        if not user: data["error"] = "Invalid email or password"
+        email = data["email"]
+        password = data["password"]
+
+        # Fetch user by email
+        user = User.objects.filter(email=email).first()
+
+        if not user:
+            raise serializers.ValidationError("Invalid email or password")
+
+        # Manually verify password (works even if user.is_active=False)
+        if not user.check_password(password):
+            raise serializers.ValidationError("Invalid email or password")
+
+        # If admin-created doctor logging in first time → activate
+        if user.by_admin and not user.is_active:
+            user.is_active = True
+            user.state = UserState.ACTIVE
+            user.save(update_fields=["is_active", "state"])
+
         data["user"] = user
         return data
 
@@ -292,7 +313,6 @@ class UserMeSerializer(serializers.ModelSerializer):
         elif obj.role == UserRole.PATIENT:
             return hasattr(obj, "patient_profile")
         return False
-
 
 class UserListSerializer(serializers.ModelSerializer):
     license_number = serializers.SerializerMethodField()

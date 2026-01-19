@@ -319,8 +319,7 @@ class PhoneLoginView(APIView):
             "user": UserMeSerializer(user).data,
             "success": True
         })
-
-        
+      
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
 
@@ -735,7 +734,6 @@ class UpdateUserView(APIView):
             "user": response_data,
             "success": True
         })
-
 
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]

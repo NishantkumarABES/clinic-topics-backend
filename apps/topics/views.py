@@ -213,83 +213,29 @@ class CleanupUnwantedImages(APIView):
             status=status.HTTP_200_OK,
         )
 
-
 class DoctorTopicCreateAPIView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
-    parser_classes = [MultiPartParser, FormParser]
 
     @swagger_auto_schema(
         operation_summary="Create / Upload new educational topic (Doctors only)",
-        operation_description=(
-            "Allows authenticated doctors to upload a new topic with video.\n\n"
-            "• Video is uploaded to Cloudinary\n"
-            "• Topic is created with publish_status=False\n"
-            "• Requires admin approval before becoming public\n\n"
-            "**Content-Type: multipart/form-data** required"
-        ),
         tags=['Doctor - Topics'],
-        manual_parameters=[
-            openapi.Parameter(
-                name='title',
-                in_=openapi.IN_FORM,
-                description='Title of the topic (max 255 characters)',
-                type=openapi.TYPE_STRING,
-                required=True,
-                example="Understanding Type 2 Diabetes"
-            ),
-            openapi.Parameter(
-                name='description',
-                in_=openapi.IN_FORM,
-                description='Detailed description of the topic',
-                type=openapi.TYPE_STRING,
-                required=False,
-                example="In this topic we explain the pathophysiology, symptoms and basic management of type 2 diabetes..."
-            ),
-            openapi.Parameter(
-                name='video_file',
-                in_=openapi.IN_FORM,
-                description='Video file (mp4, mov, webm recommended)',
-                type=openapi.TYPE_FILE,
-                required=True,
-            ),
-        ],
-        request_body=None,  # We're using form parameters instead
+        request_body=DoctorTopicCreateSerializer,
         responses={
             status.HTTP_201_CREATED: openapi.Response(
                 description="Topic successfully created and queued for approval",
                 schema=TopicCreateSuccessResponseSerializer,
-                examples={
-                    "application/json": {
-                        "success": True,
-                        "message": "Topic uploaded successfully and sent for admin approval.",
-                        "data": {
-                            "id": 47,
-                            "title": "Understanding Type 2 Diabetes",
-                            "description": "Detailed explanation...",
-                            "video_url": "https://res.cloudinary.com/.../topic_123_1698765432.mp4",
-                            "publish_status": False,
-                            "publishing_time": "2025-01-15T12:34:56Z",
-                            "author": {
-                                "id": 123,
-                                "full_name": "Dr. Rajesh Sharma",
-                                # ... other fields from AdminTopicReadSerializer
-                            }
-                        }
-                    }
-                }
             ),
             status.HTTP_400_BAD_REQUEST: openapi.Response(
-                description="Validation error (missing fields, invalid file, etc.)",
+                description="Validation error",
                 examples={
                     "application/json": {
                         "title": ["This field is required."],
-                        "video_file": ["The submitted data was not a file. Check the encoding type on the form."]
+                        "video_url": ["Enter a valid URL."]
                     }
                 }
             ),
             status.HTTP_401_UNAUTHORIZED: "Authentication credentials were not provided.",
             status.HTTP_403_FORBIDDEN: "You do not have permission to perform this action.",
-            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE: "Unsupported media type (use multipart/form-data)",
         }
     )
     def post(self, request):
@@ -308,7 +254,6 @@ class DoctorTopicCreateAPIView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
-
 
 class TopicsFeedPagination(PageNumberPagination):
     page_size = 10

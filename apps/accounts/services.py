@@ -146,13 +146,6 @@ def can_resend_otp(phone):
     return True
 
 def resolve_social_user(social_user):
-    """
-    Resolves a social login to an existing user.
-    Priority:
-    1) Existing AuthProvider link
-    2) Existing user with same email (auto-link)
-    3) None → registration required
-    """
     # Case 1: Already linked social account
     try:
         auth = AuthProvider.objects.select_related("user").get(
@@ -230,3 +223,22 @@ def get_object_or_404(model, **kwargs):
         return model.objects.get(**kwargs)
     except model.DoesNotExist:
         raise ValidationError(f"{model.__name__} not found")
+
+def send_doctor_invitation_email(user, password):
+    """
+    Placeholder for sending invitation email to admin-created doctors.
+    
+    This function will be implemented later with actual email service.
+    The email should contain:
+    - Doctor's login email
+    - Temporary password
+    - Instructions to login and change password
+    
+    Args:
+        user: The User object for the doctor
+        password: The temporary password generated for the doctor
+    """
+    # TODO: Implement actual email sending logic using send_email function
+    print(f"[INVITATION EMAIL] Doctor invitation email would be sent to: {user.email}")
+    print(f"[INVITATION EMAIL] With temporary password: {password}")
+    pass
