@@ -106,11 +106,12 @@ class SecondOpinionDoctorRequest(TimeStampedUUIDModel):
     )
 
     # Doctor's response
-    response = models.TextField(
+    response = models.JSONField(
         blank=True,
         null=True,
-        help_text="Doctor's second opinion response"
+        help_text="Doctor structured response: findings, observations, medical_opinion, answer_to_patient"
     )
+    
     responded_at = models.DateTimeField(
         null=True,
         blank=True

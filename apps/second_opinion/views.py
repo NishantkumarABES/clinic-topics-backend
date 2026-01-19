@@ -595,26 +595,65 @@ class DoctorStartReviewView(APIView):
         })
 
 class DoctorSubmitResponseView(APIView):
-    """
-    Doctor submits final opinion.
-    """
+    permission_classes = [IsAuthenticated, IsDoctor]
+
     permission_classes = [IsAuthenticated, IsDoctor]
 
     @swagger_auto_schema(
-        operation_summary="Submit opinion response",
+        operation_summary="Submit final second opinion",
         operation_description=(
-            "Submit your final opinion/response for a second opinion request.\n\n"
-            "**Request Body:**\n"
-            "- `response_text`: Your detailed medical opinion\n\n"
-            "**Transitions:** in_review → completed\n"
-            "**Note:** Must be in 'in_review' status to submit response."
+            "Doctor submits their final structured medical response for a second opinion request.\n\n"
+            "The response must contain four sections:\n"
+            "- findings\n"
+            "- observations\n"
+            "- medical_opinion\n"
+            "- answer_to_patient\n\n"
+            "Request must be in `in_review` status."
         ),
         tags=["Second Opinion - Doctor"],
-        request_body=DoctorSubmitResponseSerializer,
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=[
+                "findings",
+                "observations",
+                "medical_opinion",
+                "answer_to_patient"
+            ],
+            properties={
+                "findings": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Doctor's clinical findings"
+                ),
+                "observations": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Doctor's observations from records or reports"
+                ),
+                "medical_opinion": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Doctor's professional medical opinion"
+                ),
+                "answer_to_patient": openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description="Direct answer to patient's question"
+                ),
+            }
+        ),
         responses={
-            200: openapi.Response(description="Response submitted successfully"),
-            400: openapi.Response(description="Invalid status - must be in_review"),
-            404: openapi.Response(description="Request not found"),
+            200: openapi.Response(
+                description="Response submitted successfully",
+                examples={
+                    "application/json": {
+                        "detail": "Response submitted successfully",
+                        "success": True
+                    }
+                }
+            ),
+            400: openapi.Response(
+                description="Invalid status or validation error"
+            ),
+            404: openapi.Response(
+                description="Request not found"
+            )
         }
     )
     def patch(self, request, doctor_request_id):
@@ -635,9 +674,9 @@ class DoctorSubmitResponseView(APIView):
         )
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
         req = doctor_request.second_opinion_request
 
-        # If all doctors completed → mark request completed
         if req.completed_count == req.doctors_count:
             req.status = SecondOpinionStatus.COMPLETED
             req.save(update_fields=["status"])

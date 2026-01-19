@@ -437,14 +437,32 @@ class DoctorStartReviewSerializer(serializers.Serializer):
         return doctor_request
 
 class DoctorSubmitResponseSerializer(serializers.Serializer):
-    """Serializer for doctor submitting opinion."""
+    findings = serializers.CharField()
+    observations = serializers.CharField()
+    medical_opinion = serializers.CharField()
+    answer_to_patient = serializers.CharField()
 
-    response = serializers.CharField(min_length=20)
-
-    def save(self, **kwargs):
+    def validate(self, attrs):
         doctor_request = self.context["doctor_request"]
-        response_text = self.validated_data["response"]
-        doctor_request.mark_completed(response_text)
+
+        if doctor_request.status != SecondOpinionStatus.IN_REVIEW:
+            raise serializers.ValidationError(
+                "Request must be in_review to submit response."
+            )
+        return attrs
+
+    def save(self):
+        doctor_request = self.context["doctor_request"]
+
+        response_json = {
+            "findings": self.validated_data["findings"],
+            "observations": self.validated_data["observations"],
+            "medical_opinion": self.validated_data["medical_opinion"],
+            "answer_to_patient": self.validated_data["answer_to_patient"]
+        }
+
+        doctor_request.mark_completed(response_json)
+
         return doctor_request
 
 # ====================== Doctor rating Serializer =======================
