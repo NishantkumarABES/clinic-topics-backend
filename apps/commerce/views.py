@@ -626,7 +626,10 @@ class AdminProductListCreateAPIView(APIView):
             )
         
         if status:
-            products = products.filter(is_out_of_stock=(status=='outofstock'))
+            if status == "outofstock":
+                products = products.filter(stock_quantity__lte=0)
+            elif status == "instock":
+                products = products.filter(stock_quantity__gt=0)
         
         if category:
             products = products.filter(category=category)

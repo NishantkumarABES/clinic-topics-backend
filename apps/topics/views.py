@@ -242,7 +242,7 @@ class DoctorTopicCreateAPIView(APIView):
                 in_=openapi.IN_FORM,
                 description='Detailed description of the topic',
                 type=openapi.TYPE_STRING,
-                required=True,
+                required=False,
                 example="In this topic we explain the pathophysiology, symptoms and basic management of type 2 diabetes..."
             ),
             openapi.Parameter(

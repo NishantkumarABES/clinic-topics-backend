@@ -145,7 +145,6 @@ class TopicFeedItemSerializer(serializers.ModelSerializer):
     def get_type(self, obj):
         return "topic"
 
-
 class AdvertisementFeedItemSerializer(serializers.Serializer):
     """Serializer for advertisements in the feed with type discriminator"""
     type = serializers.SerializerMethodField()
