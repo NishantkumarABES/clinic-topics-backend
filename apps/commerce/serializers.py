@@ -301,7 +301,12 @@ class AddToWishlistSerializer(serializers.Serializer):
 class OrderItemSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name", read_only=True)
     product_id = serializers.UUIDField(source="product.id", read_only=True)
-    unit_price = serializers.DecimalField(source="price_at_purchase", max_digits=10, decimal_places=2)
+    unit_price = serializers.DecimalField(
+        source="price_at_purchase",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
     final_total = serializers.SerializerMethodField()
 
     class Meta:
@@ -316,7 +321,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
         ]
     
     def get_final_total(self, obj):
-        return round(obj.unit_price * obj.quantity, 2)
+        return round(obj.price_at_purchase * obj.quantity, 2)
 
 class OrderHistorySerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)

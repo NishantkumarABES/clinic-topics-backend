@@ -130,6 +130,8 @@ class SecondOpinionDoctorRequest(TimeStampedUUIDModel):
     
     def mark_in_review(self):
         """Doctor starts reviewing the case."""
+        if self.status == SecondOpinionStatus.IN_REVIEW:
+            return
         if self.status != SecondOpinionStatus.SUBMITTED:
             raise ValueError("Only submitted requests can be moved to in-review")
         self.status = SecondOpinionStatus.IN_REVIEW
