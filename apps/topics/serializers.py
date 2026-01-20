@@ -44,6 +44,7 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
         source="author.email",
         read_only=True
     )
+    transcription = serializers.SerializerMethodField()
 
     class Meta:
         model = Topic
@@ -60,8 +61,16 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
             "author_email",
             "created_at",
             "updated_at",
+            "transcription",
         ]
         read_only_fields = fields
+    
+    def get_transcription(self, obj):
+        if hasattr(obj, 'transcription'):
+            from apps.topics.serializers import TopicTranscriptionSerializer
+            return TopicTranscriptionSerializer(obj.transcription).data
+        return None
+
 
 class AdminTopicWriteSerializer(serializers.ModelSerializer):
     class Meta:
@@ -145,3 +154,26 @@ class AdvertisementFeedItemSerializer(serializers.Serializer):
 
     def get_type(self, obj):
         return "advertisement"
+
+
+class TopicTranscriptionSerializer(serializers.ModelSerializer):
+    """Serializer for transcription data"""
+    class Meta:
+        model = None  # Will be set dynamically
+        fields = [
+            'id',
+            'sonix_media_id',
+            'status',
+            'transcript_text',
+            'transcript_srt',
+            'summary_text',
+            'error_message',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = fields
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        from apps.topics.models import TopicTranscription
+        self.Meta.model = TopicTranscription

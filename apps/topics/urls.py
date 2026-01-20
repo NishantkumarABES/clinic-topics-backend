@@ -1,7 +1,8 @@
 from django.urls import path
 from apps.topics.views import (
     CleanupUnwantedImages, TopicListView, TopicDetailView, ExtractArticleDataView, AdminTopicListCreateAPIView, AdminTopicUpdateAPIView,
-    AdminTopicUpdatePublishStatusAPIView, DoctorTopicCreateAPIView, TopicsFeedView
+    AdminTopicUpdatePublishStatusAPIView, DoctorTopicCreateAPIView, TopicsFeedView,
+    StartTranscriptionAPIView, TranscriptionStatusAPIView, DownloadTranscriptAPIView, DownloadTranscriptSRTAPIView
 )
 
 urlpatterns = [
@@ -13,6 +14,12 @@ urlpatterns = [
     path("admin/topics/", AdminTopicListCreateAPIView.as_view(), name="admin-topic-list-create"),
     path("admin/topics/<uuid:topic_id>/", AdminTopicUpdateAPIView.as_view(), name="admin-topic-update"),
     path("admin/topics/<uuid:topic_id>/publish-status/", AdminTopicUpdatePublishStatusAPIView.as_view(), name="admin-topic-update-publish-status"),
+    
+    # Transcription endpoints
+    path("admin/topics/<uuid:topic_id>/start-transcription/", StartTranscriptionAPIView.as_view(), name="start-transcription"),
+    path("admin/topics/<uuid:topic_id>/transcription-status/", TranscriptionStatusAPIView.as_view(), name="transcription-status"),
+    path("admin/topics/<uuid:topic_id>/transcript/", DownloadTranscriptAPIView.as_view(), name="download-transcript"),
+    path("admin/topics/<uuid:topic_id>/transcript/srt/", DownloadTranscriptSRTAPIView.as_view(), name="download-transcript-srt"),
 
     path("doctor/topics/create/", DoctorTopicCreateAPIView.as_view()),
     path("feed/", TopicsFeedView.as_view(), name="topics-feed"),

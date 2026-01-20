@@ -385,3 +385,165 @@ class TopicsFeedView(APIView):
         response_data['ad_interval'] = ad_interval
 
         return Response(response_data, status=status.HTTP_200_OK)
+
+
+#########  TRANSCRIPTION APIs ######################
+
+class StartTranscriptionAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(
+        auto_schema=None,
+        operation_summary="Start transcription for a topic's video",
+        responses={
+            200: openapi.Response(
+                description="Transcription started successfully",
+                examples={
+                    "application/json": {
+                        "success": True,
+                        "message": "Transcription started successfully",
+                        "data": {
+                            "transcription_id": "uuid",
+                            "sonix_media_id": "string",
+                            "status": "preparing"
+                        }
+                    }
+                }
+            ),
+            400: "Bad request - topic has no video URL or transcription already exists"
+        }
+    )
+    def post(self, request, topic_id):
+        from apps.topics.services import start_transcription
+        
+        try:
+            result = start_transcription(topic_id)
+            return Response(
+                {
+                    "success": True,
+                    "message": "Transcription started successfully",
+                    "data": result
+                },
+                status=status.HTTP_200_OK
+            )
+        except ValueError as e:
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class TranscriptionStatusAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(
+        auto_schema=None,
+        operation_summary="Get transcription status for a topic",
+        responses={200: "Transcription status"}
+    )
+    def get(self, request, topic_id):
+        from apps.topics.services import check_transcription_status
+        
+        try:
+            result = check_transcription_status(topic_id)
+            return Response(
+                {
+                    "success": True,
+                    "data": result
+                },
+                status=status.HTTP_200_OK
+            )
+        except ValueError as e:
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except Exception as e:
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class DownloadTranscriptAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(
+        auto_schema=None,
+        operation_summary="Download transcript text for a topic",
+        responses={200: "Transcript text content"}
+    )
+    def get(self, request, topic_id):
+        from apps.topics.models import Topic
+        from django.http import HttpResponse
+        
+        try:
+            topic = get_object_or_404(Topic, id=topic_id)
+            
+            if not hasattr(topic, 'transcription'):
+                return Response(
+                    {"success": False, "error": "No transcription exists for this topic"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            transcription = topic.transcription
+            
+            if not transcription.transcript_text:
+                return Response(
+                    {"success": False, "error": "Transcript text not available yet"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Return as downloadable text file
+            response = HttpResponse(transcription.transcript_text, content_type='text/plain')
+            response['Content-Disposition'] = f'attachment; filename="transcript_{topic_id}.txt"'
+            return response
+            
+        except Exception as e:
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+class DownloadTranscriptSRTAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(
+        auto_schema=None,
+        operation_summary="Download transcript SRT file for a topic",
+        responses={200: "Transcript SRT content"}
+    )
+    def get(self, request, topic_id):
+        from apps.topics.models import Topic
+        from django.http import HttpResponse
+        
+        try:
+            topic = get_object_or_404(Topic, id=topic_id)
+            
+            if not hasattr(topic, 'transcription'):
+                return Response(
+                    {"success": False, "error": "No transcription exists for this topic"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            transcription = topic.transcription
+            
+            if not transcription.transcript_srt:
+                return Response(
+                    {"success": False, "error": "Transcript SRT not available yet"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            # Return as downloadable SRT file
+            response = HttpResponse(transcription.transcript_srt, content_type='text/srt')
+            response['Content-Disposition'] = f'attachment; filename="transcript_{topic_id}.srt"'
+            return response
+            
+        except Exception as e:
+            return Response(
+                {"success": False, "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
