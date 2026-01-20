@@ -7,7 +7,7 @@ from django.db.models import Q, Index
 from django.utils import timezone
 
 from core.models import TimeStampedUUIDModel
-from apps.accounts.constants import UserRole, UserState
+from apps.accounts.constants import UserRole, UserState, DeviceType
 
 class UserManager(BaseUserManager):
     def create_user(self, email, phone, password=None, **extra_fields):
@@ -109,6 +109,38 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.full_name} ({self.role})"
+
+class UserDevice(TimeStampedUUIDModel):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="devices"
+    )
+
+    device_token = models.CharField(
+        max_length=512,
+        unique=True,
+        help_text="Push notification token from FCM/APNs"
+    )
+
+    device_type = models.CharField(
+        max_length=20,
+        choices=DeviceType.DEVICE_CHOICES
+    )
+
+    is_active = models.BooleanField(default=True)
+
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "user_devices"
+        indexes = [
+            models.Index(fields=["user", "is_active"]),
+            models.Index(fields=["device_token"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user_id} → {self.device_type}"
 
 class AuthProvider(TimeStampedUUIDModel):
     PROVIDER_GOOGLE = "google"

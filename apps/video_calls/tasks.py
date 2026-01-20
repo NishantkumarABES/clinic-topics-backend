@@ -1,10 +1,12 @@
 from django.utils import timezone
 from datetime import timedelta
-
 from celery import shared_task
+
 from apps.video_calls.models import VideoCallSession
 from apps.video_calls.constants import CallStatus
-from apps.video_calls.signals import send_call_signal
+from apps.video_calls.signals import send_call_signal, is_user_online
+from apps.notifications.services import send_push_notification
+
 
 
 @shared_task
@@ -21,18 +23,30 @@ def expire_unanswered_calls():
         call.ended_at = timezone.now()
         call.save(update_fields=["status", "ended_at"])
 
-        # Notify caller that call was missed
-        send_call_signal(
-            user_id=str(call.doctor.id),
-            data={
-                "event": "call_missed",
-                "call_id": str(call.id)
-            }
-        )
-        send_call_signal(
-            user_id=str(call.patient.id),
-            data={
-                "event": "call_missed",
-                "call_id": str(call.id)
-            }
-        )
+        # --- Notify doctor ---
+        if is_user_online(str(call.doctor.id)):
+            send_call_signal(
+                user_id=str(call.doctor.id),
+                data={"event": "call_missed", "call_id": str(call.id)}
+            )
+        else:
+            send_push_notification(
+                user=call.doctor,
+                title="Missed Call",
+                body="You missed a call",
+                data={"event": "call_missed", "call_id": str(call.id)}
+            )
+
+        # --- Notify patient ---
+        if is_user_online(str(call.patient.id)):
+            send_call_signal(
+                user_id=str(call.patient.id),
+                data={"event": "call_missed", "call_id": str(call.id)}
+            )
+        else:
+            send_push_notification(
+                user=call.patient,
+                title="Missed Call",
+                body="You missed a call",
+                data={"event": "call_missed", "call_id": str(call.id)}
+            )

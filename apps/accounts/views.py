@@ -16,7 +16,7 @@ from apps.accounts.serializers import (
     EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer, PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer, EmailOTPRequestSerializer, EmailOTPVerifySerializer, RegisterSerializer, UserMeSerializer,
     UserListSerializer, UserUpdateSerializer, LoginResponseSerializer, RegisterResponseSerializer, ChangePasswordSerializer,
-    AdminChangePasswordSerializer
+    AdminChangePasswordSerializer, UserDeviceRegisterSerializer
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
@@ -781,4 +781,22 @@ class AdminChangePasswordView(APIView):
             "success": True
         })
 
+class RegisterDeviceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = UserDeviceRegisterSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        device = serializer.save()
+        device.last_seen_at = timezone.now()
+        device.save(update_fields=["last_seen_at"])
+
+        return Response(
+            {"message": "Device registered successfully", "success": True},
+            status=status.HTTP_201_CREATED
+        )
 

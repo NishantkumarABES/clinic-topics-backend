@@ -1,0 +1,44 @@
+from django.utils import timezone
+from firebase_admin import messaging
+from external.firebase.utils import messaging as fcm_messaging
+from apps.accounts.models import UserDevice
+
+
+def send_push_notification(user, title: str, body: str, data: dict = None):
+    devices = UserDevice.objects.filter(user=user, is_active=True)
+
+    if not devices.exists():
+        return {"success": False, "reason": "No active devices"}
+
+    tokens = [d.device_token for d in devices]
+
+    message = messaging.MulticastMessage(
+        notification=messaging.Notification(
+            title=title,
+            body=body
+        ),
+        data={k: str(v) for k, v in (data or {}).items()},
+        tokens=tokens
+    )
+
+    response = messaging.send_multicast(message)
+
+    # Handle invalid tokens
+    for idx, result in enumerate(response.responses):
+        if not result.success:
+            # deactivate invalid token
+            UserDevice.objects.filter(
+                device_token=tokens[idx]
+            ).update(is_active=False)
+
+    # Update last_seen_at for valid deliveries
+    UserDevice.objects.filter(
+        device_token__in=tokens,
+        is_active=True
+    ).update(last_seen_at=timezone.now())
+
+    return {
+        "success": True,
+        "sent": response.success_count,
+        "failed": response.failure_count
+    }

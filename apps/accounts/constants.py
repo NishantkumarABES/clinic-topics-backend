@@ -36,3 +36,14 @@ class AuthProviderType:
         (APPLE, "Apple"),
         (FACEBOOK, "Facebook"),
     )
+
+class DeviceType:
+    DEVICE_ANDROID = "android"
+    DEVICE_IOS = "ios"
+    DEVICE_WEB = "web"
+
+    DEVICE_CHOICES = (
+        (DEVICE_ANDROID, "Android"),
+        (DEVICE_IOS, "iOS"),
+        (DEVICE_WEB, "Web"),
+    )

@@ -6,12 +6,20 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from apps.accounts.services import normalize_phone
-from apps.accounts.models import User, PasswordResetToken, EmailOTP, AuthProvider
+from apps.accounts.models import User, PasswordResetToken, EmailOTP, AuthProvider, UserDevice
 from apps.accounts.constants import UserState, UserRole, UserState
 from apps.profiles.models import DoctorProfile
 from apps.accounts.social_providers import social_provider_verification
 
 class RegisterSerializer(serializers.Serializer):
+    # -------- Device Fields --------
+    device_token = serializers.CharField(required=False, allow_blank=True)
+    device_type = serializers.ChoiceField(
+        choices=("android", "ios", "web"),
+        required=False,
+        allow_blank=True
+    )
+
     # -------- Common User Fields --------
     role = serializers.ChoiceField(choices=[UserRole.DOCTOR, UserRole.PATIENT])
     full_name = serializers.CharField()
@@ -125,7 +133,9 @@ class RegisterSerializer(serializers.Serializer):
     @transaction.atomic
     def create(self, validated_data):
         social_user = validated_data.pop("_social_user", None)
-
+        # ---- Extract device fields ----
+        device_token = validated_data.pop("device_token", None)
+        device_type = validated_data.pop("device_type", None)
         password = validated_data.pop("password", None)
         role = validated_data["role"]
         by_admin = validated_data.get("by_admin", False)
@@ -166,6 +176,19 @@ class RegisterSerializer(serializers.Serializer):
                 provider=social_user.provider,
                 provider_user_id=social_user.provider_user_id,
                 email=social_user.email,
+            )
+        
+        # ---- Device registration (NEW) ----
+        if device_token and device_type:
+            from apps.accounts.models import UserDevice
+            UserDevice.objects.update_or_create(
+                device_token=device_token,
+                defaults={
+                    "user": user,
+                    "device_type": device_type,
+                    "is_active": True,
+                    "last_seen_at": timezone.now()
+                }
             )
 
         return user
@@ -466,7 +489,27 @@ class AdminChangePasswordSerializer(serializers.Serializer):
         self.context["target_user"] = user
         return value
 
+#####################################################################
 
+class UserDeviceRegisterSerializer(serializers.Serializer):
+    device_token = serializers.CharField(max_length=512)
+    device_type = serializers.ChoiceField(
+        choices=UserDevice.DEVICE_CHOICES
+    )
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+
+        device, _ = UserDevice.objects.update_or_create(
+            device_token=validated_data["device_token"],
+            defaults={
+                "user": user,
+                "device_type": validated_data["device_type"],
+                "is_active": True,
+                "last_seen_at": timezone.now()
+            }
+        )
+        return device
 
 
 
