@@ -784,6 +784,20 @@ class AdminChangePasswordView(APIView):
 class RegisterDeviceView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        request_body=UserDeviceRegisterSerializer,
+        responses={
+            201: openapi.Response(
+                description="Device registered successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                    },
+                ),
+            ),
+        },
+    )
     def post(self, request):
         serializer = UserDeviceRegisterSerializer(
             data=request.data,

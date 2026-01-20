@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError
 
 from apps.accounts.services import normalize_phone
 from apps.accounts.models import User, PasswordResetToken, EmailOTP, AuthProvider, UserDevice
-from apps.accounts.constants import UserState, UserRole, UserState
+from apps.accounts.constants import UserState, UserRole, UserState, DeviceType
 from apps.profiles.models import DoctorProfile
 from apps.accounts.social_providers import social_provider_verification
 
@@ -494,7 +494,7 @@ class AdminChangePasswordSerializer(serializers.Serializer):
 class UserDeviceRegisterSerializer(serializers.Serializer):
     device_token = serializers.CharField(max_length=512)
     device_type = serializers.ChoiceField(
-        choices=UserDevice.DEVICE_CHOICES
+        choices=DeviceType.DEVICE_CHOICES
     )
 
     def create(self, validated_data):
