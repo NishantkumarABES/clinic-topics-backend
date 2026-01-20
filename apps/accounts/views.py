@@ -614,6 +614,8 @@ class AdminUserListView(APIView):
         speciality = request.query_params.get("speciality", None)
         status_filter = request.query_params.get("status", None)
         by_admin = request.query_params.get("by_admin", False)
+        ordering = request.query_params.get("ordering", "-created_at")
+
         users = User.objects.filter(role=role)
 
         # Optimize query for doctors to include doctor_profile
@@ -645,7 +647,7 @@ class AdminUserListView(APIView):
         if status_filter:
             users = users.filter(is_active=(status_filter=="active"))
         
-        users = users.order_by('-created_at')
+        users = users.order_by(ordering)
         paginator = self.pagination_class()
         paginated_users = paginator.paginate_queryset(users, request)
         serializer = UserListSerializer(paginated_users, many=True)
