@@ -1,3 +1,5 @@
+def get_report_template_string():
+    return """
 <!DOCTYPE html>
 <html lang="en">
 
@@ -19,11 +21,11 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            font-size: 11pt;
-            line-height: 1.6;
+            font-size: 10pt;
+            line-height: 1.4;
             color: #222222;
             background: #FFFFFF;
-            margin: 4mm;
+            margin: 3mm;
             padding: 0;
         }
 
@@ -31,12 +33,12 @@
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-            margin-bottom: 20px;
-            padding: 15px;
+            margin-bottom: 12px;
+            padding: 10px 12px;
             background: #1a3a6b;
             border-radius: 0;
             box-shadow: none;
-            border-bottom: 4px solid #2A4F8F;
+            border-bottom: 3px solid #2A4F8F;
         }
 
         .header-left {
@@ -47,16 +49,16 @@
 
         .header-logo {
             background: white;
-            padding: 10px;
+            padding: 6px;
             border-radius: 0;
             box-shadow: none;
-            margin-right: 20px;
-            border: 2px solid #ffffff;
+            margin-right: 12px;
+            border: 1px solid #ffffff;
         }
 
         .header-logo img {
-            max-width: 70px;
-            max-height: 70px;
+            max-width: 50px;
+            max-height: 50px;
             display: block;
         }
 
@@ -65,21 +67,21 @@
         }
 
         .clinic-name {
-            font-size: 20pt;
+            font-size: 16pt;
             font-weight: bold;
             color: #ffffff;
-            margin-bottom: 8px;
-            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            margin-bottom: 4px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
         }
 
         .clinic-details {
-            font-size: 9.5pt;
+            font-size: 8.5pt;
             color: #e8f0ff;
-            line-height: 1.6;
+            line-height: 1.4;
         }
 
         .clinic-details div {
-            margin-bottom: 3px;
+            margin-bottom: 1px;
             display: flex;
             align-items: center;
         }
@@ -92,12 +94,12 @@
 
         .header-right {
             background: rgba(255, 255, 255, 0.98);
-            padding: 18px;
+            padding: 10px;
             border-radius: 0;
             text-align: center;
-            min-width: 140px;
+            min-width: 110px;
             box-shadow: none;
-            border: 2px solid #ffffff;
+            border: 1px solid #ffffff;
         }
 
         .report-id {
@@ -126,14 +128,14 @@
 
         .report-title {
             text-align: center;
-            font-size: 16pt;
+            font-size: 14pt;
             font-weight: bold;
             color: #222222;
-            margin: 20px 0 15px 0;
+            margin: 12px 0 10px 0;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.5px;
             position: relative;
-            padding-bottom: 10px;
+            padding-bottom: 6px;
         }
 
         .report-title::after {
@@ -142,18 +144,18 @@
             bottom: 0;
             left: 50%;
             transform: translateX(-50%);
-            width: 100px;
-            height: 4px;
+            width: 80px;
+            height: 3px;
             background: #2A4F8F;
             border-radius: 2px;
         }
 
         .patient-info {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(3, 1fr);
             gap: 0;
-            margin-bottom: 20px;
-            border: 2px solid #2A4F8F;
+            margin-bottom: 12px;
+            border: 1px solid #2A4F8F;
             border-radius: 0;
             background: #FFFFFF;
             overflow: hidden;
@@ -161,16 +163,19 @@
 
         .patient-name-container {
             grid-column: 1 / -1;
-            padding: 10px 20px;
+            padding: 6px 12px;
             background: #E8EEF7;
-            border-bottom: 2px solid #2A4F8F;
+            border-bottom: 1px solid #2A4F8F;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
         .patient-name {
-            font-size: 14pt;
+            font-size: 12pt;
             font-weight: 700;
             color: #1a3a6b;
-            margin-bottom: 5px;
+            margin-bottom: 0;
         }
 
         .patient-id {
@@ -187,12 +192,16 @@
         .patient-info-item {
             display: flex;
             align-items: center;
-            padding: 12px 20px;
+            padding: 6px 10px;
             border-right: 1px solid #E0E0E0;
             border-bottom: 1px solid #E0E0E0;
         }
 
-        .patient-info-item:nth-child(2n) {
+        .patient-info-item:nth-child(3n+1) {
+            border-right: 1px solid #E0E0E0;
+        }
+
+        .patient-info-item:nth-child(3n) {
             border-right: none;
         }
 
@@ -203,80 +212,80 @@
         .patient-info-label {
             font-weight: 600;
             color: #1a3a6b;
-            font-size: 9.5pt;
-            margin-right: 8px;
+            font-size: 8.5pt;
+            margin-right: 5px;
         }
 
         .patient-info-value {
             color: #222222;
             font-weight: 500;
-            font-size: 10pt;
+            font-size: 9pt;
         }
 
         .report-body {
-            margin-bottom: 40px;
+            margin-bottom: 20px;
         }
 
         .report-section {
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             page-break-inside: avoid;
-            border-left: 4px solid #2A4F8F;
-            padding-left: 12px;
+            border-left: 3px solid #2A4F8F;
+            padding-left: 10px;
         }
 
         .section-title {
-            font-size: 13pt;
+            font-size: 11pt;
             font-weight: bold;
             color: #222222;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             display: flex;
             align-items: center;
         }
 
         .section-title::before {
             content: '';
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             background: #2A4F8F;
             border-radius: 50%;
-            margin-right: 10px;
-            margin-left: -19px;
+            margin-right: 8px;
+            margin-left: -16px;
         }
 
         .section-content {
-            padding-left: 10px;
+            padding-left: 8px;
             text-align: justify;
             color: #444444;
-            line-height: 1.8;
+            line-height: 1.5;
         }
 
         .section-content p {
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
 
         .section-content ul,
         .section-content ol {
-            margin-left: 25px;
-            margin-bottom: 12px;
+            margin-left: 20px;
+            margin-bottom: 8px;
         }
 
         .section-content li {
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
 
         .section-content table {
             width: 100%;
             border-collapse: collapse;
-            margin: 15px 0;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+            margin: 8px 0;
+            box-shadow: none;
         }
 
         .section-content table th,
         .section-content table td {
             border: 1px solid #CCCCCC;
-            padding: 10px 12px;
+            padding: 6px 8px;
             text-align: left;
         }
 
@@ -295,8 +304,8 @@
         .section-content h3,
         .section-content h4 {
             color: #222222;
-            margin-top: 15px;
-            margin-bottom: 10px;
+            margin-top: 10px;
+            margin-bottom: 6px;
             font-weight: 600;
         }
 
@@ -320,28 +329,28 @@
         /* Enhanced Patient Questions Section */
         .questions-section {
             background: #F8F9FA;
-            border: 2px solid #2A4F8F;
+            border: 1px solid #2A4F8F;
             border-radius: 0;
-            padding: 25px;
-            margin-bottom: 30px;
+            padding: 15px;
+            margin-bottom: 15px;
             page-break-inside: avoid;
         }
 
         .questions-title {
-            font-size: 14pt;
+            font-size: 12pt;
             font-weight: bold;
             color: #2A4F8F;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
             text-align: center;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
         }
 
         .question-item {
-            margin-bottom: 25px;
+            margin-bottom: 12px;
             background: white;
             border-radius: 0;
-            padding: 18px;
+            padding: 10px;
             box-shadow: none;
             border: 1px solid #E0E0E0;
             page-break-inside: avoid;
@@ -354,54 +363,54 @@
         .question-header {
             display: flex;
             align-items: flex-start;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
         }
 
         .question-number {
             background: #2A4F8F;
             color: white;
             font-weight: bold;
-            min-width: 28px;
-            height: 28px;
+            min-width: 22px;
+            height: 22px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 12px;
-            font-size: 10pt;
+            margin-right: 8px;
+            font-size: 9pt;
             flex-shrink: 0;
         }
 
         .question-text {
             font-weight: 600;
             color: #222222;
-            font-size: 11pt;
-            line-height: 1.5;
+            font-size: 10pt;
+            line-height: 1.4;
             flex: 1;
         }
 
         .answer-container {
-            padding-left: 40px;
-            border-left: 3px solid #CCCCCC;
-            margin-left: 14px;
+            padding-left: 30px;
+            border-left: 2px solid #CCCCCC;
+            margin-left: 11px;
         }
 
         .answer-label {
             font-weight: 600;
             color: #2A4F8F;
-            font-size: 10pt;
-            margin-bottom: 8px;
+            font-size: 9pt;
+            margin-bottom: 4px;
             display: block;
         }
 
         .answer-text {
             color: #444444;
-            line-height: 1.8;
+            line-height: 1.5;
             text-align: justify;
         }
 
         .answer-text p {
-            margin-bottom: 12px;
+            margin-bottom: 6px;
         }
 
         .answer-text p:last-child {
@@ -412,39 +421,39 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-end;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 2px solid #CCCCCC;
+            margin-top: 20px;
+            padding-top: 12px;
+            border-top: 1px solid #CCCCCC;
             page-break-inside: avoid;
         }
 
         .signature-block {
             text-align: center;
-            min-width: 200px;
+            min-width: 160px;
         }
 
         .signature-image {
-            max-width: 180px;
-            max-height: 60px;
-            margin-bottom: 10px;
+            max-width: 140px;
+            max-height: 45px;
+            margin-bottom: 6px;
         }
 
         .signature-line {
-            border-top: 2px solid #222222;
-            margin-bottom: 8px;
+            border-top: 1px solid #222222;
+            margin-bottom: 4px;
         }
 
         .signature-label {
-            font-size: 10pt;
+            font-size: 8.5pt;
             color: #444444;
             font-weight: 600;
         }
 
         .signature-name {
-            font-size: 11pt;
+            font-size: 10pt;
             color: #222222;
             font-weight: bold;
-            margin-top: 5px;
+            margin-top: 3px;
         }
 
         .signature-credentials {
@@ -454,14 +463,14 @@
         }
 
         .footer-note {
-            margin-top: 20px;
-            padding: 12px;
+            margin-top: 12px;
+            padding: 8px 10px;
             background: #F8F9FA;
-            border-left: 4px solid #2A4F8F;
+            border-left: 3px solid #2A4F8F;
             border-radius: 0;
-            font-size: 9pt;
+            font-size: 8pt;
             color: #444444;
-            line-height: 1.5;
+            line-height: 1.4;
         }
 
         @media print {
@@ -491,7 +500,7 @@
                     <div><strong>Address:</strong> {{clinic_address}}</div>
                     <div><strong>Phone:</strong> {{clinic_phone}}</div>
                     <div><strong>Email:</strong> {{clinic_email}}</div>
-                    <div><strong>Web:</strong> {{clinic_website}}</div>
+                    <div><strong>Website:</strong> {{clinic_website}}</div>
                 </div>
             </div>
         </div>
@@ -517,8 +526,12 @@
             <span class="patient-info-value">{{patient_blood_group}}</span>
         </div>
         <div class="patient-info-item">
-            <span class="patient-info-label">Contact:</span>
-            <span class="patient-info-value">{{patient_contact}}</span>
+            <span class="patient-info-label">Phone:</span>
+            <span class="patient-info-value">{{patient_phone}}</span>
+        </div>
+        <div class="patient-info-item">
+            <span class="patient-info-label">Email:</span>
+            <span class="patient-info-value">{{patient_email}}</span>
         </div>
     </div>
 
@@ -561,7 +574,7 @@
             <div class="signature-credentials">{{doctor_credentials}}</div>
         </div>
         <div class="signature-block">
-            <div style="height: 60px;"></div>
+            <div style="height: 45px;"></div>
             <div class="signature-line"></div>
             <div class="signature-label">Date of Issue</div>
             <div class="signature-name">{{report_date}}</div>
@@ -574,5 +587,5 @@
         document in error, please contact {{clinic_phone}} immediately.
     </div>
 </body>
-
 </html>
+""".strip()

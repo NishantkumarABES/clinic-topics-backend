@@ -1,16 +1,19 @@
 import os
 import tempfile
-from django.template.loader import render_to_string
+from django.template import Template, Context
 from django.conf import settings
 from pyhtml2pdf import converter
+import datetime
+
+from apps.report_template.templates.report import get_report_template_string
 
 
 class ReportPDFService:
     @staticmethod
     def generate_pdf(template_data: dict) -> str:
-        html_content = render_to_string(
-            "report_template/report.html", template_data
-        )
+        template_string = get_report_template_string()  
+        template = Template(template_string)
+        html_content = template.render(Context(template_data))
 
         # Create temporary HTML file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".html") as html_file:
@@ -27,4 +30,10 @@ class ReportPDFService:
         os.remove(html_path)
         return pdf_path
 
+
+def calculate_age(birth_date):
+    if not birth_date: return None
+    today = datetime.date.today()
+    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+    return age
 
