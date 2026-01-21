@@ -8,6 +8,8 @@ from datetime import timedelta
 
 from apps.accounts.constants import UserState
 from apps.accounts.models import User, AuthProvider, PhoneOTP, PasswordResetToken, EmailOTP
+from apps.accounts.email_templates import otp_email_html, password_reset_html, doctor_invitation_html
+from external.aws_ses.service import EmailClient
 from config.settings import OTP_EXPIRY_MINUTES
 
 def assert_identity_available(email=None, phone=None):
@@ -124,19 +126,22 @@ def verify_phone_otp(phone: str, otp: str) -> PhoneOTP:
         otp_obj.marks_as_used()
         return otp_obj
 
-def send_email_otp(email):
+def send_email_otp(email, full_name=None):
     otp = generate_otp()
     EmailOTP.objects.create(
         email=email,
         otp=otp,
         expires_at=timezone.now() + timedelta(minutes=5)
     )
-    # send_mail(
-    #     "Clinic Topics Verification Code",
-    #     f"Your verification code is {otp}",
-    #     None,
-    #     [email],
-    # )
+    subject = "Your Verification Code"
+    text_body = f"Your verification code is {otp}. It expires in 5 minutes."
+    html_body = otp_email_html(full_name, otp)
+    EmailClient().send_email(
+        recipient=email,
+        subject=subject,
+        body_text=text_body,
+        body_html=html_body
+    )
     return otp
 
 def can_resend_otp(phone):
@@ -225,20 +230,25 @@ def get_object_or_404(model, **kwargs):
         raise ValidationError(f"{model.__name__} not found")
 
 def send_doctor_invitation_email(user, password):
-    """
-    Placeholder for sending invitation email to admin-created doctors.
-    
-    This function will be implemented later with actual email service.
-    The email should contain:
-    - Doctor's login email
-    - Temporary password
-    - Instructions to login and change password
-    
-    Args:
-        user: The User object for the doctor
-        password: The temporary password generated for the doctor
-    """
-    # TODO: Implement actual email sending logic using send_email function
-    print(f"[INVITATION EMAIL] Doctor invitation email would be sent to: {user.email}")
-    print(f"[INVITATION EMAIL] With temporary password: {password}")
-    pass
+    subject = "Your ClinicTopics Doctor Account"
+
+    text_body = (
+        f"Hello Dr. {user.full_name},\n\n"
+        f"Your account has been created.\n"
+        f"Login Email: {user.email}\n"
+        f"Temporary Password: {password}\n\n"
+        "Please log in and change your password immediately."
+    )
+
+    html_body = doctor_invitation_html(
+        full_name=user.full_name,
+        email=user.email,
+        temp_password=password
+    )
+
+    EmailClient().send_email(
+        recipient=user.email,
+        subject=subject,
+        body_text=text_body,
+        body_html=html_body
+    )

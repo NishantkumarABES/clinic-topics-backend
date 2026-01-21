@@ -184,9 +184,26 @@ class RegisterView(APIView):
         data = request.data.copy()
         data["role"] = role
 
-        serializer = RegisterSerializer(data=data)
+        is_admin_request = (
+            request.user.is_authenticated and
+            request.user.role == UserRole.ADMIN
+        )
+
+        serializer = RegisterSerializer(
+            data=data,
+            context={"is_admin_request": is_admin_request}
+        )
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        if is_admin_request and role == UserRole.DOCTOR:
+            return Response(
+                {
+                    "detail": "Doctor created and invitation email sent",
+                    "success": True
+                },
+                status=status.HTTP_201_CREATED
+            )
         access_token, refresh_token = get_tokens_for_user(user, False)
         return Response(
             {

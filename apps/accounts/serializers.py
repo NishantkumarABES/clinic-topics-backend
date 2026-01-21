@@ -8,8 +8,9 @@ from rest_framework.exceptions import ValidationError
 from apps.accounts.services import normalize_phone
 from apps.accounts.models import User, PasswordResetToken, EmailOTP, AuthProvider, UserDevice
 from apps.accounts.constants import UserState, UserRole, UserState, DeviceType
-from apps.profiles.models import DoctorProfile
+from apps.accounts.services import send_doctor_invitation_email
 from apps.accounts.social_providers import social_provider_verification
+from apps.profiles.models import DoctorProfile
 
 class RegisterSerializer(serializers.Serializer):
     # -------- Device Fields --------
@@ -138,10 +139,12 @@ class RegisterSerializer(serializers.Serializer):
         device_type = validated_data.pop("device_type", None)
         password = validated_data.pop("password", None)
         role = validated_data["role"]
-        by_admin = validated_data.get("by_admin", False)
-
+        # by_admin = validated_data.get("by_admin", False)
+        is_admin_request = self.context.get("is_admin_request", False)
+        is_admin_creating_doctor = is_admin_request and role == UserRole.DOCTOR
         # Admin-created doctors start as inactive, they activate on first login
-        is_active = False if by_admin else True
+        # is_active = False if by_admin else True
+        is_active = False if is_admin_creating_doctor else True
 
         user = User.objects.create_user(
             email=validated_data["email"],
@@ -157,7 +160,7 @@ class RegisterSerializer(serializers.Serializer):
             gender=validated_data.get("gender"),
             is_email_verified=validated_data.get("is_email_verified"),
             is_phone_verified=validated_data.get("is_phone_verified"),
-            by_admin=by_admin,
+            by_admin=is_admin_creating_doctor,
             is_active=is_active,
         )
 
@@ -190,6 +193,8 @@ class RegisterSerializer(serializers.Serializer):
                     "last_seen_at": timezone.now()
                 }
             )
+        if is_admin_creating_doctor:
+            send_doctor_invitation_email(user, password)
 
         return user
 
@@ -447,8 +452,6 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             doctor_profile.save()
 
         return instance
-
-
 
 
 #########################   Response Serializers    #########################
