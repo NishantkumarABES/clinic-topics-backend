@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "apps.second_opinion.app.SecondOpinionConfig",
     "apps.appointments.app.AppointmentsConfig",
     "apps.video_calls.app.VideoCallsConfig",
+    "apps.report_template.app.ReportTemplateConfig",
     "core.app.CoreConfig",
 ]
 
