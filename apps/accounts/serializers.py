@@ -213,7 +213,11 @@ class PhoneOTPVerifySerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
     country_code = serializers.CharField(max_length=5, required=False, default="+91")
     otp = serializers.CharField(max_length=6)
-
+    device_token = serializers.CharField(required=False, allow_blank=True)
+    device_type = serializers.ChoiceField(
+        choices=DeviceType.DEVICE_CHOICES,
+        required=False
+    )
     def validate(self, data):
         data["phone_number"] = normalize_phone(
             data["phone"],
@@ -255,6 +259,11 @@ class EmailLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
     remember_me = serializers.BooleanField(required=False, default=False)
+    device_token = serializers.CharField(required=False, allow_blank=True)
+    device_type = serializers.ChoiceField(
+        choices=DeviceType.DEVICE_CHOICES,
+        required=False
+    )
 
     def validate(self, data):
         email = data["email"]
@@ -280,6 +289,11 @@ class EmailLoginSerializer(serializers.Serializer):
         return data
 
 class SocialLoginSerializer(serializers.Serializer):
+    device_token = serializers.CharField(required=False, allow_blank=True)
+    device_type = serializers.ChoiceField(
+        choices=DeviceType.DEVICE_CHOICES,
+        required=False
+    )
     provider = serializers.ChoiceField(
         choices=("google", "apple", "facebook")
     )

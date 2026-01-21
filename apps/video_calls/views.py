@@ -86,6 +86,18 @@ class CallInitiateView(APIView):
             status=CallStatus.INITIATED,
         )
 
+        send_push_notification(
+            user=receiver,
+            title="Incoming Call",
+            body=f"{caller.full_name} is calling you",
+            data={
+                "event": "incoming_call",
+                "call_id": str(call_session.id),
+                "channel_name": call_session.channel_name,
+                "caller_id": str(caller.id)
+            }
+        )
+
         # ===== Presence-aware routing =====
         if is_user_online(str(receiver.id)):
             send_call_signal(
@@ -99,22 +111,7 @@ class CallInitiateView(APIView):
                 }
             )
             call_status = "ringing"
-            print(
-                "send signal to the receiver"
-            )
-
         else:
-            send_push_notification(
-                user=receiver,
-                title="Incoming Call",
-                body=f"{caller.full_name} is calling you",
-                data={
-                    "event": "incoming_call",
-                    "call_id": str(call_session.id),
-                    "channel_name": call_session.channel_name,
-                    "caller_id": str(caller.id)
-                }
-            )
             call_status = "push_sent"
 
 
@@ -187,9 +184,17 @@ class CallAcceptView(BaseCallActionView):
         call.started_at = timezone.now()
         call.save(update_fields=["status", "started_at"])
 
-        # ---- FIX START ----
-        # Notify the OTHER participant
         other_user = call.doctor if request.user == call.patient else call.patient
+
+        send_push_notification(
+            user=other_user,
+            title="Call Accepted",
+            body="Your call has been accepted",
+            data={
+                "event": "call_accepted",
+                "call_id": str(call.id)
+            }
+        )
 
         if is_user_online(str(other_user.id)):
             send_call_signal(
@@ -199,17 +204,7 @@ class CallAcceptView(BaseCallActionView):
                     "call_id": str(call.id)
                 }
             )
-        else:
-            send_push_notification(
-                user=other_user,
-                title="Call Accepted",
-                body="Your call has been accepted",
-                data={
-                    "event": "call_accepted",
-                    "call_id": str(call.id)
-                }
-            )
-
+        
         return Response({"message": "Call accepted"}, status=status.HTTP_200_OK)
 
 class CallRejectView(BaseCallActionView):
@@ -228,7 +223,15 @@ class CallRejectView(BaseCallActionView):
         call.save(update_fields=["status", "ended_at"])
 
         other_user = call.doctor if request.user == call.patient else call.patient
-
+        send_push_notification(
+            user=other_user,
+            title="Call Rejected",
+            body="Your call was rejected",
+            data={
+                "event": "call_rejected",
+                "call_id": str(call.id)
+            }
+        )
         if is_user_online(str(other_user.id)):
             send_call_signal(
                 user_id=str(other_user.id),
@@ -236,17 +239,7 @@ class CallRejectView(BaseCallActionView):
                     "event": "call_rejected",
                     "call_id": str(call.id)
                 }
-            )
-        else:
-            send_push_notification(
-                user=other_user,
-                title="Call Rejected",
-                body="Your call was rejected",
-                data={
-                    "event": "call_rejected",
-                    "call_id": str(call.id)
-                }
-            )
+            )    
 
         return Response({"message": "Call rejected"}, status=status.HTTP_200_OK)
 
@@ -265,19 +258,17 @@ class CallEndView(BaseCallActionView):
         call.save(update_fields=["status", "ended_at"])
 
         for participant in [call.doctor, call.patient]:
+            send_push_notification(
+                user=participant,
+                title="Call Ended",
+                body="The call has ended",
+                data={"event": "call_ended", "call_id": str(call.id)}
+            )
             if is_user_online(str(participant.id)):
                 send_call_signal(
                     user_id=str(participant.id),
                     data={"event": "call_ended", "call_id": str(call.id)}
                 )
-            else:
-                send_push_notification(
-                    user=participant,
-                    title="Call Ended",
-                    body="The call has ended",
-                    data={"event": "call_ended", "call_id": str(call.id)}
-                )
-
         return Response({"message": "Call ended"}, status=status.HTTP_200_OK)
 
 class UserCallStatusView(APIView):

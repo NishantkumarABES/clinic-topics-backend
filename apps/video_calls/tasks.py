@@ -23,30 +23,19 @@ def expire_unanswered_calls():
         call.ended_at = timezone.now()
         call.save(update_fields=["status", "ended_at"])
 
-        # --- Notify doctor ---
-        if is_user_online(str(call.doctor.id)):
-            send_call_signal(
-                user_id=str(call.doctor.id),
-                data={"event": "call_missed", "call_id": str(call.id)}
-            )
-        else:
+        for participant in [call.doctor, call.patient]:
             send_push_notification(
-                user=call.doctor,
+                user=participant,
                 title="Missed Call",
                 body="You missed a call",
                 data={"event": "call_missed", "call_id": str(call.id)}
             )
+            if is_user_online(str(participant.id)):
+                send_call_signal(
+                    user_id=str(participant.id),
+                    data={"event": "call_missed", "call_id": str(call.id)}
+                )
 
-        # --- Notify patient ---
-        if is_user_online(str(call.patient.id)):
-            send_call_signal(
-                user_id=str(call.patient.id),
-                data={"event": "call_missed", "call_id": str(call.id)}
-            )
-        else:
-            send_push_notification(
-                user=call.patient,
-                title="Missed Call",
-                body="You missed a call",
-                data={"event": "call_missed", "call_id": str(call.id)}
-            )
+
+
+        

@@ -23,7 +23,7 @@ from apps.accounts.services import (
     get_tokens_for_user, can_resend_otp, anonymize_user, get_object_or_404, verify_phone_otp
 )
 from apps.accounts.social_providers import social_provider_verification
-from apps.accounts.models import User
+from apps.accounts.models import User, UserDevice
 from apps.accounts.constants import UserState, UserRole
 from core.permissions import IsAdmin
 from config import settings
@@ -216,7 +216,18 @@ class EmailLoginView(APIView):
             return Response(
                 {"error": serializer.validated_data.get("error"), "success": False}
             )
-
+        device_token = serializer.validated_data.get("device_token")
+        device_type = serializer.validated_data.get("device_type")
+        if device_token and device_type:
+            UserDevice.objects.update_or_create(
+                device_token=device_token,
+                defaults={
+                    "user": user,
+                    "device_type": device_type,
+                    "is_active": True,
+                    "last_seen_at": timezone.now()
+                }
+            )
         remember_me = request.data.get("remember_me", False)
         access_token, refresh_token = get_tokens_for_user(user, remember_me)
 
@@ -268,7 +279,18 @@ class SocialLoginView(APIView):
 
         # 3️⃣ Activate if eligible
         activate_user_if_eligible(user)
-
+        device_token = serializer.validated_data.get("device_token")
+        device_type = serializer.validated_data.get("device_type")
+        if device_token and device_type:
+            UserDevice.objects.update_or_create(
+                device_token=device_token,
+                defaults={
+                    "user": user,
+                    "device_type": device_type,
+                    "is_active": True,
+                    "last_seen_at": timezone.now()
+                }
+            )
         # 4️⃣ Generate tokens
         access_token, refresh_token = get_tokens_for_user(user, remember_me)
 
@@ -311,6 +333,18 @@ class PhoneLoginView(APIView):
             user.is_phone_verified = True
             user.save(update_fields=["is_phone_verified"])
 
+        device_token = serializer.validated_data.get("device_token")
+        device_type = serializer.validated_data.get("device_type")
+        if device_token and device_type:
+            UserDevice.objects.update_or_create(
+                device_token=device_token,
+                defaults={
+                    "user": user,
+                    "device_type": device_type,
+                    "is_active": True,
+                    "last_seen_at": timezone.now()
+                }
+            )
         access, refresh = get_tokens_for_user(user)
 
         return Response({
