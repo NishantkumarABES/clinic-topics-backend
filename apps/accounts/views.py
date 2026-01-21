@@ -559,7 +559,6 @@ class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
     @extend_schema(exclude=True)
     @swagger_auto_schema(
-        auto_schema=None,
         responses={
             200: openapi.Response(
                 description="Account deleted permanently",
@@ -589,8 +588,11 @@ class DeleteAccountView(APIView):
                 {"detail": "Account already deleted", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        
+        user.state = UserState.DELETED
+        user.save(update_fields=["state"])
 
-        anonymize_user(user)
+        # anonymize_user(user)
 
         return Response(
             {"message": "Account deleted permanently", "success": True},

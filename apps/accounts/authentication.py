@@ -10,6 +10,7 @@ class LifecycleJWTAuthentication(JWTAuthentication):
         if user.state in (
             UserState.SUSPENDED,
             UserState.DEACTIVATED,
+            UserState.DELETED,
         ):
             raise AuthenticationFailed("User account is not active")
 
