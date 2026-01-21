@@ -186,15 +186,15 @@ class CallAcceptView(BaseCallActionView):
 
         other_user = call.doctor if request.user == call.patient else call.patient
 
-        send_push_notification(
-            user=other_user,
-            title="Call Accepted",
-            body="Your call has been accepted",
-            data={
-                "event": "call_accepted",
-                "call_id": str(call.id)
-            }
-        )
+        # send_push_notification(
+        #     user=other_user,
+        #     title="Call Accepted",
+        #     body="Your call has been accepted",
+        #     data={
+        #         "event": "call_accepted",
+        #         "call_id": str(call.id)
+        #     }
+        # )
 
         if is_user_online(str(other_user.id)):
             send_call_signal(
@@ -223,15 +223,15 @@ class CallRejectView(BaseCallActionView):
         call.save(update_fields=["status", "ended_at"])
 
         other_user = call.doctor if request.user == call.patient else call.patient
-        send_push_notification(
-            user=other_user,
-            title="Call Rejected",
-            body="Your call was rejected",
-            data={
-                "event": "call_rejected",
-                "call_id": str(call.id)
-            }
-        )
+        # send_push_notification(
+        #     user=other_user,
+        #     title="Call Rejected",
+        #     body="Your call was rejected",
+        #     data={
+        #         "event": "call_rejected",
+        #         "call_id": str(call.id)
+        #     }
+        # )
         if is_user_online(str(other_user.id)):
             send_call_signal(
                 user_id=str(other_user.id),
