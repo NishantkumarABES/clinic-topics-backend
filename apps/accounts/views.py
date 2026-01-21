@@ -94,21 +94,13 @@ class EmailOTPVerifyView(APIView):
         serializer = EmailOTPVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        is_valid = serializer.validated_data["is_valid"]
         otp_obj = serializer.validated_data["otp_obj"]
-        message = serializer.validated_data.get("message", "")
-        try:
-            if not is_valid:
-                return Response(
-                    {"detail": message, "success": False},
-                )
-            otp_obj.mark_as_used()
-            return Response({"detail": "Email verified successfully", "success": True})
-        except User.DoesNotExist:
-            return Response(
-                {"detail": "User with this email does not exist", "success": False},
-                status=404
-            )
+        otp_obj.mark_as_used()
+
+        return Response({
+            "detail": "Email verified successfully",
+            "success": True
+        })
 
 class PhoneOTPRequestView(APIView):
     permission_classes = [AllowAny]
