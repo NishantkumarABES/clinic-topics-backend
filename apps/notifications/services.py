@@ -21,7 +21,7 @@ def send_push_notification(user, title: str, body: str, data: dict = None):
         tokens=tokens
     )
 
-    response = messaging.send_multicast(message)
+    response = messaging.send_each_for_multicast(message)
 
     # Handle invalid tokens
     for idx, result in enumerate(response.responses):
