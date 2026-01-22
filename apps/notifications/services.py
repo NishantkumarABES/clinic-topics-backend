@@ -42,3 +42,33 @@ def send_push_notification(user, title: str, body: str, data: dict = None):
         "sent": response.success_count,
         "failed": response.failure_count
     }
+
+def send_silent_push_notification(user, data: dict):
+    devices = UserDevice.objects.filter(user=user, is_active=True)
+
+    if not devices.exists():
+        return {"success": False, "reason": "No active devices"}
+
+    tokens = [d.device_token for d in devices]
+
+    message = messaging.MulticastMessage(
+        data={k: str(v) for k, v in (data or {}).items()},
+        tokens=tokens,
+        apns=messaging.APNSConfig(
+            headers={
+                "apns-push-type": "background",
+                "apns-priority": "5"
+            },
+            payload=messaging.APNSPayload(
+                aps=messaging.Aps(content_available=True)
+            )
+        )
+    )
+
+    response = messaging.send_each_for_multicast(message)
+
+    return {
+        "success": True,
+        "sent": response.success_count,
+        "failed": response.failure_count
+    }
