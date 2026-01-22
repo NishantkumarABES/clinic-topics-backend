@@ -1,11 +1,11 @@
 from rest_framework import serializers
-from apps.CIMS.models import CIMS, CIMSKeyInteraction, CIMSPracticalPearl
+from apps.IDI.models import IDI, IDIKeyInteraction, IDIPracticalPearl
 from rest_framework.pagination import PageNumberPagination
 
 
-class CIMSKeyInteractionSerializer(serializers.ModelSerializer):
+class IDIKeyInteractionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CIMSKeyInteraction
+        model = IDIKeyInteraction
         fields = [
             "id",
             "interaction_title",
@@ -13,26 +13,26 @@ class CIMSKeyInteractionSerializer(serializers.ModelSerializer):
             "what_to_do",
         ]
 
-class CIMSPracticalPearlSerializer(serializers.ModelSerializer):
+class IDIPracticalPearlSerializer(serializers.ModelSerializer):
     class Meta:
-        model = CIMSPracticalPearl
+        model = IDIPracticalPearl
         fields = [
             "id",
             "pearl_title",
             "pearl_content",
         ]
 
-class AdminCIMSListPagination(PageNumberPagination):
+class AdminIDIListPagination(PageNumberPagination):
     page_size = 5
     page_size_query_param = 'page_size'
     max_page_size = 100
 
-class CIMSReadSerializer(serializers.ModelSerializer):
-    key_interactions = CIMSKeyInteractionSerializer(many=True, read_only=True)
-    practical_prescribing_pearls = CIMSPracticalPearlSerializer(many=True, read_only=True)
+class IDIReadSerializer(serializers.ModelSerializer):
+    key_interactions = IDIKeyInteractionSerializer(many=True, read_only=True)
+    practical_prescribing_pearls = IDIPracticalPearlSerializer(many=True, read_only=True)
 
     class Meta:
-        model = CIMS
+        model = IDI
         fields = [
             "id",
             "drug_name_generic",
@@ -59,12 +59,12 @@ class CIMSReadSerializer(serializers.ModelSerializer):
             "practical_prescribing_pearls",
         ]
 
-class CIMSWriteSerializer(serializers.ModelSerializer):
-    key_interactions = CIMSKeyInteractionSerializer(many=True, required=False)
-    practical_prescribing_pearls = CIMSPracticalPearlSerializer(many=True, required=False)
+class IDIWriteSerializer(serializers.ModelSerializer):
+    key_interactions = IDIKeyInteractionSerializer(many=True, required=False)
+    practical_prescribing_pearls = IDIPracticalPearlSerializer(many=True, required=False)
 
     class Meta:
-        model = CIMS
+        model = IDI
         fields = [
             "drug_name_generic",
             "drug_class",
@@ -92,19 +92,19 @@ class CIMSWriteSerializer(serializers.ModelSerializer):
         interactions = validated_data.pop("key_interactions", [])
         pearls = validated_data.pop("practical_prescribing_pearls", [])
 
-        cims = CIMS.objects.create(**validated_data)
+        idi = IDI.objects.create(**validated_data)
 
-        CIMSKeyInteraction.objects.bulk_create([
-            CIMSKeyInteraction(cims=cims, **item)
+        IDIKeyInteraction.objects.bulk_create([
+            IDIKeyInteraction(idi=idi, **item)
             for item in interactions
         ])
 
-        CIMSPracticalPearl.objects.bulk_create([
-            CIMSPracticalPearl(cims=cims, **item)
+        IDIPracticalPearl.objects.bulk_create([
+            IDIPracticalPearl(idi=idi, **item)
             for item in pearls
         ])
 
-        return cims
+        return idi
 
     def update(self, instance, validated_data):
         interactions = validated_data.pop("key_interactions", None)
@@ -116,15 +116,15 @@ class CIMSWriteSerializer(serializers.ModelSerializer):
 
         if interactions is not None:
             instance.key_interactions.all().delete()
-            CIMSKeyInteraction.objects.bulk_create([
-                CIMSKeyInteraction(cims=instance, **item)
+            IDIKeyInteraction.objects.bulk_create([
+                IDIKeyInteraction(idi=instance, **item)
                 for item in interactions
             ])
 
         if pearls is not None:
             instance.practical_prescribing_pearls.all().delete()
-            CIMSPracticalPearl.objects.bulk_create([
-                CIMSPracticalPearl(cims=instance, **item)
+            IDIPracticalPearl.objects.bulk_create([
+                IDIPracticalPearl(idi=instance, **item)
                 for item in pearls
             ])
 

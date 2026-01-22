@@ -877,33 +877,31 @@ class AdminOrderAnalyticsAPIView(APIView):
 
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
-        today = timezone.now().date()
-        today_start = timezone.make_aware(timezone.datetime.combine(today, timezone.datetime.min.time()))
-
-        # Get today's orders
-        today_orders = Order.objects.filter(created_at__gte=today_start)
+    # Get all orders (no date filter)
+        all_orders = Order.objects.all()
 
         # Calculate analytics
-        total_orders_today = today_orders.count()
-        pending_payments = Order.objects.filter(status="pending_payment").count()
-        processing_orders = Order.objects.filter(status="processing").count()
-        delivered_orders = Order.objects.filter(status="delivered").count()
-        cancelled_orders = Order.objects.filter(status="cancelled").count()
+        total_orders = all_orders.count()
+        pending_payments = all_orders.filter(status="pending_payment").count()
+        processing_orders = all_orders.filter(status="processing").count()
+        delivered_orders = all_orders.filter(status="delivered").count()
+        cancelled_orders = all_orders.filter(status="cancelled").count()
 
-        # Today's revenue (from delivered orders)
-        total_revenue_today = today_orders.filter(
+        # Total revenue (from successful/active orders)
+        total_revenue = all_orders.filter(
             status__in=["paid", "processing", "shipped", "delivered"]
         ).aggregate(total=Sum("total_amount"))["total"] or 0
 
         return Response({
             "success": True,
-            "total_orders_today": total_orders_today,
+            "total_orders": total_orders,
             "pending_payments": pending_payments,
             "processing_orders": processing_orders,
             "delivered_orders": delivered_orders,
             "cancelled_orders": cancelled_orders,
-            "total_revenue_today": float(total_revenue_today),
+            "total_revenue": float(total_revenue),
         })
+
 
 class AdminOrderDetailAPIView(APIView):
     """Admin endpoint to get order details."""

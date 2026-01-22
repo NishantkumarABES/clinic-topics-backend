@@ -1,10 +1,9 @@
 from django.db import models
-from django.conf import settings
 from core.models import TimeStampedUUIDModel
-from apps.CIMS.constants import CIMSStatus
+from apps.IDI.constants import IDIStatus
 
 
-class CIMS(TimeStampedUUIDModel):
+class IDI(TimeStampedUUIDModel):
     # Basic Drug Information
     drug_name_generic = models.CharField(max_length=255)
     drug_class = models.CharField(max_length=255)
@@ -35,12 +34,12 @@ class CIMS(TimeStampedUUIDModel):
     # Metadata
     status = models.CharField(
         max_length=20,
-        choices=CIMSStatus.STATUS_CHOICES,
+        choices=IDIStatus.STATUS_CHOICES,
         default="draft"
     )
 
     class Meta(TimeStampedUUIDModel.Meta):
-        db_table = "cims"
+        db_table = "idi"
         indexes = [
             models.Index(fields=["drug_name_generic"]),
             models.Index(fields=["status"]),
@@ -50,9 +49,9 @@ class CIMS(TimeStampedUUIDModel):
         return self.drug_name_generic
 
 
-class CIMSKeyInteraction(TimeStampedUUIDModel):
-    cims = models.ForeignKey(
-        CIMS,
+class IDIKeyInteraction(TimeStampedUUIDModel):
+    idi = models.ForeignKey(
+        IDI,
         on_delete=models.CASCADE,
         related_name="key_interactions"
     )
@@ -62,16 +61,16 @@ class CIMSKeyInteraction(TimeStampedUUIDModel):
     what_to_do = models.TextField()
 
     class Meta:
-        db_table = "cims_key_interactions"
+        db_table = "idi_key_interactions"
         ordering = ["created_at"]
 
     def __str__(self):
         return self.interaction_title
 
 
-class CIMSPracticalPearl(TimeStampedUUIDModel):
-    cims = models.ForeignKey(
-        CIMS,
+class IDIPracticalPearl(TimeStampedUUIDModel):
+    idi = models.ForeignKey(
+        IDI,
         on_delete=models.CASCADE,
         related_name="practical_prescribing_pearls"
     )
@@ -80,7 +79,7 @@ class CIMSPracticalPearl(TimeStampedUUIDModel):
     pearl_content = models.TextField()
 
     class Meta:
-        db_table = "cims_practical_pearls"
+        db_table = "idi_practical_pearls"
         ordering = ["created_at"]
 
     def __str__(self):

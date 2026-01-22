@@ -6,13 +6,13 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 
-from apps.CIMS.models import CIMS
-from apps.CIMS.serializers import CIMSReadSerializer, CIMSWriteSerializer, AdminCIMSListPagination
+from apps.IDI.models import IDI
+from apps.IDI.serializers import IDIReadSerializer, IDIWriteSerializer, AdminIDIListPagination
 
 
-class AdminCIMSListCreateAPIView(APIView):
+class AdminIDIListCreateAPIView(APIView):
     permission_classes = [IsAdminUser]
-    pagination_class = AdminCIMSListPagination 
+    pagination_class = AdminIDIListPagination 
 
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
@@ -21,7 +21,7 @@ class AdminCIMSListCreateAPIView(APIView):
         therapeutic_category_filter = request.query_params.get("therapeutic_category")
         drug_class_filter = request.query_params.get("drug_class")
 
-        queryset = CIMS.objects.all()
+        queryset = IDI.objects.all()
 
         if search:
             queryset = queryset.filter(
@@ -42,61 +42,61 @@ class AdminCIMSListCreateAPIView(APIView):
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
 
-        serializer = CIMSReadSerializer(page, many=True)
+        serializer = IDIReadSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
         response.data["success"] = True
         return response
 
     @swagger_auto_schema(auto_schema=None)
     def post(self, request):
-        serializer = CIMSWriteSerializer(data=request.data)
+        serializer = IDIWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        cims = serializer.save()
+        idi = serializer.save()
 
         return Response(
             {
                 "success": True,
-                "data": CIMSReadSerializer(cims).data
+                "data": IDIReadSerializer(idi).data
             },
             status=status.HTTP_201_CREATED
         )
 
-class AdminCIMSUpdateAPIView(APIView):
+class AdminIDIUpdateAPIView(APIView):
     permission_classes = [IsAdminUser]
 
     @swagger_auto_schema(auto_schema=None)
-    def patch(self, request, cims_id):
-        cims = get_object_or_404(CIMS, id=cims_id)
+    def patch(self, request, idi_id):
+        idi = get_object_or_404(IDI, id=idi_id)
 
-        serializer = CIMSWriteSerializer(
-            cims,
+        serializer = IDIWriteSerializer(
+            idi,
             data=request.data,
             partial=True
         )
         serializer.is_valid(raise_exception=True)
-        cims = serializer.save()
+        idi = serializer.save()
 
         return Response(
             {
                 "success": True,
-                "data": CIMSReadSerializer(cims).data
+                "data": IDIReadSerializer(idi).data
             },
             status=status.HTTP_200_OK
         )
 
 
-class CIMSListAPIView(APIView):
+class IDIListAPIView(APIView):
     permission_classes = [IsAuthenticated]
-    pagination_class = AdminCIMSListPagination
+    pagination_class = AdminIDIListPagination
 
     @swagger_auto_schema(
-        responses={200: CIMSReadSerializer(many=True)}
+        responses={200: IDIReadSerializer(many=True)}
     )
     def get(self, request):
         search = request.query_params.get("search")
 
         # Only return published drugs for regular users
-        queryset = CIMS.objects.filter(status="published")
+        queryset = IDI.objects.filter(status="published")
 
         if search:
             queryset = queryset.filter(
@@ -108,22 +108,22 @@ class CIMSListAPIView(APIView):
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
 
-        serializer = CIMSReadSerializer(page, many=True)
+        serializer = IDIReadSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
         response.data["success"] = True
         return response
 
-class CIMSDetailAPIView(APIView):
+class IDIDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        responses={200: CIMSReadSerializer()}
+        responses={200: IDIReadSerializer()}
     )   
-    def get(self, request, cims_id):
+    def get(self, request, idi_id):
         # Only allow access to published drugs
-        cims = get_object_or_404(CIMS, id=cims_id, status="published")
+        idi = get_object_or_404(IDI, id=idi_id, status="published")
 
-        serializer = CIMSReadSerializer(cims)
+        serializer = IDIReadSerializer(idi)
         return Response(
             {
                 "success": True,

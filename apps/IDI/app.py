@@ -1,7 +1,7 @@
 from django.apps import AppConfig
 
 
-class CIMSConfig(AppConfig):
+class IDIConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
-    name = "apps.CIMS"
-    verbose_name = "CIMS"
+    name = "apps.IDI"
+    verbose_name = "IDI"

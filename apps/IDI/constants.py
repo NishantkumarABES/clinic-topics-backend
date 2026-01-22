@@ -1,4 +1,4 @@
-class CIMSStatus:
+class IDIStatus:
     DRAFT = "draft"
     PUBLISHED = "published"
     STATUS_CHOICES = (
