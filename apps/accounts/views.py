@@ -22,7 +22,7 @@ from apps.accounts.serializers import (
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
-    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp
+    get_tokens_for_user, can_resend_otp, anonymize_user, get_object_or_404, verify_phone_otp
 )
 from apps.accounts.social_providers import social_provider_verification
 from apps.accounts.models import User, UserDevice
@@ -260,18 +260,12 @@ class EmailLoginView(APIView):
         remember_me = request.data.get("remember_me", False)
         access_token, refresh_token = get_tokens_for_user(user, remember_me)
 
-        return Response(
-            {
-                "detail": "Login successful",
-                "data": {
-                    "access": access_token,
-                    "refresh": refresh_token,
-                    "user": UserMeSerializer(user).data
-                },
-                "success": True
-            },
-            status=status.HTTP_200_OK
-        )
+        return Response({
+            "access": access_token,
+            "refresh": refresh_token,
+            "user": UserMeSerializer(user).data,
+            "success": True
+        })
 
 class SocialLoginView(APIView):
     permission_classes = [AllowAny]
@@ -304,8 +298,9 @@ class SocialLoginView(APIView):
             return Response(
                 {
                     "detail": "Registration required",
-                    "success": False
-                }
+                    "registration_required": True
+                },
+                status=status.HTTP_404_NOT_FOUND
             )
 
         if not user.can_authenticate():
@@ -329,18 +324,12 @@ class SocialLoginView(APIView):
         access_token, refresh_token = get_tokens_for_user(user, remember_me)
 
         # 5️⃣ Response
-        return Response(
-            {
-                "detail": "Login successful",
-                "data": {
-                    "access": access_token,
-                    "refresh": refresh_token,
-                    "user": UserMeSerializer(user).data
-                },
-                "success": True
-            },
-            status=status.HTTP_200_OK
-        )
+        return Response({
+            "access": access_token,
+            "refresh": refresh_token,
+            "user": UserMeSerializer(user).data,
+            "success": True
+        })
 
 class PhoneLoginView(APIView):
     permission_classes = [AllowAny]
@@ -368,14 +357,6 @@ class PhoneLoginView(APIView):
                 {"detail": "User with this phone number does not exist", "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
-        
-        if not user.can_authenticate():
-            return Response(
-                {
-                    "detail": "User account is not active", 
-                    "success": False
-                }
-            )
 
         if not user.is_phone_verified:
             user.is_phone_verified = True
@@ -395,17 +376,12 @@ class PhoneLoginView(APIView):
             )
         access, refresh = get_tokens_for_user(user)
 
-        return Response(
-            {
-                "detail": "Login successful",
-                "data": {
-                    "access": access,
-                    "refresh": refresh,
-                    "user": UserMeSerializer(user).data
-                },
-                "success": True
-            }
-        )
+        return Response({
+            "access": access,
+            "refresh": refresh,
+            "user": UserMeSerializer(user).data,
+            "success": True
+        })
       
 class PasswordResetRequestView(APIView):
     permission_classes = [AllowAny]
