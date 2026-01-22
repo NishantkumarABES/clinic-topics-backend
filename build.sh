@@ -1,20 +1,9 @@
 #!/usr/bin/env bash
 set -o errexit
+
 pip install -r requirements.txt
 python manage.py collectstatic --noinput
-
-python manage.py dbshell <<EOF
-DELETE FROM django_migrations WHERE app='IDI';
-EOF
-
 python manage.py migrate --noinput
-
-
-# set -o errexit
-
-# pip install -r requirements.txt
-# python manage.py collectstatic --noinput
-# python manage.py migrate --noinput
 
 # python manage.py runserver 0.0.0.0:8000
 # uvicorn config.asgi:application --host 0.0.0.0 --port 8000
