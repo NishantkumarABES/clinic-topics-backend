@@ -7,10 +7,12 @@ from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
 from django.utils import timezone
+from django.conf import settings
 from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema
+from botocore.exceptions import ClientError
 
 from apps.accounts.serializers import (
     EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer, PasswordResetRequestSerializer,
@@ -186,7 +188,26 @@ class RegisterView(APIView):
             context={"is_admin_request": is_admin_request}
         )
         serializer.is_valid(raise_exception=True)
-        user = serializer.save()
+        try:
+            user = serializer.save()
+        except ClientError as e:
+            error_code = e.response["Error"]["Code"]
+            ses_failure_codes = [
+                "MessageRejected", "MailFromDomainNotVerifiedException",
+                "ConfigurationSetDoesNotExistException"
+            ]
+
+            # ---- If in DEBUG mode → return warning instead of 500 ----
+            if settings.DEBUG and error_code in ses_failure_codes:
+                user = serializer.validated_data.get("user_instance", None)
+                return Response(
+                    {
+                        "detail": "User Creation Failed, email was not sent (SES sandbox mode).",
+                        "warning": True, "success": False
+                    },
+                    status=status.HTTP_201_CREATED
+                )
+            raise e
 
         if is_admin_request and role == UserRole.DOCTOR:
             return Response(
@@ -206,7 +227,6 @@ class RegisterView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
-
 
 class EmailLoginView(APIView):
     permission_classes = [AllowAny]

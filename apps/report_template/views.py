@@ -27,11 +27,19 @@ class ReportTemplateView(APIView):
         template = self.get_object(request.user)
         if not template:
             return Response(
-                {"detail": "Report template not created yet."},
-                status=status.HTTP_404_NOT_FOUND
+                {
+                    "detail": "Report template not created yet.",
+                    "success": False,
+                },
             )
         serializer = ReportTemplateSerializer(template)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "detail": "Report template retrieved successfully.",
+                "data": serializer.data,
+                "success": True,
+            }
+        )
 
     # POST create template
     @swagger_auto_schema(request_body=ReportTemplateSerializer)
@@ -39,8 +47,10 @@ class ReportTemplateView(APIView):
         existing = self.get_object(request.user)
         if existing:
             return Response(
-                {"detail": "Template already exists. Use PATCH to update."},
-                status=status.HTTP_400_BAD_REQUEST
+                {
+                    "detail": "Template already exists. Use PATCH to update.",
+                    "success": False,
+                },
             )
 
         serializer = ReportTemplateSerializer(
@@ -50,9 +60,15 @@ class ReportTemplateView(APIView):
 
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(
+                {
+                    "detail": "Template created successfully.",
+                    "data": serializer.data,
+                    "success": True,
+                }
+            )
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors)
 
     # PATCH update template
     @swagger_auto_schema(request_body=ReportTemplateSerializer)
@@ -60,8 +76,10 @@ class ReportTemplateView(APIView):
         template = self.get_object(request.user)
         if not template:
             return Response(
-                {"detail": "Template not found. Create it first."},
-                status=status.HTTP_404_NOT_FOUND
+                {
+                    "detail": "Template not found. Create it first.",
+                    "success": False,
+                },
             )
 
         serializer = ReportTemplateSerializer(
@@ -73,7 +91,13 @@ class ReportTemplateView(APIView):
 
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response(
+                {
+                    "detail": "Template updated successfully.", 
+                    "data": serializer.data,
+                    "success": True,
+                }
+            )
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
