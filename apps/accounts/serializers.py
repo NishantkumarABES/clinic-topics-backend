@@ -60,9 +60,6 @@ class RegisterSerializer(serializers.Serializer):
     )
     token = serializers.CharField(required=False, allow_blank=True)
 
-    # -------- Admin Flag --------
-    by_admin = serializers.BooleanField(default=False)
-
     # ---------------- VALIDATION ----------------
 
     def validate(self, data):
@@ -229,7 +226,6 @@ class PhoneOTPVerifySerializer(serializers.Serializer):
             data.get("country_code", "+91")
         )
         return data
-
 
 class EmailOTPRequestSerializer(serializers.Serializer):
     email = serializers.EmailField()
@@ -457,17 +453,49 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
 #########################   Response Serializers    #########################
 
-class LoginResponseSerializer(serializers.Serializer):
+class StandardResponseSerializer(serializers.Serializer):
+    """Base response serializer with {detail, data, success} format."""
+    detail = serializers.CharField(help_text="Response message")
+    data = serializers.JSONField(allow_null=True, required=False, help_text="Response data")
+    success = serializers.BooleanField(help_text="Success status")
+
+class OTPDataSerializer(serializers.Serializer):
+    """Data returned in OTP responses (debug mode only)."""
+    testing_otp = serializers.CharField(required=False, help_text="OTP code (DEBUG mode only)")
+
+class OTPResponseSerializer(serializers.Serializer):
+    """Response for OTP request endpoints."""
+    detail = serializers.CharField(help_text="Response message")
+    data = OTPDataSerializer(allow_null=True, required=False)
+    success = serializers.BooleanField(help_text="Success status")
+
+class AuthDataSerializer(serializers.Serializer):
+    """Auth data containing tokens and user info."""
     access = serializers.CharField(help_text="JWT access token")
     refresh = serializers.CharField(help_text="JWT refresh token")
     user = UserMeSerializer()
-    success = serializers.BooleanField()
+
+class LoginResponseSerializer(serializers.Serializer):
+    """Response for login endpoints."""
+    detail = serializers.CharField(help_text="Response message")
+    data = AuthDataSerializer()
+    success = serializers.BooleanField(help_text="Success status")
 
 class RegisterResponseSerializer(serializers.Serializer):
-    access = serializers.CharField(help_text="JWT access token")
-    refresh = serializers.CharField(help_text="JWT refresh token")
-    user = UserMeSerializer()
-    success = serializers.BooleanField()
+    """Response for registration endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = AuthDataSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+
+class UserMeResponseSerializer(serializers.Serializer):
+    """Response for /me endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = UserMeSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+
+class LogoutRequestSerializer(serializers.Serializer):
+    """Request body for logout endpoint."""
+    refresh = serializers.CharField(help_text="Refresh token to blacklist")
 
 
 ##################  Change password serializers ###################
@@ -528,6 +556,8 @@ class UserDeviceRegisterSerializer(serializers.Serializer):
             }
         )
         return device
+
+
 
 
 

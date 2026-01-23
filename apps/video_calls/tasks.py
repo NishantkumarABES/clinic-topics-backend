@@ -4,9 +4,7 @@ from celery import shared_task
 
 from apps.video_calls.models import VideoCallSession
 from apps.video_calls.constants import CallStatus
-from apps.video_calls.signals import send_call_signal, is_user_online
-from apps.notifications.services import send_push_notification
-
+from apps.video_calls.dispatchers import dispatch_call_event
 
 
 @shared_task
@@ -24,17 +22,10 @@ def expire_unanswered_calls():
         call.save(update_fields=["status", "ended_at"])
 
         for participant in [call.doctor, call.patient]:
-            send_push_notification(
-                user=participant,
-                title="Missed Call",
-                body="You missed a call",
-                data={"event": "call_missed", "call_id": str(call.id)}
+            dispatch_call_event(
+                participant,
+                {"event": "call_missed", "call_id": str(call.id)}
             )
-            if is_user_online(str(participant.id)):
-                send_call_signal(
-                    user_id=str(participant.id),
-                    data={"event": "call_missed", "call_id": str(call.id)}
-                )
 
 
 

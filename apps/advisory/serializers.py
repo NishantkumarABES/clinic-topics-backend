@@ -57,3 +57,12 @@ class AdvisoryMemberWriteSerializer(serializers.ModelSerializer):
         ).exists():
             raise serializers.ValidationError("A member with this email already exists.")
         return value
+
+
+
+####################### RESPONSE SERIALIZERS ########################
+class PaginatedAdvisoryMemberResponseSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = AdvisoryMemberReadSerializer(many=True)

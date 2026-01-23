@@ -10,9 +10,8 @@ from drf_yasg.utils import swagger_auto_schema
 from apps.profiles.models import DoctorProfile
 from apps.advisory.models import AdvisoryMember
 from apps.advisory.serializers import (
-    AdvisoryMemberReadSerializer,
-    AdvisoryMemberWriteSerializer,
-    AdvisoryPagination,
+    AdvisoryMemberReadSerializer, AdvisoryMemberWriteSerializer, AdvisoryPagination,
+    PaginatedAdvisoryMemberResponseSerializer
 )
 
 
@@ -66,7 +65,6 @@ class AdminAdvisoryListCreateAPIView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
-
 
 class AdminAdvisoryFromDoctorAPIView(APIView):
     """Admin endpoint to create advisory member from existing doctor."""
@@ -170,7 +168,9 @@ class AdvisoryListAPIView(APIView):
     pagination_class = AdvisoryPagination
 
     @swagger_auto_schema(
-        responses={200: AdvisoryMemberReadSerializer(many=True)}
+        responses={
+            200: PaginatedAdvisoryMemberResponseSerializer()
+        }
     )
     def get(self, request):
         search = request.query_params.get("search")
@@ -188,9 +188,16 @@ class AdvisoryListAPIView(APIView):
         page = paginator.paginate_queryset(queryset, request)
 
         serializer = AdvisoryMemberReadSerializer(page, many=True)
-        response = paginator.get_paginated_response(serializer.data)
-        response.data["success"] = True
-        return response
+        response_data = paginator.get_paginated_response(serializer.data)
+        
+        return Response(
+            {
+                "detail": "List of advisory members",
+                "data": response_data.data,
+                "success": True,
+            },
+            status=status.HTTP_200_OK
+        )
 
 class AdvisoryDetailAPIView(APIView):
     """Get a single active advisory member for authenticated users."""
@@ -206,6 +213,7 @@ class AdvisoryDetailAPIView(APIView):
         serializer = AdvisoryMemberReadSerializer(member)
         return Response(
             {
+                "detail": "Advisory member retrieved successfully",
                 "success": True,
                 "data": serializer.data
             },

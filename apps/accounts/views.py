@@ -18,35 +18,31 @@ from apps.accounts.serializers import (
     EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer, PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer, EmailOTPRequestSerializer, EmailOTPVerifySerializer, RegisterSerializer, UserMeSerializer,
     UserListSerializer, UserUpdateSerializer, LoginResponseSerializer, RegisterResponseSerializer, ChangePasswordSerializer,
-    AdminChangePasswordSerializer, UserDeviceRegisterSerializer
+    AdminChangePasswordSerializer, UserDeviceRegisterSerializer, StandardResponseSerializer, OTPResponseSerializer,
+    UserMeResponseSerializer, LogoutRequestSerializer
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
-    get_tokens_for_user, can_resend_otp, anonymize_user, get_object_or_404, verify_phone_otp
+    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp
 )
 from apps.accounts.social_providers import social_provider_verification
 from apps.accounts.models import User, UserDevice
 from apps.accounts.constants import UserState, UserRole
 from core.permissions import IsAdmin
+from core.api_responses import *
 from config import settings
+
 
 
 class EmailOTPRequestView(APIView):
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
+        operation_description="Request OTP for email verification",
         request_body=EmailOTPRequestSerializer,
         responses={
-            200: openapi.Response(
-                    description="success",
-                    schema=openapi.Schema(
-                        type=openapi.TYPE_OBJECT,
-                        properties={
-                            "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                            "testing-otp": openapi.Schema(type=openapi.TYPE_STRING),
-                        },
-                    ),
-                ),
+            200: OTPResponseSerializer,
+            400: BAD_REQUEST_400,
         },
     )
     def post(self, request):
@@ -55,41 +51,26 @@ class EmailOTPRequestView(APIView):
 
         email = serializer.validated_data["email"]
         otp = send_email_otp(email)
-        return Response({"detail": "OTP sent to email", "testing-otp": otp, "success": True})
+        response = {
+            "detail": "OTP sent to email",
+            "data": None,
+            "success": True
+        }
+        # 🔐 Only expose OTP in DEBUG
+        if settings.DEBUG:
+            response["data"] = {"testing_otp": otp}
+
+        return Response(response)
 
 class EmailOTPVerifyView(APIView):
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
+        operation_description="Verify email with OTP",
         request_body=EmailOTPVerifySerializer,
         responses={
-            200: openapi.Response(
-                description="Email verified successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-            400: openapi.Response(
-                description="Invalid OTP",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-            404: openapi.Response(
-                description="User not found",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
         },
     )
     def post(self, request):
@@ -101,6 +82,7 @@ class EmailOTPVerifyView(APIView):
 
         return Response({
             "detail": "Email verified successfully",
+            "data": None,
             "success": True
         })
 
@@ -108,8 +90,13 @@ class PhoneOTPRequestView(APIView):
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
+        operation_description="Request OTP for phone verification",
         request_body=PhoneOTPRequestSerializer,
-        responses={200: "OTP sent"}
+        responses={
+            200: OTPResponseSerializer,
+            400: BAD_REQUEST_400,
+            429: TOO_MANY_REQUESTS_429,
+        },
     )
     def post(self, request):
         serializer = PhoneOTPRequestSerializer(data=request.data)
@@ -119,17 +106,17 @@ class PhoneOTPRequestView(APIView):
 
         if not can_resend_otp(phone):
             return Response(
-                {"detail": "Please wait before requesting another OTP", "success": False},
+                {"detail": "Please wait before requesting another OTP", "data": None, "success": False},
                 status=status.HTTP_429_TOO_MANY_REQUESTS
             )
 
         otp = send_phone_otp(phone)
 
-        response = {"detail": "OTP sent", "success": True}
+        response = {"detail": "OTP sent", "data": None, "success": True}
 
         # 🔐 Only expose OTP in DEBUG
         if settings.DEBUG:
-            response["testing_otp"] = otp
+            response["data"] = {"testing_otp": otp}
 
         return Response(response)
 
@@ -137,8 +124,12 @@ class PhoneOTPVerifyView(APIView):
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
+        operation_description="Verify phone with OTP",
         request_body=PhoneOTPVerifySerializer,
-        responses={200: "Phone verified"}
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+        },
     )
     def post(self, request):
         serializer = PhoneOTPVerifySerializer(data=request.data)
@@ -150,18 +141,19 @@ class PhoneOTPVerifyView(APIView):
 
         verify_phone_otp(phone=phone_number, otp=otp)
 
-        return Response({"detail": "Phone verified successfully", "success": True})
+        return Response({"detail": "Phone verified successfully", "data": None, "success": True})
 
 class RegisterView(APIView):
     permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser]
 
     @swagger_auto_schema(
+        operation_description="Register a new user (patient or doctor)",
         request_body=RegisterSerializer,
         consumes=["multipart/form-data"],
         responses={
             201: RegisterResponseSerializer,
-            400: openapi.Response(description="Validation error"),
+            400: BAD_REQUEST_400,
         },
     )
     def post(self, request, role):
@@ -170,7 +162,7 @@ class RegisterView(APIView):
         
         if role not in dict(UserRole.CHOICES):
             return Response(
-                {"detail": "Invalid role", "success": False},
+                {"detail": "Invalid role", "data": None, "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -187,42 +179,31 @@ class RegisterView(APIView):
             data=data,
             context={"is_admin_request": is_admin_request}
         )
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {"detail": first_error, "data": None, "success": False}
+            )
         try:
             user = serializer.save()
-        except ClientError as e:
-            error_code = e.response["Error"]["Code"]
-            ses_failure_codes = [
-                "MessageRejected", "MailFromDomainNotVerifiedException",
-                "ConfigurationSetDoesNotExistException"
-            ]
-
-            # ---- If in DEBUG mode → return warning instead of 500 ----
-            if settings.DEBUG and error_code in ses_failure_codes:
-                user = serializer.validated_data.get("user_instance", None)
-                return Response(
-                    {
-                        "detail": "User Creation Failed, email was not sent (SES sandbox mode).",
-                        "warning": True, "success": False
-                    },
-                    status=status.HTTP_201_CREATED
-                )
-            raise e
-
+        except Exception as e:
+            return Response(
+                {"detail": str(e), "data": None, "success": False}
+            )
         if is_admin_request and role == UserRole.DOCTOR:
             return Response(
-                {
-                    "detail": "Doctor created and invitation email sent",
-                    "success": True
-                },
+                {"detail": "Doctor created and invitation email sent", "data": None, "success": True},
                 status=status.HTTP_201_CREATED
             )
         access_token, refresh_token = get_tokens_for_user(user, False)
         return Response(
             {
-                "access": access_token,
-                "refresh": refresh_token,
-                "user": UserMeSerializer(user).data,
+                "detail": "User registered successfully",
+                "data": {
+                    "access": access_token,
+                    "refresh": refresh_token,
+                    "user": UserMeSerializer(user).data,
+                },
                 "success": True,
             },
             status=status.HTTP_201_CREATED
@@ -232,9 +213,12 @@ class EmailLoginView(APIView):
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
+        operation_description="Login with email and password",
         request_body=EmailLoginSerializer,
         responses={
-            200: LoginResponseSerializer
+            200: LoginResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         },
     )
     def post(self, request):
@@ -261,9 +245,12 @@ class EmailLoginView(APIView):
         access_token, refresh_token = get_tokens_for_user(user, remember_me)
 
         return Response({
-            "access": access_token,
-            "refresh": refresh_token,
-            "user": UserMeSerializer(user).data,
+            "detail" : "Logged in successfully",
+            "data": {
+                "access": access_token,
+                "refresh": refresh_token,
+                "user": UserMeSerializer(user).data
+            },
             "success": True
         })
 
@@ -271,9 +258,12 @@ class SocialLoginView(APIView):
     permission_classes = [AllowAny]
     
     @swagger_auto_schema(
+        operation_description="Login with social provider (Google, Apple, Facebook)",
         request_body=SocialLoginSerializer,
         responses={
-            200: LoginResponseSerializer
+            200: LoginResponseSerializer,
+            401: UNAUTHORIZE_401,
+            404: NOT_FOUND_404,
         },
     )
     def post(self, request):
@@ -325,9 +315,12 @@ class SocialLoginView(APIView):
 
         # 5️⃣ Response
         return Response({
-            "access": access_token,
-            "refresh": refresh_token,
-            "user": UserMeSerializer(user).data,
+            "detail" : "Logged in successfully",
+            "data": {
+                "access": access_token,
+                "refresh": refresh_token,
+                "user": UserMeSerializer(user).data
+            },
             "success": True
         })
 
@@ -335,10 +328,13 @@ class PhoneLoginView(APIView):
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
+        operation_description="Login with phone OTP",
         request_body=PhoneOTPVerifySerializer,
         responses={
-            200: LoginResponseSerializer
-        }
+            200: LoginResponseSerializer,
+            400: BAD_REQUEST_400,
+            404: NOT_FOUND_404,
+        },
     )
     def post(self, request):
         serializer = PhoneOTPVerifySerializer(data=request.data)
@@ -374,12 +370,15 @@ class PhoneLoginView(APIView):
                     "last_seen_at": timezone.now()
                 }
             )
-        access, refresh = get_tokens_for_user(user)
+        access_token, refresh_token = get_tokens_for_user(user)
 
         return Response({
-            "access": access,
-            "refresh": refresh,
-            "user": UserMeSerializer(user).data,
+            "detail" : "Logged in successfully",
+            "data": {
+                "access": access_token,
+                "refresh": refresh_token,
+                "user": UserMeSerializer(user).data
+            },
             "success": True
         })
       
@@ -388,17 +387,10 @@ class PasswordResetRequestView(APIView):
 
     @extend_schema(exclude=True)
     @swagger_auto_schema(
+        operation_description="Request password reset email",
         request_body=PasswordResetRequestSerializer,
         responses={
-            200: openapi.Response(
-                description="Password reset email sent",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
+            200: StandardResponseSerializer,
         },
     )
     def post(self, request):
@@ -421,6 +413,7 @@ class PasswordResetRequestView(APIView):
 
         return Response({
             "detail": "If the email exists, a password reset link has been sent.",
+            "data": None,
             "success": True
         })
 
@@ -429,17 +422,11 @@ class PasswordResetConfirmView(APIView):
     
     @extend_schema(exclude=True)
     @swagger_auto_schema(
+        operation_description="Confirm password reset with token",
         request_body=PasswordResetConfirmSerializer,
         responses={
-            200: openapi.Response(
-                description="Password reset successful",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
         },
     )
     def post(self, request):
@@ -456,49 +443,29 @@ class PasswordResetConfirmView(APIView):
         reset_token.is_used = True
         reset_token.save(update_fields=["is_used"])
 
-        return Response({"detail": "Password reset successful", "success": True})
+        return Response({"detail": "Password reset successful", "data": None, "success": True})
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                "refresh": openapi.Schema(type=openapi.TYPE_STRING, description="Refresh token"),
-            },
-            required=["refresh"],
-        ),
+        operation_description="Logout and blacklist refresh token",
+        request_body=LogoutRequestSerializer,
         responses={
-            200: openapi.Response(
-                description="Logged out successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-            400: openapi.Response(
-                description="Refresh token required",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         },
     )
     def post(self, request):
         refresh_token = request.data.get("refresh")
         if not refresh_token:
-            return Response({"detail": "Refresh token required", "success": False}, status=400)
+            return Response({"detail": "Refresh token required", "data": None, "success": False}, status=400)
 
         token = RefreshToken(refresh_token)
         token.blacklist()
 
-        return Response({"detail": "Logged out successfully", "success": True})
+        return Response({"detail": "Logged out successfully", "data": None, "success": True})
 
 class DeactivateAccountView(APIView):
     permission_classes = [IsAuthenticated]
@@ -588,25 +555,11 @@ class DeleteAccountView(APIView):
     permission_classes = [IsAuthenticated]
     @extend_schema(exclude=True)
     @swagger_auto_schema(
+        operation_description="Permanently delete account",
         responses={
-            200: openapi.Response(
-                description="Account deleted permanently",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "message": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
-            400: openapi.Response(
-                description="Account already deleted",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         },
     )
     def post(self, request):
@@ -624,7 +577,7 @@ class DeleteAccountView(APIView):
         # anonymize_user(user)
 
         return Response(
-            {"message": "Account deleted permanently", "success": True},
+            {"detail": "Account deleted permanently", "data": None, "success": True},
             status=status.HTTP_200_OK
         )
 
@@ -632,23 +585,17 @@ class UserMeView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_description="Get current user profile",
         responses={
-            200: UserMeSerializer,
-            401: openapi.Response(
-                description="Unauthorized",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
+            200: UserMeResponseSerializer,
+            401: UNAUTHORIZE_401,
         },
     )
     def get(self, request):
         serializer = UserMeSerializer(request.user)
         return Response({
-            **serializer.data,
+            "detail": "User profile retrieved successfully",
+            "data": serializer.data,
             "success": True
         })
 
@@ -698,7 +645,6 @@ class AdminUserListView(APIView):
             )
         
         if speciality:
-            print(speciality)
             users = users.filter(doctor_profile__specialization__icontains=speciality)
 
         if status_filter and status_filter not in ["active", "inactive"]:
@@ -718,7 +664,6 @@ class AdminUserListView(APIView):
         serializer = UserListSerializer(paginated_users, many=True)
         response_data = paginator.get_paginated_response(serializer.data).data
         response_data['success'] = True
-
         return Response(response_data)
 
 class AdminAllUserListView(APIView):
@@ -773,7 +718,12 @@ class UpdateUserView(APIView):
             user_to_update, data=request.data, partial=True
         )
         serializer.is_valid(raise_exception=True)
-        updated_user = serializer.save()
+        try:
+            updated_user = serializer.save()
+        except Exception as e:
+            return Response(
+                {"detail": str(e), "data": None, "success": False}
+            )
 
         # Prepare response data
         response_data = {
@@ -805,7 +755,15 @@ class UpdateUserView(APIView):
 class ChangePasswordView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(request_body=ChangePasswordSerializer)
+    @swagger_auto_schema(
+        operation_description="Change current user password",
+        request_body=ChangePasswordSerializer,
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def post(self, request):
         serializer = ChangePasswordSerializer(
             data=request.data,
@@ -821,6 +779,7 @@ class ChangePasswordView(APIView):
 
         return Response({
             "detail": "Password changed successfully",
+            "data": None,
             "success": True
         })
     
@@ -850,17 +809,12 @@ class RegisterDeviceView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_description="Register device for push notifications",
         request_body=UserDeviceRegisterSerializer,
         responses={
-            201: openapi.Response(
-                description="Device registered successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "message": openapi.Schema(type=openapi.TYPE_STRING),
-                    },
-                ),
-            ),
+            201: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         },
     )
     def post(self, request):
@@ -875,7 +829,7 @@ class RegisterDeviceView(APIView):
         device.save(update_fields=["last_seen_at"])
 
         return Response(
-            {"message": "Device registered successfully", "success": True},
+            {"detail": "Device registered successfully", "data": None, "success": True},
             status=status.HTTP_201_CREATED
         )
 

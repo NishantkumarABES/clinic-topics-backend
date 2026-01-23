@@ -20,3 +20,12 @@ class AdvertisementListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Advertisement
         fields = ['id', 'title', 'url', 'image', 'specializations', 'status', 'created_at', 'updated_at']
+
+
+
+####################### RESPONSE SERIALIZERS ########################
+class PaginatedAdvertisementResponseSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = AdvertisementSerializer(many=True)

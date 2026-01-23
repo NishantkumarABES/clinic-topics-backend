@@ -10,8 +10,12 @@ from drf_yasg import openapi
 
 from apps.accounts.constants import UserRole
 from apps.advertisements.models import Advertisement
-from apps.advertisements.serializers import AdvertisementSerializer, AdvertisementListSerializer
+from apps.advertisements.serializers import AdvertisementSerializer, AdvertisementListSerializer, PaginatedAdvertisementResponseSerializer
 from core.permissions import IsAdmin
+from core.api_responses import UNAUTHORIZE_401
+
+
+
 
 
 class AdvertisementPagination(PageNumberPagination):
@@ -26,20 +30,8 @@ class UserAdvertisementListView(APIView):
     @swagger_auto_schema(
         operation_description="List user's advertisements",
         responses={
-            200: openapi.Response(
-                description="List of advertisements",
-                schema=AdvertisementListSerializer(many=True),
-            ),
-            401: openapi.Response(
-                description="Unauthorized",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                        "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                    },
-                ),
-            ),
+            200: PaginatedAdvertisementResponseSerializer,
+            401: UNAUTHORIZE_401,
         },
     )
     def get(self, request):
@@ -68,10 +60,16 @@ class UserAdvertisementListView(APIView):
         # Serialize data
         serializer = AdvertisementListSerializer(paginated_queryset, many=True)
         response_data = paginator.get_paginated_response(serializer.data).data
-        response_data['success'] = True
 
-        return Response(response_data, status=status.HTTP_200_OK)
-
+        return Response(
+            {
+                "detail": "List of advertisements",
+                "data": response_data,
+                "success": True,
+            },
+            status=status.HTTP_200_OK
+        )
+    
 class AdvertisementCreateView(APIView):
     permission_classes = [IsAdmin]
     parser_classes = [MultiPartParser, FormParser]
