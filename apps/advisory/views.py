@@ -6,13 +6,16 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from apps.profiles.models import DoctorProfile
 from apps.advisory.models import AdvisoryMember
 from apps.advisory.serializers import (
-    AdvisoryMemberReadSerializer, AdvisoryMemberWriteSerializer, AdvisoryPagination,
-    PaginatedAdvisoryMemberResponseSerializer
+    AdvisoryMemberReadSerializer, AdvisoryMemberWriteSerializer, AdvisoryPagination, StandardResponseSerializer,
+    AdvisoryMemberDetailResponseSerializer, AdvisoryMemberListResponseSerializer, AdvisoryMemberCreateUpdateResponseSerializer, 
+    DoctorToAdvisoryRequestSerializer
 )
+from core.api_responses import BAD_REQUEST_400, UNAUTHORIZE_401, NOT_FOUND_404
 
 
 # ============================================
@@ -25,7 +28,17 @@ class AdminAdvisoryListCreateAPIView(APIView):
     pagination_class = AdvisoryPagination
     parser_classes = [MultiPartParser, FormParser]
 
-    @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(
+        operation_description="List all advisory members (admin only) with optional search and status filters",
+        manual_parameters=[
+            openapi.Parameter('search', openapi.IN_QUERY, type=openapi.TYPE_STRING, description="Search by name, email, phone, or specialization"),
+            openapi.Parameter('status', openapi.IN_QUERY, type=openapi.TYPE_STRING, description="Filter by status (active/inactive)"),
+        ],
+        responses={
+            200: AdvisoryMemberListResponseSerializer,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def get(self, request):
         search = request.query_params.get("search")
         status_filter = request.query_params.get("status")
@@ -47,11 +60,23 @@ class AdminAdvisoryListCreateAPIView(APIView):
         page = paginator.paginate_queryset(queryset, request)
 
         serializer = AdvisoryMemberReadSerializer(page, many=True)
-        response = paginator.get_paginated_response(serializer.data)
-        response.data["success"] = True
-        return response
+        paginated_data = paginator.get_paginated_response(serializer.data).data
+        
+        return Response({
+            "detail": "Advisory members retrieved successfully",
+            "data": paginated_data,
+            "success": True
+        })
 
-    @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(
+        operation_description="Create a new advisory member (admin only)",
+        request_body=AdvisoryMemberWriteSerializer,
+        responses={
+            201: AdvisoryMemberCreateUpdateResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def post(self, request):
         serializer = AdvisoryMemberWriteSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -59,9 +84,9 @@ class AdminAdvisoryListCreateAPIView(APIView):
 
         return Response(
             {
-                "success": True,
-                "message": "Advisory member created successfully",
-                "data": AdvisoryMemberReadSerializer(member).data
+                "detail": "Advisory member created successfully",
+                "data": AdvisoryMemberReadSerializer(member).data,
+                "success": True
             },
             status=status.HTTP_201_CREATED
         )
@@ -70,14 +95,21 @@ class AdminAdvisoryFromDoctorAPIView(APIView):
     """Admin endpoint to create advisory member from existing doctor."""
     permission_classes = [IsAdminUser]
 
-    @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(
+        operation_description="Create advisory member from existing doctor profile (admin only)",
+        request_body=DoctorToAdvisoryRequestSerializer,
+        responses={
+            201: AdvisoryMemberCreateUpdateResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            404: NOT_FOUND_404,
+        },
+    )
     def post(self, request):
-        
-        
         doctor_id = request.data.get("doctor_id")
         if not doctor_id:
             return Response(
-                {"success": False, "error": "doctor_id is required"},
+                {"detail": "doctor_id is required", "data": None, "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -85,14 +117,14 @@ class AdminAdvisoryFromDoctorAPIView(APIView):
             doctor = DoctorProfile.objects.select_related("user").get(user_id=doctor_id)
         except DoctorProfile.DoesNotExist:
             return Response(
-                {"success": False, "error": "Doctor not found"},
+                {"detail": "Doctor not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
         
         # Check if advisory member with this email already exists
         if AdvisoryMember.objects.filter(email=doctor.user.email).exists():
             return Response(
-                {"success": False, "error": "This doctor is already an advisory member"},
+                {"detail": "This doctor is already an advisory member", "data": None, "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
@@ -112,9 +144,9 @@ class AdminAdvisoryFromDoctorAPIView(APIView):
         
         return Response(
             {
-                "success": True,
-                "message": "Doctor added to advisory panel successfully",
-                "data": AdvisoryMemberReadSerializer(member).data
+                "detail": "Doctor added to advisory panel successfully",
+                "data": AdvisoryMemberReadSerializer(member).data,
+                "success": True
             },
             status=status.HTTP_201_CREATED
         )
@@ -124,7 +156,16 @@ class AdminAdvisoryUpdateDeleteAPIView(APIView):
     permission_classes = [IsAdminUser]
     parser_classes = [MultiPartParser, FormParser]
 
-    @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(
+        operation_description="Update an advisory member (admin only)",
+        request_body=AdvisoryMemberWriteSerializer,
+        responses={
+            200: AdvisoryMemberCreateUpdateResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            404: NOT_FOUND_404,
+        },
+    )
     def patch(self, request, member_id):
         member = get_object_or_404(AdvisoryMember, id=member_id)
 
@@ -138,22 +179,30 @@ class AdminAdvisoryUpdateDeleteAPIView(APIView):
 
         return Response(
             {
-                "success": True,
-                "message": "Advisory member updated successfully",
-                "data": AdvisoryMemberReadSerializer(member).data
+                "detail": "Advisory member updated successfully",
+                "data": AdvisoryMemberReadSerializer(member).data,
+                "success": True
             },
             status=status.HTTP_200_OK
         )
 
-    @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(
+        operation_description="Delete an advisory member (admin only)",
+        responses={
+            200: StandardResponseSerializer,
+            401: UNAUTHORIZE_401,
+            404: NOT_FOUND_404,
+        },
+    )
     def delete(self, request, member_id):
         member = get_object_or_404(AdvisoryMember, id=member_id)
         member.delete()
 
         return Response(
             {
-                "success": True,
-                "message": "Advisory member deleted successfully"
+                "detail": "Advisory member deleted successfully",
+                "data": None,
+                "success": True
             },
             status=status.HTTP_200_OK
         )
@@ -168,9 +217,14 @@ class AdvisoryListAPIView(APIView):
     pagination_class = AdvisoryPagination
 
     @swagger_auto_schema(
+        operation_description="List all active advisory members",
+        manual_parameters=[
+            openapi.Parameter('search', openapi.IN_QUERY, type=openapi.TYPE_STRING, description="Search by name or specialization"),
+        ],
         responses={
-            200: PaginatedAdvisoryMemberResponseSerializer()
-        }
+            200: AdvisoryMemberListResponseSerializer,
+            401: UNAUTHORIZE_401,
+        },
     )
     def get(self, request):
         search = request.query_params.get("search")
@@ -188,12 +242,12 @@ class AdvisoryListAPIView(APIView):
         page = paginator.paginate_queryset(queryset, request)
 
         serializer = AdvisoryMemberReadSerializer(page, many=True)
-        response_data = paginator.get_paginated_response(serializer.data)
+        paginated_data = paginator.get_paginated_response(serializer.data).data
         
         return Response(
             {
-                "detail": "List of advisory members",
-                "data": response_data.data,
+                "detail": "Advisory members retrieved successfully",
+                "data": paginated_data,
                 "success": True,
             },
             status=status.HTTP_200_OK
@@ -204,7 +258,12 @@ class AdvisoryDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        responses={200: AdvisoryMemberReadSerializer()}
+        operation_description="Get details of a single active advisory member",
+        responses={
+            200: AdvisoryMemberDetailResponseSerializer,
+            401: UNAUTHORIZE_401,
+            404: NOT_FOUND_404,
+        },
     )
     def get(self, request, member_id):
         # Only allow access to active members
@@ -214,8 +273,8 @@ class AdvisoryDetailAPIView(APIView):
         return Response(
             {
                 "detail": "Advisory member retrieved successfully",
-                "success": True,
-                "data": serializer.data
+                "data": serializer.data,
+                "success": True
             },
             status=status.HTTP_200_OK
         )

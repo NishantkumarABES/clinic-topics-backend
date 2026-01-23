@@ -61,8 +61,54 @@ class AdvisoryMemberWriteSerializer(serializers.ModelSerializer):
 
 
 ####################### RESPONSE SERIALIZERS ########################
-class PaginatedAdvisoryMemberResponseSerializer(serializers.Serializer):
+
+class StandardResponseSerializer(serializers.Serializer):
+    """Standard response with detail, data, and success fields."""
+    detail = serializers.CharField()
+    data = serializers.JSONField(allow_null=True, required=False)
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "AdvisoryStandardResponseSerializer"
+
+
+class AdvisoryMemberDetailResponseSerializer(serializers.Serializer):
+    """Response for single advisory member detail."""
+    detail = serializers.CharField()
+    data = AdvisoryMemberReadSerializer()
+    success = serializers.BooleanField()
+
+
+class PaginatedAdvisoryMemberDataSerializer(serializers.Serializer):
+    """Paginated data structure for advisory members list."""
     count = serializers.IntegerField()
     next = serializers.URLField(allow_null=True)
     previous = serializers.URLField(allow_null=True)
     results = AdvisoryMemberReadSerializer(many=True)
+
+
+class PaginatedAdvisoryMemberResponseSerializer(serializers.Serializer):
+    """Legacy paginated response - kept for backward compatibility."""
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = AdvisoryMemberReadSerializer(many=True)
+
+
+class AdvisoryMemberListResponseSerializer(serializers.Serializer):
+    """Response for advisory member list endpoint (paginated)."""
+    detail = serializers.CharField()
+    data = PaginatedAdvisoryMemberDataSerializer()
+    success = serializers.BooleanField()
+
+
+class AdvisoryMemberCreateUpdateResponseSerializer(serializers.Serializer):
+    """Response for create/update advisory member operations."""
+    detail = serializers.CharField()
+    data = AdvisoryMemberReadSerializer()
+    success = serializers.BooleanField()
+
+
+class DoctorToAdvisoryRequestSerializer(serializers.Serializer):
+    """Request body for creating advisory member from doctor."""
+    doctor_id = serializers.UUIDField(help_text="ID of the doctor to add to advisory panel")

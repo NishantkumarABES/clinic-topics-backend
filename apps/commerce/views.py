@@ -80,8 +80,11 @@ class ProductListView(APIView):
         paginated_queryset = paginator.paginate_queryset(queryset, request)
         serializer = ProductListSerializer(paginated_queryset, many=True)
         response_data = paginator.get_paginated_response(serializer.data).data
-        response_data['success'] = True
-        return Response(response_data)
+        return Response({
+            "detail" : "",
+            "success" : True,
+            "data" : response_data
+        })
 
 class ProductDetailView(APIView):
     permission_classes = [AllowAny]

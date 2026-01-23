@@ -242,13 +242,11 @@ class CallRejectView(BaseCallActionView):
 
 class CallEndView(BaseCallActionView):
     @swagger_auto_schema(
-        operation_description="End an active call",
+        operation_description="End or cancel a call",
         responses={
             200: StandardResponseSerializer,
-            400: BAD_REQUEST_400,
-            401: UNAUTHORIZE_401,
-            403: BAD_REQUEST_400,
-            404: NOT_FOUND_404,
+            400: BAD_REQUEST_400, 401: UNAUTHORIZE_401,
+            403: BAD_REQUEST_400, 404: NOT_FOUND_404,
         }
     )
     def post(self, request, id):
@@ -260,20 +258,36 @@ class CallEndView(BaseCallActionView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        if call.status != CallStatus.ACTIVE:
+        # Case 1: Cancel before acceptance
+        if call.status == CallStatus.INITIATED:
+            call.status = CallStatus.ENDED
+            call.ended_at = timezone.now()
+            call.save(update_fields=["status", "ended_at"])
+
+            other = call.doctor if request.user == call.patient else call.patient
+            dispatch_call_event(other, {"event": "call_cancelled", "call_id": str(call.id)})
             return Response(
-                {"detail": "Only active calls can be ended", "data": None, "success": False},
-                status=status.HTTP_400_BAD_REQUEST
+                {"detail": "Call cancelled successfully", "data": None, "success": True}
             )
 
-        call.status = CallStatus.ENDED
-        call.ended_at = timezone.now()
-        call.save(update_fields=["status", "ended_at"])
+        # Case 2: Normal active call end
+        if call.status == CallStatus.ACTIVE:
+            call.status = CallStatus.ENDED
+            call.ended_at = timezone.now()
+            call.save(update_fields=["status", "ended_at"])
 
-        for participant in [call.doctor, call.patient]:
-            dispatch_call_event(participant, {"event": "call_ended", "call_id": str(call.id)})
+            for participant in [call.doctor, call.patient]:
+                dispatch_call_event(participant, {"event": "call_ended", "call_id": str(call.id)})
 
-        return Response({"detail": "Call ended", "data": None, "success": True})
+            return Response(
+                {"detail": "Call ended successfully", "data": None, "success": True}
+            )
+
+        # Invalid state
+        return Response(
+            {"detail": "Call cannot be ended", "data": None, "success": False},
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 class UserCallStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
