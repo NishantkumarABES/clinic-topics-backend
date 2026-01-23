@@ -13,20 +13,27 @@ from drf_yasg.utils import swagger_auto_schema
 from decimal import Decimal
 
 from core.permissions import IsPatient, IsDoctor
+from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
 from apps.second_opinion.constants import SecondOpinionStatus
 from apps.second_opinion.models import (
     SecondOpinionRequest, SecondOpinionPayment, SecondOpinionDoctorRequest
 )
 from apps.second_opinion.serializers import (
-    CalculateChargesSerializer, CalculateChargesResponseSerializer, CreateSecondOpinionRequestSerializer,
+    CalculateChargesSerializer, CreateSecondOpinionRequestSerializer,
     SecondOpinionRequestListSerializer, SecondOpinionRequestDetailSerializer, CreatePaymentOrderSerializer,
     VerifyPaymentSerializer, DoctorBasicInfoSerializer, DoctorSecondOpinionListSerializer, DoctorSecondOpinionDetailSerializer, 
-    DoctorStartReviewSerializer, DoctorSubmitResponseSerializer, DoctorRatingSerializer
+    DoctorStartReviewSerializer, DoctorSubmitResponseSerializer, DoctorRatingSerializer,
+    # Response serializers
+    SecondOpinionRequestListResponseSerializer, CalculateChargesResponseSerializer,
+    SecondOpinionRequestDetailResponseSerializer, PaymentOrderResponseSerializer, PaymentVerificationResponseSerializer,
+    DoctorBasicInfoListResponseSerializer, DoctorSecondOpinionListResponseSerializer,
+    DoctorSecondOpinionDetailResponseSerializer, StandardResponseSerializer, DoctorRatingResponseSerializer
 )
 from apps.second_opinion.constants import SecondOpinionPaymentStatus
 from apps.accounts.models import User
 from apps.accounts.constants import UserRole
 from external.razorpay.service import razorpay_service
+
 
 
 
@@ -55,9 +62,8 @@ class CalculateChargesView(APIView):
         request_body=CalculateChargesSerializer,
         responses={
             200: CalculateChargesResponseSerializer,
-            400: openapi.Response(description="Validation error - invalid doctor IDs"),
+            400: BAD_REQUEST_400,
         },
-        auto_schema=None
     )
     def post(self, request):
         serializer = CalculateChargesSerializer(data=request.data)
@@ -86,9 +92,12 @@ class CalculateChargesView(APIView):
             })
 
         return Response({
-            "doctors": doctor_charges,
-            "total_amount": str(total_amount),
-            "currency": "INR",
+            "detail": "Charges calculated successfully",
+            "data": {
+                "doctors": doctor_charges,
+                "total_amount": str(total_amount),
+                "currency": "INR"
+            },
             "success": True
         })
 
@@ -106,7 +115,9 @@ class SecondOpinionRequestListCreateView(APIView):
         ),
         tags=["Second Opinion - Patient"],
         responses={
-            200: SecondOpinionRequestListSerializer(many=True),
+            200: SecondOpinionRequestListResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         },
         manual_parameters=[
             openapi.Parameter(
@@ -146,16 +157,23 @@ class SecondOpinionRequestListCreateView(APIView):
             many=True
         )
 
-        response_data = paginator.get_paginated_response(serializer.data).data
-        response_data["success"] = True
-        return Response(response_data)
+        paginated_response = paginator.get_paginated_response(serializer.data).data
+        return Response({
+            "detail": "Requests retrieved successfully",
+            "data": paginated_response,
+            "success": True
+        })
 
     @swagger_auto_schema(
         operation_summary="Create second opinion request",
         tags=["Second Opinion - Patient"],
         consumes=["multipart/form-data"],
         request_body=None,  # Don't use serializer for swagger
-        responses={201: SecondOpinionRequestDetailSerializer},
+        responses={
+            201: SecondOpinionRequestDetailResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+        },
     )
     def post(self, request):
         serializer = CreateSecondOpinionRequestSerializer(
@@ -166,7 +184,11 @@ class SecondOpinionRequestListCreateView(APIView):
         second_opinion_request = serializer.save()
 
         response_serializer = SecondOpinionRequestDetailSerializer(second_opinion_request)
-        return Response({**response_serializer.data, "success": True}, status=201)
+        return Response({
+            "detail": "Second opinion request created successfully",
+            "data": response_serializer.data,
+            "success": True
+        }, status=201)
 
 class SecondOpinionRequestDetailView(APIView):
     """
@@ -186,8 +208,9 @@ class SecondOpinionRequestDetailView(APIView):
         ),
         tags=["Second Opinion - Patient"],
         responses={
-            200: SecondOpinionRequestDetailSerializer,
-            404: openapi.Response(description="Request not found or not owned by user"),
+            200: SecondOpinionRequestDetailResponseSerializer,
+            404: NOT_FOUND_404,
+            401: UNAUTHORIZE_401,
         },
     )
     def get(self, request, request_id):
@@ -202,13 +225,14 @@ class SecondOpinionRequestDetailView(APIView):
             )
         except SecondOpinionRequest.DoesNotExist:
             return Response(
-                {"detail": "Second opinion request not found", "success": False},
+                {"detail": "Second opinion request not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = SecondOpinionRequestDetailSerializer(second_opinion_request)
         return Response({
-            **serializer.data,
+            "detail": "Request retrieved successfully",
+            "data": serializer.data,
             "success": True
         })
 
@@ -228,21 +252,9 @@ class CreateSecondOpinionPaymentView(APIView):
         tags=["Second Opinion - Payment"],
         request_body=CreatePaymentOrderSerializer,
         responses={
-            201: openapi.Response(
-                description="Payment order created",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "razorpay_order_id": openapi.Schema(type=openapi.TYPE_STRING, description="Use this to open Razorpay checkout"),
-                        "amount": openapi.Schema(type=openapi.TYPE_INTEGER, description="Amount in paise"),
-                        "currency": openapi.Schema(type=openapi.TYPE_STRING, description="INR"),
-                        "key_id": openapi.Schema(type=openapi.TYPE_STRING, description="Razorpay public key"),
-                        "payment_id": openapi.Schema(type=openapi.TYPE_STRING, description="Internal payment record ID"),
-                        "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                    }
-                )
-            ),
-            400: openapi.Response(description="Already paid or invalid request"),
+            201: PaymentOrderResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         },
     )
     def post(self, request):
@@ -287,11 +299,14 @@ class CreateSecondOpinionPaymentView(APIView):
             payment.save(update_fields=["razorpay_order_id", "status"])
 
         return Response({
-            "razorpay_order_id": razorpay_order["id"],
-            "amount": amount_paise,
-            "currency": "INR",
-            "key_id": os.getenv("RAZOR_PAY_API_KEY"),
-            "payment_id": str(payment.id),
+            "detail": "Payment order created successfully",
+            "data": {
+                "razorpay_order_id": razorpay_order["id"],
+                "amount": amount_paise,
+                "currency": "INR",
+                "key_id": os.getenv("RAZOR_PAY_API_KEY"),
+                "payment_id": str(payment.id)
+            },
             "success": True
         }, status=status.HTTP_201_CREATED)
 
@@ -315,18 +330,9 @@ class VerifySecondOpinionPaymentView(APIView):
         tags=["Second Opinion - Payment"],
         request_body=VerifyPaymentSerializer,
         responses={
-            200: openapi.Response(
-                description="Payment verified successfully",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "detail": openapi.Schema(type=openapi.TYPE_STRING),
-                        "second_opinion_request_id": openapi.Schema(type=openapi.TYPE_STRING),
-                        "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
-                    }
-                )
-            ),
-            400: openapi.Response(description="Signature verification failed"),
+            200: PaymentVerificationResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         },
     )
     @transaction.atomic
@@ -356,6 +362,7 @@ class VerifySecondOpinionPaymentView(APIView):
 
             return Response({
                 "detail": "Payment verification failed",
+                "data": None,
                 "success": False
             }, status=status.HTTP_400_BAD_REQUEST)
 
@@ -372,7 +379,9 @@ class VerifySecondOpinionPaymentView(APIView):
 
         return Response({
             "detail": "Payment verified successfully",
-            "second_opinion_request_id": str(second_opinion_request.id),
+            "data": {
+                "second_opinion_request_id": str(second_opinion_request.id)
+            },
             "success": True
         })
 
@@ -392,7 +401,9 @@ class AvailableDoctorsListView(APIView):
         ),
         tags=["Second Opinion - Patient"],
         responses={
-            200: DoctorBasicInfoSerializer(many=True),
+            200: DoctorBasicInfoListResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         },
         manual_parameters=[
             openapi.Parameter(
@@ -440,9 +451,12 @@ class AvailableDoctorsListView(APIView):
         paginator = self.pagination_class()
         paginated_doctors = paginator.paginate_queryset(doctors, request)
         serializer = DoctorBasicInfoSerializer(paginated_doctors, many=True)
-        response_data = paginator.get_paginated_response(serializer.data).data
-        response_data["success"] = True
-        return Response(response_data)
+        paginated_response = paginator.get_paginated_response(serializer.data).data
+        return Response({
+            "detail": "Doctors retrieved successfully",
+            "data": paginated_response,
+            "success": True
+        })
     
 
 # ===================== Doctor Side Views =====================
@@ -470,7 +484,11 @@ class DoctorSecondOpinionListView(APIView):
             "- `completed`: Doctor has submitted response"
         ),
         tags=["Second Opinion - Doctor"],
-        responses={200: DoctorSecondOpinionListSerializer(many=True)},
+        responses={
+            200: DoctorSecondOpinionListResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+        },
         manual_parameters=[
             openapi.Parameter(
                 "status", openapi.IN_QUERY,
@@ -503,9 +521,12 @@ class DoctorSecondOpinionListView(APIView):
         page = paginator.paginate_queryset(queryset, request)
 
         serializer = DoctorSecondOpinionListSerializer(page, many=True)
-        response = paginator.get_paginated_response(serializer.data).data
-        response["success"] = True
-        return Response(response)
+        paginated_response = paginator.get_paginated_response(serializer.data).data
+        return Response({
+            "detail": "Requests retrieved successfully",
+            "data": paginated_response,
+            "success": True
+        })
 
 class DoctorSecondOpinionDetailView(APIView):
     """
@@ -525,8 +546,9 @@ class DoctorSecondOpinionDetailView(APIView):
         ),
         tags=["Second Opinion - Doctor"],
         responses={
-            200: DoctorSecondOpinionDetailSerializer,
-            404: openapi.Response(description="Request not found or not assigned to you"),
+            200: DoctorSecondOpinionDetailResponseSerializer,
+            404: NOT_FOUND_404,
+            401: UNAUTHORIZE_401,
         },
     )
     def get(self, request, doctor_request_id):
@@ -541,12 +563,16 @@ class DoctorSecondOpinionDetailView(APIView):
             )
         except SecondOpinionDoctorRequest.DoesNotExist:
             return Response(
-                {"detail": "Request not found", "success": False},
+                {"detail": "Request not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = DoctorSecondOpinionDetailSerializer(doctor_request)
-        return Response({**serializer.data, "success": True})
+        return Response({
+            "detail": "Request retrieved successfully",
+            "data": serializer.data,
+            "success": True
+        })
 
 class DoctorStartReviewView(APIView):
     """
@@ -564,9 +590,10 @@ class DoctorStartReviewView(APIView):
         ),
         tags=["Second Opinion - Doctor"],
         responses={
-            200: openapi.Response(description="Successfully marked as in-review"),
-            400: openapi.Response(description="Invalid status transition"),
-            404: openapi.Response(description="Request not found"),
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            404: NOT_FOUND_404,
+            401: UNAUTHORIZE_401,
         }
     )
     def patch(self, request, doctor_request_id):
@@ -577,7 +604,7 @@ class DoctorStartReviewView(APIView):
             )
         except SecondOpinionDoctorRequest.DoesNotExist:
             return Response(
-                {"detail": "Request not found", "success": False},
+                {"detail": "Request not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -591,6 +618,7 @@ class DoctorStartReviewView(APIView):
         doctor_request.second_opinion_request.save(update_fields=["status"])
         return Response({
             "detail": "Request marked as in-review",
+            "data": None,
             "success": True
         })
 
@@ -639,21 +667,10 @@ class DoctorSubmitResponseView(APIView):
             }
         ),
         responses={
-            200: openapi.Response(
-                description="Response submitted successfully",
-                examples={
-                    "application/json": {
-                        "detail": "Response submitted successfully",
-                        "success": True
-                    }
-                }
-            ),
-            400: openapi.Response(
-                description="Invalid status or validation error"
-            ),
-            404: openapi.Response(
-                description="Request not found"
-            )
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            404: NOT_FOUND_404,
+            401: UNAUTHORIZE_401,
         }
     )
     def patch(self, request, doctor_request_id):
@@ -664,7 +681,7 @@ class DoctorSubmitResponseView(APIView):
             )
         except SecondOpinionDoctorRequest.DoesNotExist:
             return Response(
-                {"detail": "Request not found", "success": False},
+                {"detail": "Request not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -683,6 +700,7 @@ class DoctorSubmitResponseView(APIView):
 
         return Response({
             "detail": "Response submitted successfully",
+            "data": None,
             "success": True
         })
 
@@ -706,8 +724,9 @@ class SubmitDoctorRatingView(APIView):
         tags=["Second Opinion - Patient"],
         request_body=DoctorRatingSerializer,
         responses={
-            201: DoctorRatingSerializer,
-            400: openapi.Response(description="Already rated or request not completed"),
+            201: DoctorRatingResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         }
     )
     def post(self, request):
@@ -721,7 +740,7 @@ class SubmitDoctorRatingView(APIView):
         return Response(
             {
                 "detail": "Rating submitted successfully",
-                "rating": DoctorRatingSerializer(rating).data,
+                "data": DoctorRatingSerializer(rating).data,
                 "success": True
             },
             status=status.HTTP_201_CREATED

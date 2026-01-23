@@ -454,10 +454,13 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 #########################   Response Serializers    #########################
 
 class StandardResponseSerializer(serializers.Serializer):
-    """Base response serializer with {detail, data, success} format."""
-    detail = serializers.CharField(help_text="Response message")
-    data = serializers.JSONField(allow_null=True, required=False, help_text="Response data")
-    success = serializers.BooleanField(help_text="Success status")
+    detail = serializers.CharField()
+    data = serializers.JSONField(allow_null=True, required=False)
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "AccountsStandardResponseSerializer"
+
 
 class OTPDataSerializer(serializers.Serializer):
     """Data returned in OTP responses (debug mode only)."""

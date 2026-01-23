@@ -520,5 +520,154 @@ class DoctorRatingSerializer(serializers.ModelSerializer):
 
         return rating
 
-    
-        
+
+# ===================== Response Serializers =====================
+
+class StandardResponseSerializer(serializers.Serializer):
+    """
+    Base response serializer with {detail, data, success}.
+    Used for simple message-only responses.
+    """
+    detail = serializers.CharField(help_text="Response message")
+    data = serializers.JSONField(allow_null=True, required=False)
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "SecondOpinionStandardResponseSerializer"
+
+
+# ---------- Calculate Charges ----------
+
+class CalculateChargesDataSerializer(serializers.Serializer):
+    doctors = serializers.ListField(child=serializers.DictField())
+    total_amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    currency = serializers.CharField(default="INR")
+
+
+class CalculateChargesResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField(default="Charges calculated successfully")
+    data = CalculateChargesDataSerializer()
+    success = serializers.BooleanField(default=True)
+
+    class Meta:
+        ref_name = "SecondOpinionCalculateChargesResponseSerializer"
+
+
+# ---------- Second Opinion Request List ----------
+
+class SecondOpinionRequestListDataSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = SecondOpinionRequestListSerializer(many=True)
+
+
+class SecondOpinionRequestListResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = SecondOpinionRequestListDataSerializer()
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "SecondOpinionRequestListResponseSerializer"
+
+
+# ---------- Second Opinion Request Detail ----------
+
+class SecondOpinionRequestDetailResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = SecondOpinionRequestDetailSerializer()
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "SecondOpinionRequestDetailResponseSerializer"
+
+
+# ---------- Payment Order ----------
+
+class PaymentOrderDataSerializer(serializers.Serializer):
+    razorpay_order_id = serializers.CharField()
+    amount = serializers.IntegerField()
+    currency = serializers.CharField(default="INR")
+    key_id = serializers.CharField()
+    payment_id = serializers.UUIDField()
+
+
+class PaymentOrderResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = PaymentOrderDataSerializer()
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "SecondOpinionPaymentOrderResponseSerializer"
+
+
+# ---------- Payment Verification ----------
+
+class PaymentVerificationDataSerializer(serializers.Serializer):
+    second_opinion_request_id = serializers.UUIDField()
+
+
+class PaymentVerificationResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = PaymentVerificationDataSerializer(allow_null=True)
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "SecondOpinionPaymentVerificationResponseSerializer"
+
+
+# ---------- Doctor List ----------
+
+class DoctorBasicInfoListDataSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = DoctorBasicInfoSerializer(many=True)
+
+
+class DoctorBasicInfoListResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = DoctorBasicInfoListDataSerializer()
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "SecondOpinionDoctorBasicInfoListResponseSerializer"
+
+
+# ---------- Doctor Side Lists ----------
+
+class DoctorSecondOpinionListDataSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = DoctorSecondOpinionListSerializer(many=True)
+
+
+class DoctorSecondOpinionListResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = DoctorSecondOpinionListDataSerializer()
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "SecondOpinionDoctorSecondOpinionListResponseSerializer"
+
+
+class DoctorSecondOpinionDetailResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = DoctorSecondOpinionDetailSerializer()
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "SecondOpinionDoctorSecondOpinionDetailResponseSerializer"
+
+
+# ---------- Doctor Rating ----------
+
+class DoctorRatingResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = DoctorRatingSerializer()
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "SecondOpinionDoctorRatingResponseSerializer"
+
