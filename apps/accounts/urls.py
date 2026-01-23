@@ -3,9 +3,9 @@ from apps.accounts.views import (
     LogoutView, PhoneOTPRequestView, PhoneOTPVerifyView, PasswordResetRequestView, PasswordResetConfirmView, DeactivateAccountView, 
     ReactivateAccountView, DeleteAccountView, EmailOTPRequestView, EmailOTPVerifyView, RegisterView, UserMeView, AdminUserListView, 
     EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView, AdminAllUserListView, ChangePasswordView, AdminChangePasswordView,
-    RegisterDeviceView
+    RegisterDeviceView, CustomTokenRefreshView
 )
-from rest_framework_simplejwt.views import TokenRefreshView
+
 
 urlpatterns = [
     path("email/request-otp/", EmailOTPRequestView.as_view()),
@@ -32,7 +32,7 @@ urlpatterns = [
     path("delete/", DeleteAccountView.as_view()),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
 
-    path("token/refresh/", TokenRefreshView.as_view()),
+    path("token/refresh/", CustomTokenRefreshView.as_view()),
 
     # Admin endpoints
     path("admin/users/<str:role>", AdminUserListView.as_view(), name="admin-user-list"),

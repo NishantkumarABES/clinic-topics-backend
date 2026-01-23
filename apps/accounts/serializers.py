@@ -562,6 +562,19 @@ class UserDeviceRegisterSerializer(serializers.Serializer):
 
 
 
+class TokenRefreshRequestSerializer(serializers.Serializer):
+    refresh = serializers.CharField()
+
+class CommonSuccessResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = serializers.DictField()
+    success = serializers.BooleanField()
+
+class CommonErrorResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = serializers.JSONField(allow_null=True)
+    success = serializers.BooleanField()
+
 
 
 

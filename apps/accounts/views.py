@@ -6,20 +6,21 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.pagination import PageNumberPagination
+from rest_framework_simplejwt.views import TokenRefreshView
 from django.utils import timezone
 from django.conf import settings
 from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from drf_spectacular.utils import extend_schema
-from botocore.exceptions import ClientError
 
 from apps.accounts.serializers import (
     EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer, PasswordResetRequestSerializer,
     PasswordResetConfirmSerializer, EmailOTPRequestSerializer, EmailOTPVerifySerializer, RegisterSerializer, UserMeSerializer,
     UserListSerializer, UserUpdateSerializer, LoginResponseSerializer, RegisterResponseSerializer, ChangePasswordSerializer,
     AdminChangePasswordSerializer, UserDeviceRegisterSerializer, StandardResponseSerializer, OTPResponseSerializer,
-    UserMeResponseSerializer, LogoutRequestSerializer
+    UserMeResponseSerializer, LogoutRequestSerializer, CommonSuccessResponseSerializer, CommonErrorResponseSerializer,
+    TokenRefreshRequestSerializer
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
@@ -833,3 +834,36 @@ class RegisterDeviceView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+class CustomTokenRefreshView(TokenRefreshView):
+    @swagger_auto_schema(
+        request_body=TokenRefreshRequestSerializer,
+        responses={
+            200: CommonSuccessResponseSerializer,
+            401: CommonErrorResponseSerializer,
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        try:
+            response = super().post(request, *args, **kwargs)
+            
+            # If refresh successful
+            if response.status_code == status.HTTP_200_OK:
+                return Response({
+                    "detail": "Token refreshed successfully",
+                    "data": response.data,
+                    "success": True
+                }, status=status.HTTP_200_OK)
+
+            # If unexpected non-200
+            return Response({
+                "detail": "Token refresh failed",
+                "data": None,
+                "success": False
+            }, status=response.status_code)
+
+        except Exception as e:
+            return Response({
+                "detail": str(e),
+                "data": None,
+                "success": False
+            }, status=status.HTTP_401_UNAUTHORIZED)

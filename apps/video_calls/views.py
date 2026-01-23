@@ -13,10 +13,14 @@ from apps.accounts.models import User
 from apps.accounts.constants import UserRole
 from apps.video_calls.models import VideoCallSession
 from apps.video_calls.serializers import (
-    CallInitiateSerializer, VideoCallSessionSerializer, CallTokenSerializer, UserCallStatusSerializer
+    CallInitiateSerializer, VideoCallSessionSerializer, CallTokenSerializer, UserCallStatusSerializer,
+    # Response serializers
+    StandardResponseSerializer, CallInitiateResponseSerializer, CallTokenResponseSerializer,
+    UserCallStatusResponseSerializer
 )
 from apps.video_calls.constants import CallStatus
 from apps.video_calls.dispatchers import dispatch_call_event
+from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
 
 
 class BaseCallActionView(APIView):
@@ -32,8 +36,14 @@ class CallInitiateView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_description="Initiate a video call between doctor and patient",
         request_body=CallInitiateSerializer,
-        responses={201: VideoCallSessionSerializer}
+        responses={
+            201: CallInitiateResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            403: BAD_REQUEST_400,
+        }
     )
     @transaction.atomic
     def post(self, request):
@@ -47,19 +57,25 @@ class CallInitiateView(APIView):
         patient = get_object_or_404(User, id=patient_id, role=UserRole.PATIENT)
 
         if doctor == patient:
-            return Response({"error": "Doctor and patient cannot be same user"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Doctor and patient cannot be same user", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         caller = request.user
         if caller not in [doctor, patient]:
-            return Response({"error": "You are not part of this call"},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "You are not part of this call", "data": None, "success": False},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         if VideoCallSession.objects.filter(
             status__in=[CallStatus.INITIATED, CallStatus.ACTIVE]
         ).filter(models.Q(doctor=caller) | models.Q(patient=caller)).exists():
-            return Response({"error": "You already have an ongoing call"},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "You already have an ongoing call", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         VideoCallSession.objects.select_for_update().filter(
             models.Q(doctor=doctor) | models.Q(patient=patient),
@@ -107,12 +123,25 @@ class CallInitiateView(APIView):
             "uid": agora_uid
         }
 
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        return Response(
+            {"detail": "Call initiated successfully", "data": response_data, "success": True},
+            status=status.HTTP_201_CREATED
+        )
 
 class CallTokenView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    @swagger_auto_schema(request_body=CallTokenSerializer)
+    @swagger_auto_schema(
+        operation_description="Generate Agora token for joining a call",
+        request_body=CallTokenSerializer,
+        responses={
+            200: CallTokenResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            403: BAD_REQUEST_400,
+            404: NOT_FOUND_404,
+        }
+    )
     def post(self, request):
         serializer = CallTokenSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -120,27 +149,50 @@ class CallTokenView(APIView):
         call = get_object_or_404(VideoCallSession, id=serializer.validated_data["call_id"])
 
         if request.user not in [call.doctor, call.patient]:
-            return Response({"error": "You are not part of this call"}, status=status.HTTP_403_FORBIDDEN)
+            return Response(
+                {"detail": "You are not part of this call", "data": None, "success": False},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         agora_uid = request.user.id.int % (2**31)
         token = generate_agora_token(call.channel_name, agora_uid)
 
         return Response({
-            "app_id": os.getenv("AGORA_APP_ID"),
-            "channel_name": call.channel_name,
-            "token": token,
-            "uid": agora_uid
+            "detail": "Token generated successfully",
+            "data": {
+                "app_id": os.getenv("AGORA_APP_ID"),
+                "channel_name": call.channel_name,
+                "token": token,
+                "uid": agora_uid
+            },
+            "success": True
         })
 
 class CallAcceptView(BaseCallActionView):
+    @swagger_auto_schema(
+        operation_description="Accept an incoming call",
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            403: BAD_REQUEST_400,
+            404: NOT_FOUND_404,
+        }
+    )
     def post(self, request, id):
         call = self.get_call(id)
 
         if not self.validate_participant(request, call):
-            return Response({"error": "Not part of this call"}, status=403)
+            return Response(
+                {"detail": "Not part of this call", "data": None, "success": False},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         if call.status != CallStatus.INITIATED:
-            return Response({"error": "Call cannot be accepted"}, status=400)
+            return Response(
+                {"detail": "Call cannot be accepted", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         call.status = CallStatus.ACTIVE
         call.started_at = timezone.now()
@@ -150,17 +202,33 @@ class CallAcceptView(BaseCallActionView):
 
         dispatch_call_event(other, {"event": "call_accepted", "call_id": str(call.id)})
 
-        return Response({"message": "Call accepted"})
+        return Response({"detail": "Call accepted", "data": None, "success": True})
 
 class CallRejectView(BaseCallActionView):
+    @swagger_auto_schema(
+        operation_description="Reject an incoming call",
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            403: BAD_REQUEST_400,
+            404: NOT_FOUND_404,
+        }
+    )
     def post(self, request, id):
         call = self.get_call(id)
 
         if not self.validate_participant(request, call):
-            return Response({"error": "Not part of this call"}, status=403)
+            return Response(
+                {"detail": "Not part of this call", "data": None, "success": False},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         if call.status != CallStatus.INITIATED:
-            return Response({"error": "Call cannot be rejected"}, status=400)
+            return Response(
+                {"detail": "Call cannot be rejected", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         call.status = CallStatus.REJECTED
         call.ended_at = timezone.now()
@@ -170,17 +238,33 @@ class CallRejectView(BaseCallActionView):
 
         dispatch_call_event(other, {"event": "call_rejected", "call_id": str(call.id)})
 
-        return Response({"message": "Call rejected"})
+        return Response({"detail": "Call rejected", "data": None, "success": True})
 
 class CallEndView(BaseCallActionView):
+    @swagger_auto_schema(
+        operation_description="End an active call",
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            403: BAD_REQUEST_400,
+            404: NOT_FOUND_404,
+        }
+    )
     def post(self, request, id):
         call = self.get_call(id)
 
         if not self.validate_participant(request, call):
-            return Response({"error": "Not part of this call"}, status=403)
+            return Response(
+                {"detail": "Not part of this call", "data": None, "success": False},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
         if call.status != CallStatus.ACTIVE:
-            return Response({"error": "Only active calls can be ended"}, status=400)
+            return Response(
+                {"detail": "Only active calls can be ended", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         call.status = CallStatus.ENDED
         call.ended_at = timezone.now()
@@ -189,11 +273,19 @@ class CallEndView(BaseCallActionView):
         for participant in [call.doctor, call.patient]:
             dispatch_call_event(participant, {"event": "call_ended", "call_id": str(call.id)})
 
-        return Response({"message": "Call ended"})
+        return Response({"detail": "Call ended", "data": None, "success": True})
 
 class UserCallStatusView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="Get user's call status and online status",
+        responses={
+            200: UserCallStatusResponseSerializer,
+            401: UNAUTHORIZE_401,
+            404: NOT_FOUND_404,
+        }
+    )
     def get(self, request, user_id):
         user = get_object_or_404(User, id=user_id)
 
