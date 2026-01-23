@@ -18,7 +18,7 @@ class ProductListSerializer(serializers.ModelSerializer):
         model = Product
         fields = [
             "id", "name", "price", "tax_percentage", "discount_percentage",
-            "images", "category", "brand", "description"
+            "images", "category", "brand", "description", "for_patients", "for_doctors"
         ]
     
 class ProductDetailSerializer(serializers.ModelSerializer):
@@ -31,7 +31,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "price", "tax_percentage",
             "images", "category", "brand", "description",
-            "average_rating", "total_reviews",
+            "average_rating", "total_reviews", "for_patients", "for_doctors"
         ]
     
     def get_average_rating(self, obj):
@@ -359,6 +359,7 @@ class AdminProductReadSerializer(serializers.ModelSerializer):
             "id", "name", "sku", "category", "brand",
             "description", "price", "tax_percentage", "discount_percentage",
             "is_active", "stock_quantity", "images", "created_at", "updated_at",
+            "for_patients", "for_doctors"
         ]
 
 class AdminProductWriteSerializer(serializers.ModelSerializer):
@@ -374,6 +375,7 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
             "name", "category", "brand", "description",
             "price", "tax_percentage", "discount_percentage",
             "is_active", "stock_quantity", "images",
+            "for_patients", "for_doctors"
         ]
 
     def create(self, validated_data):

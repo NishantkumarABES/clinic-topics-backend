@@ -25,6 +25,8 @@ class Product(TimeStampedUUIDModel):
     is_active = models.BooleanField(default=True)
     # is_out_of_stock = models.BooleanField(default=False)
     stock_quantity = models.PositiveIntegerField(default=0)
+    for_patients = models.BooleanField(default=True)
+    for_doctors = models.BooleanField(default=True)
 
     class Meta:
         constraints = [

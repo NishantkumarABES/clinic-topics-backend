@@ -1,16 +1,20 @@
+import json
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
-from django.db import transaction, IntegrityError
-from django.db.models import Q
 from django.shortcuts import get_object_or_404
+from django.conf import settings
+from django.db import transaction, IntegrityError
+from django.db.models import Q, Sum
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from decimal import Decimal
 
 from core.permissions import IsAdmin
+from apps.accounts.models import UserRole
 from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order, OrderItem, Payment
 from apps.commerce.models import PaymentStatus
 from apps.commerce.serializers import (
@@ -19,15 +23,11 @@ from apps.commerce.serializers import (
     ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer,
     WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer,
     AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer, AdminCreateOrderSerializer,
-    CreatePaymentOrderSerializer, VerifyPaymentSerializer, PaymentSerializer
+    CreatePaymentOrderSerializer, VerifyPaymentSerializer
 )
 from apps.commerce.constants import OrderStatus
 from external.razorpay.service import razorpay_service
-from django.conf import settings
-from decimal import Decimal
-import json
-from django.utils import timezone
-from django.db.models import Sum
+
 
 
 class ProductListPagination(PageNumberPagination):
@@ -60,7 +60,14 @@ class ProductListView(APIView):
         min_price = request.query_params.get("min_price", 0)
         max_price = request.query_params.get("max_price", 999999999)
         brand = request.query_params.get("brand")
+        user = request.user
+
         queryset = Product.objects.filter(stock_quantity__gt=0)
+        if user.role == UserRole.DOCTOR:
+            queryset = queryset.filter(for_doctors=True)
+
+        elif user.role == UserRole.PATIENT:
+            queryset = queryset.filter(for_patients=True)
 
         if min_price:
             queryset = queryset.filter(price__gte=min_price)
@@ -618,7 +625,7 @@ class AdminProductListCreateAPIView(APIView):
         search_term = request.query_params.get("search", None)
         status = request.query_params.get("status", None)
         category = request.query_params.get("category", None)
-
+        user_type = request.query_params.get("user_type", None)
 
         products = Product.objects.all().order_by("-created_at")
         if search_term:
@@ -633,6 +640,14 @@ class AdminProductListCreateAPIView(APIView):
                 products = products.filter(stock_quantity__lte=0)
             elif status == "instock":
                 products = products.filter(stock_quantity__gt=0)
+        
+        if user_type == "patient":
+            print(user_type)
+            products = products.filter(for_patients=True)
+
+        elif user_type == "doctor":
+            print(user_type)
+            products = products.filter(for_doctors=True)
         
         if category:
             products = products.filter(category=category)

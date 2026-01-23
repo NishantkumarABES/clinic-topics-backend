@@ -34,6 +34,7 @@ class AdminAdvisoryListCreateAPIView(APIView):
             openapi.Parameter('search', openapi.IN_QUERY, type=openapi.TYPE_STRING, description="Search by name, email, phone, or specialization"),
             openapi.Parameter('status', openapi.IN_QUERY, type=openapi.TYPE_STRING, description="Filter by status (active/inactive)"),
         ],
+        auto_schema=None,
         responses={
             200: AdvisoryMemberListResponseSerializer,
             401: UNAUTHORIZE_401,
@@ -76,6 +77,7 @@ class AdminAdvisoryListCreateAPIView(APIView):
             400: BAD_REQUEST_400,
             401: UNAUTHORIZE_401,
         },
+        auto_schema=None,
     )
     def post(self, request):
         serializer = AdvisoryMemberWriteSerializer(data=request.data)
@@ -98,6 +100,7 @@ class AdminAdvisoryFromDoctorAPIView(APIView):
     @swagger_auto_schema(
         operation_description="Create advisory member from existing doctor profile (admin only)",
         request_body=DoctorToAdvisoryRequestSerializer,
+        auto_schema=None,
         responses={
             201: AdvisoryMemberCreateUpdateResponseSerializer,
             400: BAD_REQUEST_400,
@@ -159,6 +162,7 @@ class AdminAdvisoryUpdateDeleteAPIView(APIView):
     @swagger_auto_schema(
         operation_description="Update an advisory member (admin only)",
         request_body=AdvisoryMemberWriteSerializer,
+        auto_schema=None,
         responses={
             200: AdvisoryMemberCreateUpdateResponseSerializer,
             400: BAD_REQUEST_400,
@@ -193,6 +197,7 @@ class AdminAdvisoryUpdateDeleteAPIView(APIView):
             401: UNAUTHORIZE_401,
             404: NOT_FOUND_404,
         },
+        auto_schema=None,
     )
     def delete(self, request, member_id):
         member = get_object_or_404(AdvisoryMember, id=member_id)
