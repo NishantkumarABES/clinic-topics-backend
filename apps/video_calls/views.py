@@ -55,21 +55,18 @@ class CallInitiateView(APIView):
             return Response({"error": "You are not part of this call"},
                             status=status.HTTP_403_FORBIDDEN)
 
-        # Prevent caller starting multiple calls
         if VideoCallSession.objects.filter(
             status__in=[CallStatus.INITIATED, CallStatus.ACTIVE]
         ).filter(models.Q(doctor=caller) | models.Q(patient=caller)).exists():
             return Response({"error": "You already have an ongoing call"},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        # Lock rows to avoid race condition
         VideoCallSession.objects.select_for_update().filter(
             models.Q(doctor=doctor) | models.Q(patient=patient),
             status=CallStatus.ACTIVE
         )
 
         receiver = patient if caller == doctor else doctor
-
         channel_name = f"call_{uuid.uuid4().hex}"
 
         call_session = VideoCallSession.objects.create(
@@ -79,18 +76,36 @@ class CallInitiateView(APIView):
             status=CallStatus.INITIATED,
         )
 
+        # Generate Agora token for caller immediately
+        agora_uid = caller.id.int % (2**31)
+        token = generate_agora_token(channel_name, agora_uid)
+        
+        # Send incoming call push to receiver
         event_data = {
             "event": "incoming_call",
             "call_id": str(call_session.id),
             "channel_name": channel_name,
-            "caller_id": str(caller.id)
+            "caller_id": str(caller.id),
+            "agora": {
+                "app_id": os.getenv("AGORA_APP_ID"),
+                "channel_name": channel_name,
+                "token": token,
+                "uid": agora_uid
+            }
         }
-
         result = dispatch_call_event(receiver, event_data)
 
         response_data = VideoCallSessionSerializer(call_session).data
         response_data["call_status"] = result["via"]
         response_data["receiver_id"] = str(receiver.id)
+
+        # Token bundle for caller
+        response_data["agora"] = {
+            "app_id": os.getenv("AGORA_APP_ID"),
+            "channel_name": channel_name,
+            "token": token,
+            "uid": agora_uid
+        }
 
         return Response(response_data, status=status.HTTP_201_CREATED)
 
@@ -105,11 +120,9 @@ class CallTokenView(APIView):
         call = get_object_or_404(VideoCallSession, id=serializer.validated_data["call_id"])
 
         if request.user not in [call.doctor, call.patient]:
-            return Response({"error": "You are not part of this call"},
-                            status=status.HTTP_403_FORBIDDEN)
+            return Response({"error": "You are not part of this call"}, status=status.HTTP_403_FORBIDDEN)
 
         agora_uid = request.user.id.int % (2**31)
-
         token = generate_agora_token(call.channel_name, agora_uid)
 
         return Response({
@@ -189,11 +202,15 @@ class UserCallStatusView(APIView):
         ).filter(models.Q(doctor=user) | models.Q(patient=user)).first()
 
         return Response({
-            "id": user.id,
-            "full_name": user.full_name,
-            "email": user.email,
-            "phone": user.phone,
-            "role": user.role,
-            "is_online": is_user_online(str(user.id)),
-            "active_call": VideoCallSessionSerializer(active_call).data if active_call else None
+            "detail": "User call status retrieved successfully",
+            "data": {
+                "id": user.id,
+                "full_name": user.full_name,
+                "email": user.email,
+                "phone": user.phone,
+                "role": user.role,
+                "is_online": is_user_online(str(user.id)),
+                "active_call": VideoCallSessionSerializer(active_call).data if active_call else None
+            },
+            "success": True
         })
