@@ -21,7 +21,6 @@ class DoctorListPagination(PageNumberPagination):
     page_size_query_param = "page_size"
     max_page_size = 50
 
-
 class DoctorListView(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = DoctorListPagination
@@ -127,13 +126,9 @@ class DoctorListView(APIView):
         paginated_response = paginator.get_paginated_response(serializer.data)
         return Response({
             "detail": "Doctors retrieved successfully",
-            "data": {"doctors": serializer.data},
+            "data": paginated_response.data,
             "success": True,
-            "count": paginated_response.data.get("count"),
-            "next": paginated_response.data.get("next"),
-            "previous": paginated_response.data.get("previous"),
         })
-
 
 class DoctorDetailView(APIView):
     permission_classes = [IsAuthenticated]
@@ -168,6 +163,6 @@ class DoctorDetailView(APIView):
 
         return Response({
             "detail": "Doctor details retrieved successfully",
-            "data": {"doctor": serializer.data},
+            "data": serializer.data,
             "success": True
         })

@@ -122,7 +122,8 @@ class CallInitiateView(APIView):
             "token": token,
             "uid": agora_uid
         }
-
+        # response_data["experienceId"] = "@clinictopics-org/clinictopics"
+        # response_data["scopeKey"] = "@clinictopics-org/clinictopics"
         return Response(
             {"detail": "Call initiated successfully", "data": response_data, "success": True},
             status=status.HTTP_201_CREATED

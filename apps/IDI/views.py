@@ -48,9 +48,11 @@ class AdminIDIListCreateAPIView(APIView):
 
         serializer = IDIReadSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
-        response.data["success"] = True
-        response.data["detail"] = "IDI list retrieved successfully"
-        return response
+        return Response({
+            "detail": "IDI list retrieved successfully",
+            "data": response.data,
+            "success": True
+        })
 
     @swagger_auto_schema(auto_schema=None)
     def post(self, request):
@@ -100,7 +102,6 @@ class AdminIDIUpdateAPIView(APIView):
             },
             status=status.HTTP_200_OK
         )
-
 
 class IDIListAPIView(APIView):
     permission_classes = [IsAuthenticated]

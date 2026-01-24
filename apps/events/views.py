@@ -82,9 +82,11 @@ class EventListCreateAPIView(APIView):
 
         serializer = EventSerializer(paginated_queryset, many=True)
         response_data = paginator.get_paginated_response(serializer.data).data
-        response_data["detail"] = "Events retrieved successfully"
-        response_data["success"] = True
-        return Response(response_data)
+        return Response({
+            "detail": "Events retrieved successfully",
+            "data": response_data,
+            "success": True
+        })
 
     @swagger_auto_schema(
         auto_schema=None,
