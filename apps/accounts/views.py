@@ -181,7 +181,8 @@ class RegisterView(APIView):
             context={"is_admin_request": is_admin_request}
         )
         if not serializer.is_valid():
-            first_error = next(iter(serializer.errors.values()))[0]
+            field, errors = next(iter(serializer.errors.items()))
+            first_error = f"{field}: {errors[0]}"
             return Response(
                 {"detail": first_error, "data": None, "success": False}
             )
