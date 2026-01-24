@@ -129,3 +129,37 @@ class IDIWriteSerializer(serializers.ModelSerializer):
             ])
 
         return instance
+
+
+#########################   Response Serializers    #########################
+
+class StandardResponseSerializer(serializers.Serializer):
+    """Standard response format for IDI endpoints."""
+    detail = serializers.CharField(help_text="Response message")
+    data = serializers.JSONField(allow_null=True, required=False, help_text="Response data")
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "IDIStandardResponseSerializer"
+
+
+class IDIDataResponseSerializer(serializers.Serializer):
+    """Response for single IDI data."""
+    detail = serializers.CharField(help_text="Response message")
+    data = IDIReadSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "IDIDataResponseSerializer"
+
+
+class IDIListDataSerializer(serializers.Serializer):
+    """Paginated IDI list data."""
+    count = serializers.IntegerField(help_text="Total number of items")
+    next = serializers.CharField(allow_null=True, help_text="Next page URL")
+    previous = serializers.CharField(allow_null=True, help_text="Previous page URL")
+    results = IDIReadSerializer(many=True)
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "IDIListDataSerializer"

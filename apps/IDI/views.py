@@ -7,7 +7,11 @@ from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
 
 from apps.IDI.models import IDI
-from apps.IDI.serializers import IDIReadSerializer, IDIWriteSerializer, AdminIDIListPagination
+from apps.IDI.serializers import (
+    IDIReadSerializer, IDIWriteSerializer, AdminIDIListPagination,
+    IDIDataResponseSerializer, IDIListDataSerializer, StandardResponseSerializer
+)
+from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404
 
 
 class AdminIDIListCreateAPIView(APIView):
@@ -45,18 +49,25 @@ class AdminIDIListCreateAPIView(APIView):
         serializer = IDIReadSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
         response.data["success"] = True
+        response.data["detail"] = "IDI list retrieved successfully"
         return response
 
     @swagger_auto_schema(auto_schema=None)
     def post(self, request):
         serializer = IDIWriteSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {"detail": str(first_error), "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         idi = serializer.save()
 
         return Response(
             {
-                "success": True,
-                "data": IDIReadSerializer(idi).data
+                "detail": "IDI created successfully",
+                "data": IDIReadSerializer(idi).data,
+                "success": True
             },
             status=status.HTTP_201_CREATED
         )
@@ -73,13 +84,19 @@ class AdminIDIUpdateAPIView(APIView):
             data=request.data,
             partial=True
         )
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {"detail": str(first_error), "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         idi = serializer.save()
 
         return Response(
             {
-                "success": True,
-                "data": IDIReadSerializer(idi).data
+                "detail": "IDI updated successfully",
+                "data": IDIReadSerializer(idi).data,
+                "success": True
             },
             status=status.HTTP_200_OK
         )
@@ -90,7 +107,10 @@ class IDIListAPIView(APIView):
     pagination_class = AdminIDIListPagination
 
     @swagger_auto_schema(
-        responses={200: IDIReadSerializer(many=True)}
+        operation_description="Get list of published IDI drugs",
+        responses={
+            200: IDIListDataSerializer,
+        }
     )
     def get(self, request):
         search = request.query_params.get("search")
@@ -111,13 +131,18 @@ class IDIListAPIView(APIView):
         serializer = IDIReadSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
         response.data["success"] = True
+        response.data["detail"] = "IDI list retrieved successfully"
         return response
 
 class IDIDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        responses={200: IDIReadSerializer()}
+        operation_description="Get details of a specific published IDI drug",
+        responses={
+            200: IDIDataResponseSerializer,
+            404: NOT_FOUND_404,
+        }
     )   
     def get(self, request, idi_id):
         # Only allow access to published drugs
@@ -126,8 +151,9 @@ class IDIDetailAPIView(APIView):
         serializer = IDIReadSerializer(idi)
         return Response(
             {
-                "success": True,
-                "data": serializer.data
+                "detail": "IDI retrieved successfully",
+                "data": serializer.data,
+                "success": True
             },
             status=status.HTTP_200_OK
         )

@@ -597,3 +597,77 @@ class PaymentSerializer(serializers.ModelSerializer):
             "status",
             "created_at",
         ]
+
+
+#########################   Response Serializers    #########################
+
+class StandardResponseSerializer(serializers.Serializer):
+    """Standard response wrapper for simple responses."""
+    detail = serializers.CharField(help_text="Response message")
+    data = serializers.JSONField(allow_null=True, required=False, help_text="Response data")
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "CommerceStandardResponseSerializer"
+
+
+# Product response serializers
+class ProductDetailResponseSerializer(serializers.Serializer):
+    """Response for product detail endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = ProductDetailSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+
+
+class ProductReviewListResponseSerializer(serializers.Serializer):
+    """Response for product review list endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = ProductReviewSerializer(many=True)
+    success = serializers.BooleanField(help_text="Success status")
+
+
+class ProductReviewResponseSerializer(serializers.Serializer):
+    """Response for create/update product review endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = ProductReviewSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+
+
+# Cart response serializers
+class CartResponseSerializer(serializers.Serializer):
+    """Response for cart detail endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = CartSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+
+
+# Address response serializers
+class AddressListResponseSerializer(serializers.Serializer):
+    """Response for address list endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = AddressSerializer(many=True)
+    success = serializers.BooleanField(help_text="Success status")
+
+
+class AddressResponseSerializer(serializers.Serializer):
+    """Response for single address endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = AddressSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+
+
+# Wishlist response serializers
+class WishlistResponseSerializer(serializers.Serializer):
+    """Response for wishlist detail endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = WishlistSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+
+
+# Order response serializers
+class OrderDetailResponseSerializer(serializers.Serializer):
+    """Response for order detail endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = OrderHistorySerializer()
+    success = serializers.BooleanField(help_text="Success status")
+

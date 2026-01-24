@@ -8,7 +8,11 @@ from drf_yasg.utils import swagger_auto_schema
 from django.db.models import Q
 
 from apps.events.models import Event
-from apps.events.serializers import EventSerializer, EventCreateUpdateSerializer
+from apps.events.serializers import (
+    EventSerializer, EventCreateUpdateSerializer, StandardResponseSerializer
+    EventResponseSerializer, EventListResponseSerializer, 
+)
+from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, SUCCESS_200, SUCCESS_201
 
 
 
@@ -65,6 +69,12 @@ class EventListCreateAPIView(APIView):
     pagination_class = EventPagination
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="List all events with pagination and filters",
+        responses={
+            200: EventListResponseSerializer,
+        },
+    )
     def get(self, request):
         queryset = Event.objects.filter(is_active=True)
         queryset = EventFilterHelper.filter_queryset(request, queryset)
@@ -73,19 +83,33 @@ class EventListCreateAPIView(APIView):
         paginated_queryset = paginator.paginate_queryset(queryset, request)
 
         serializer = EventSerializer(paginated_queryset, many=True)
-        return paginator.get_paginated_response(serializer.data)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        response_data["detail"] = "Events retrieved successfully"
+        response_data["success"] = True
+        return Response(response_data)
 
     @swagger_auto_schema(
         auto_schema=None,
         request_body=EventCreateUpdateSerializer,
-        responses={201: EventSerializer}
+        responses={201: EventResponseSerializer}
     )
     def post(self, request):
         serializer = EventCreateUpdateSerializer(data=request.data)
-        if serializer.is_valid():
-            event = serializer.save()
-            return Response(EventSerializer(event).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {"detail": str(first_error), "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        event = serializer.save()
+        return Response(
+            {
+                "detail": "Event created successfully",
+                "data": EventSerializer(event).data,
+                "success": True
+            },
+            status=status.HTTP_201_CREATED
+        )
 
 
 # -----------------------------------
@@ -100,28 +124,52 @@ class EventRetrieveUpdateAPIView(APIView):
         except Event.DoesNotExist:
             return None
 
+    @swagger_auto_schema(
+        operation_description="Retrieve a single event by ID",
+        responses={
+            200: EventResponseSerializer,
+            404: NOT_FOUND_404,
+        },
+    )
     def get(self, request, id):
         event = self.get_object(id)
         if not event:
-            return Response({"detail": "Event not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Event not found", "data": None, "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         serializer = EventSerializer(event)
-        return Response(serializer.data)
+        return Response({
+            "detail": "Event retrieved successfully",
+            "data": serializer.data,
+            "success": True
+        })
 
     @swagger_auto_schema(
         auto_schema=None,
         request_body=EventCreateUpdateSerializer,
-        responses={200: EventSerializer}
+        responses={200: EventResponseSerializer}
     )
     def patch(self, request, id):
         event = self.get_object(id)
         if not event:
-            return Response({"detail": "Event not found"}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Event not found", "data": None, "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         serializer = EventCreateUpdateSerializer(event, data=request.data, partial=True)
-        if serializer.is_valid():
-            event = serializer.save()
-            return Response(EventSerializer(event).data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {"detail": str(first_error), "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        event = serializer.save()
+        return Response({
+            "detail": "Event updated successfully",
+            "data": EventSerializer(event).data,
+            "success": True
+        })
 
-    

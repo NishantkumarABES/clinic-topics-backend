@@ -70,6 +70,18 @@ NOT_FOUND_404 = openapi.Response(
     ),
 )
 
+FORBIDDEN_403 = openapi.Response(
+    description="Forbidden",
+    schema=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            "detail": openapi.Schema(type=openapi.TYPE_STRING),
+            "data": openapi.Schema(type=openapi.TYPE_OBJECT, nullable=True),
+            "success": openapi.Schema(type=openapi.TYPE_BOOLEAN, default=False),
+        },
+    ),
+)
+
 TOO_MANY_REQUESTS_429 = openapi.Response(
     description="Too Many Requests",
     schema=openapi.Schema(

@@ -39,17 +39,17 @@ class StaticPageView(APIView):
             
             if not version:
                 return Response(
-                    {"detail": "No published content found"},
+                    {"detail": "No published content found", "data": None, "success": False},
                     status=status.HTTP_404_NOT_FOUND
                 )
         except StaticPage.DoesNotExist:
             return Response(
-                {"detail": "Page not found"},
+                {"detail": "Page not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = StaticPageVersionSerializer(version)
-        return Response(serializer.data)
+        return Response({"detail": "Page retrieved successfully", "data": serializer.data, "success": True})
 
 
 class ContactUsSubmitView(APIView):
@@ -63,7 +63,7 @@ class ContactUsSubmitView(APIView):
         serializer.save()
 
         return Response(
-            {"message": "Your message has been submitted successfully"},
+            {"detail": "Your message has been submitted successfully", "data": None, "success": True},
             status=status.HTTP_201_CREATED
         )
 
@@ -111,7 +111,7 @@ class AdminSettingsListView(APIView):
                     "version": 0,
                 })
         
-        return Response(settings_list)
+        return Response({"detail": "Settings retrieved successfully", "data": settings_list, "success": True})
 
 
 class AdminSettingDetailView(APIView):
@@ -152,7 +152,7 @@ class AdminSettingDetailView(APIView):
                 "version": 0,
             }
         
-        return Response(data)
+        return Response({"detail": "Setting retrieved successfully", "data": data, "success": True})
 
     @swagger_auto_schema(auto_schema=None)
     def put(self, request, page_type):
@@ -172,13 +172,17 @@ class AdminSettingDetailView(APIView):
         version = serializer.save()
 
         return Response({
-            "id": str(version.id),
-            "type": page_type,
-            "title": version.title,
-            "content": version.content,
-            "updatedAt": version.created_at,
-            "updatedBy": version.created_by.full_name if version.created_by else None,
-            "version": version.version,
+            "detail": "Setting updated successfully",
+            "data": {
+                "id": str(version.id),
+                "type": page_type,
+                "title": version.title,
+                "content": version.content,
+                "updatedAt": version.created_at,
+                "updatedBy": version.created_by.full_name if version.created_by else None,
+                "version": version.version,
+            },
+            "success": True
         })
 
 
@@ -191,11 +195,11 @@ class AdminSettingVersionsView(APIView):
         try:
             page = StaticPage.objects.get(page_type=page_type)
         except StaticPage.DoesNotExist:
-            return Response([])
+            return Response({"detail": "Page not found", "data": [], "success": True})
         
         versions = StaticPageVersion.objects.filter(page=page).order_by("-version")
         serializer = AdminSettingVersionSerializer(versions, many=True)
-        return Response(serializer.data)
+        return Response({"detail": "Versions retrieved successfully", "data": serializer.data, "success": True})
 
 
 class AdminPublishVersionView(APIView):
@@ -208,7 +212,7 @@ class AdminPublishVersionView(APIView):
             version = StaticPageVersion.objects.get(id=version_id)
         except StaticPageVersion.DoesNotExist:
             return Response(
-                {"detail": "Version not found"},
+                {"detail": "Version not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -222,8 +226,9 @@ class AdminPublishVersionView(APIView):
         version.save(update_fields=["is_published"])
 
         return Response({
-            "message": f"Version {version.version} published",
-            "version": version.version
+            "detail": f"Version {version.version} published",
+            "data": {"version": version.version},
+            "success": True
         })
 
 
@@ -268,7 +273,7 @@ class AdminContactUpdateView(APIView):
             contact = ContactUsSubmission.objects.get(id=contact_id)
         except ContactUsSubmission.DoesNotExist:
             return Response(
-                {"detail": "Contact submission not found"},
+                {"detail": "Contact submission not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
         
@@ -279,8 +284,9 @@ class AdminContactUpdateView(APIView):
         
         serializer = AdminContactSubmissionSerializer(contact)
         return Response({
-            "success": True,
-            "data": serializer.data
+            "detail": "Contact submission updated successfully",
+            "data": serializer.data,
+            "success": True
         })
 
 

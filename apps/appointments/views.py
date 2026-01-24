@@ -4,10 +4,16 @@ from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from apps.accounts.constants import UserRole
 from apps.profiles.models import DoctorProfile
-from apps.appointments.serializers import DoctorListSerializer, DoctorDetailSerializer
+from apps.appointments.serializers import (
+    DoctorListSerializer, DoctorDetailSerializer,
+    DoctorListResponseSerializer, DoctorDetailResponseSerializer
+)
+from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
 
 
 class DoctorListPagination(PageNumberPagination):
@@ -15,15 +21,61 @@ class DoctorListPagination(PageNumberPagination):
     page_size_query_param = "page_size"
     max_page_size = 50
 
+
 class DoctorListView(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = DoctorListPagination
 
+    @swagger_auto_schema(
+        operation_description="Get paginated list of doctors for patient appointments",
+        manual_parameters=[
+            openapi.Parameter(
+                'specialization', openapi.IN_QUERY,
+                description="Filter by specialization (case-insensitive)",
+                type=openapi.TYPE_STRING, required=False
+            ),
+            openapi.Parameter(
+                'min_experience', openapi.IN_QUERY,
+                description="Minimum years of experience",
+                type=openapi.TYPE_INTEGER, required=False
+            ),
+            openapi.Parameter(
+                'max_fee', openapi.IN_QUERY,
+                description="Maximum consultation fee",
+                type=openapi.TYPE_NUMBER, required=False
+            ),
+            openapi.Parameter(
+                'min_rating', openapi.IN_QUERY,
+                description="Minimum average rating",
+                type=openapi.TYPE_NUMBER, required=False
+            ),
+            openapi.Parameter(
+                'search', openapi.IN_QUERY,
+                description="Search by doctor name or clinic name",
+                type=openapi.TYPE_STRING, required=False
+            ),
+            openapi.Parameter(
+                'page', openapi.IN_QUERY,
+                description="Page number",
+                type=openapi.TYPE_INTEGER, required=False
+            ),
+            openapi.Parameter(
+                'page_size', openapi.IN_QUERY,
+                description="Number of items per page (max 50)",
+                type=openapi.TYPE_INTEGER, required=False
+            ),
+        ],
+        responses={
+            200: DoctorListResponseSerializer,
+            401: UNAUTHORIZE_401,
+            403: BAD_REQUEST_400,
+        },
+    )
     def get(self, request):
         # Only patients allowed
         if request.user.role != UserRole.PATIENT:
             return Response(
-                {"detail": "Only patients can view doctors"},
+                {"detail": "Only patients can view doctors", "data": None, "success": False},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -71,18 +123,34 @@ class DoctorListView(APIView):
 
         serializer = DoctorListSerializer(page, many=True)
 
-        return paginator.get_paginated_response({
-            "doctors": serializer.data,
-            "success": True
+        # Build standardized paginated response
+        paginated_response = paginator.get_paginated_response(serializer.data)
+        return Response({
+            "detail": "Doctors retrieved successfully",
+            "data": {"doctors": serializer.data},
+            "success": True,
+            "count": paginated_response.data.get("count"),
+            "next": paginated_response.data.get("next"),
+            "previous": paginated_response.data.get("previous"),
         })
+
 
 class DoctorDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_description="Get detailed information about a specific doctor",
+        responses={
+            200: DoctorDetailResponseSerializer,
+            401: UNAUTHORIZE_401,
+            403: BAD_REQUEST_400,
+            404: NOT_FOUND_404,
+        },
+    )
     def get(self, request, doctor_id):
         if request.user.role != UserRole.PATIENT:
             return Response(
-                {"detail": "Only patients can view doctor details"},
+                {"detail": "Only patients can view doctor details", "data": None, "success": False},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -92,13 +160,14 @@ class DoctorDetailView(APIView):
             )
         except DoctorProfile.DoesNotExist:
             return Response(
-                {"detail": "Doctor not found"},
+                {"detail": "Doctor not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = DoctorDetailSerializer(doctor_profile)
 
         return Response({
-            "doctor": serializer.data,
+            "detail": "Doctor details retrieved successfully",
+            "data": {"doctor": serializer.data},
             "success": True
         })

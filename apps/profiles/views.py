@@ -4,11 +4,18 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 
 from apps.profiles.models import DoctorProfile, PatientProfile
-from apps.profiles.serializers import DoctorProfileSerializer, PatientProfileSerializer
+from apps.profiles.serializers import (
+    DoctorProfileSerializer, PatientProfileSerializer,
+    StandardResponseSerializer, DoctorProfileResponseSerializer,
+    PatientProfileResponseSerializer, RatingCreateResponseSerializer,
+    RatingsListResponseSerializer, DoctorRatingSerializer,
+    DoctorRatingCreateSerializer
+)
 from apps.accounts.constants import UserRole
+from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
+
 
 class ProfileMeView(APIView):
     permission_classes = [IsAuthenticated]
@@ -36,23 +43,25 @@ class ProfileMeView(APIView):
         return None
 
     @swagger_auto_schema(
+        operation_description="Get current user's profile",
         responses={
-            200: openapi.Response(
-                description="User profile",
-                schema=DoctorProfileSerializer  # documented representative schema
-            ),
+            200: DoctorProfileResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
         },
     )
     def get(self, request):
         ctx = self.get_profile_context(request)
 
         if not ctx:
-            return Response({"detail": "Unsupported role"}, status=400)
+            return Response(
+                {"detail": "Unsupported role", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if not ctx["instance"]:
             user = request.user
-
-            return Response({
+            profile_data = {
                 "full_name": user.full_name,
                 "email": user.email,
                 "phone": user.phone,
@@ -60,17 +69,27 @@ class ProfileMeView(APIView):
                 "date_of_birth": user.date_of_birth,
                 "gender": user.gender,
                 **ctx["serializer"](ctx["instance"]).data
+            }
+            return Response({
+                "detail": "Profile retrieved successfully",
+                "data": profile_data,
+                "success": True
             })
 
-        return Response(ctx["serializer"](ctx["instance"]).data)
+        return Response({
+            "detail": "Profile retrieved successfully",
+            "data": ctx["serializer"](ctx["instance"]).data,
+            "success": True
+        })
 
     @swagger_auto_schema(
+        operation_description="Create patient profile",
         request_body=PatientProfileSerializer,
         responses={
-            201: openapi.Response(
-                description="Profile created",
-                schema=PatientProfileSerializer,
-            ),
+            201: PatientProfileResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            405: StandardResponseSerializer,
         },
     )
     def post(self, request):
@@ -78,49 +97,75 @@ class ProfileMeView(APIView):
 
         if not ctx or not ctx["allow_post"]:
             return Response(
-                {"detail": "POST not allowed for this user"},
+                {"detail": "POST not allowed for this user", "data": None, "success": False},
                 status=status.HTTP_405_METHOD_NOT_ALLOWED,
             )
 
         if ctx["instance"]:
             return Response(
-                {"detail": "Profile already exists"},
+                {"detail": "Profile already exists", "data": None, "success": False},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         serializer = ctx["serializer"](data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {"detail": str(first_error), "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         serializer.save(user=request.user)
 
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response({
+            "detail": "Profile created successfully",
+            "data": serializer.data,
+            "success": True
+        }, status=status.HTTP_201_CREATED)
 
     @swagger_auto_schema(
+        operation_description="Update current user's profile",
         request_body=PatientProfileSerializer,
         responses={
-            201: openapi.Response(
-                description="Profile created",
-                schema=PatientProfileSerializer,
-            ),
+            200: PatientProfileResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            404: NOT_FOUND_404,
         },
     )
     def patch(self, request):
         ctx = self.get_profile_context(request)
 
         if not ctx:
-            return Response({"detail": "Unsupported role"}, status=400)
+            return Response(
+                {"detail": "Unsupported role", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         if not ctx["instance"]:
-            return Response({"detail": "Profile not found"}, status=404)
+            return Response(
+                {"detail": "Profile not found", "data": None, "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
         serializer = ctx["serializer"](
             ctx["instance"],
             data=request.data,
             partial=True,
         )
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {"detail": str(first_error), "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         serializer.save()
 
-        return Response(serializer.data)
+        return Response({
+            "detail": "Profile updated successfully",
+            "data": serializer.data,
+            "success": True
+        })
+
 
 class DoctorRatingView(APIView):
     """
@@ -131,24 +176,16 @@ class DoctorRatingView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
+        operation_description="Get ratings for a specific doctor",
         responses={
-            200: openapi.Response(
-                description="Doctor ratings",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        "ratings": openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_OBJECT)),
-                        "average_rating": openapi.Schema(type=openapi.TYPE_NUMBER),
-                        "total_ratings": openapi.Schema(type=openapi.TYPE_INTEGER),
-                    }
-                )
-            ),
+            200: RatingsListResponseSerializer,
+            401: UNAUTHORIZE_401,
+            404: NOT_FOUND_404,
         },
     )
     def get(self, request, doctor_id):
         """Get ratings for a specific doctor."""
         from apps.profiles.models import DoctorRating
-        from apps.profiles.serializers import DoctorRatingSerializer
         from apps.accounts.models import User
         from django.db.models import Avg, Count
 
@@ -156,7 +193,7 @@ class DoctorRatingView(APIView):
             doctor = User.objects.get(id=doctor_id, role="doctor")
         except User.DoesNotExist:
             return Response(
-                {"detail": "Doctor not found", "success": False},
+                {"detail": "Doctor not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -176,39 +213,36 @@ class DoctorRatingView(APIView):
         serializer = DoctorRatingSerializer(ratings[:20], many=True)  # Latest 20
 
         return Response({
-            "doctor_id": str(doctor_id),
-            "doctor_name": doctor.full_name,
-            "ratings": serializer.data,
-            "average_rating": round(aggregates["average_rating"] or 0, 1),
-            "total_ratings": aggregates["total_ratings"],
-            "rating_breakdown": breakdown,
+            "detail": "Ratings retrieved successfully",
+            "data": {
+                "doctor_id": str(doctor_id),
+                "doctor_name": doctor.full_name,
+                "ratings": serializer.data,
+                "average_rating": round(aggregates["average_rating"] or 0, 1),
+                "total_ratings": aggregates["total_ratings"],
+                "rating_breakdown": breakdown,
+            },
             "success": True
         })
 
     @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=["second_opinion_doctor_request_id", "rating"],
-            properties={
-                "second_opinion_doctor_request_id": openapi.Schema(type=openapi.TYPE_STRING, format="uuid"),
-                "rating": openapi.Schema(type=openapi.TYPE_INTEGER, minimum=1, maximum=5),
-                "review": openapi.Schema(type=openapi.TYPE_STRING),
-            }
-        ),
+        operation_description="Submit a rating for a doctor after completed second opinion",
+        request_body=DoctorRatingCreateSerializer,
         responses={
-            201: openapi.Response(description="Rating created"),
-            400: openapi.Response(description="Validation error"),
+            201: RatingCreateResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            403: StandardResponseSerializer,
         },
     )
     def post(self, request, doctor_id):
         """Submit a rating for a doctor after completed second opinion."""
-        from apps.profiles.serializers import DoctorRatingCreateSerializer
         from apps.accounts.constants import UserRole
 
         # Verify user is a patient
         if request.user.role != UserRole.PATIENT:
             return Response(
-                {"detail": "Only patients can submit ratings", "success": False},
+                {"detail": "Only patients can submit ratings", "data": None, "success": False},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -216,13 +250,16 @@ class DoctorRatingView(APIView):
             data=request.data,
             context={"request": request, "doctor_id": doctor_id}
         )
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {"detail": str(first_error), "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         rating = serializer.save()
 
         return Response({
             "detail": "Rating submitted successfully",
-            "rating_id": str(rating.id),
+            "data": {"rating_id": str(rating.id)},
             "success": True
         }, status=status.HTTP_201_CREATED)
-
-

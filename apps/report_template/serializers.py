@@ -29,3 +29,28 @@ class ReportTemplateSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
+
+# ===================== Response Serializers =====================
+
+class StandardResponseSerializer(serializers.Serializer):
+    """
+    Base response serializer with {detail, data, success}.
+    Used for simple message-only responses.
+    """
+    detail = serializers.CharField(help_text="Response message")
+    data = serializers.JSONField(allow_null=True, required=False)
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "ReportTemplateStandardResponseSerializer"
+
+
+class ReportTemplateResponseSerializer(serializers.Serializer):
+    """Response serializer for report template endpoints."""
+    detail = serializers.CharField()
+    data = ReportTemplateSerializer(allow_null=True)
+    success = serializers.BooleanField()
+
+    class Meta:
+        ref_name = "ReportTemplateResponseSerializer"

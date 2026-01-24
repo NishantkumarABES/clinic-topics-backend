@@ -42,7 +42,7 @@ class EventSerializer(serializers.ModelSerializer):
 # Event Create / Update Serializer
 # ---------------------------
 
-class EventSpeakerSerializer(serializers.ModelSerializer):
+class EventSpeakerInputSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventSpeaker
         fields = ["name", "title", "bio", "image"]
@@ -120,4 +120,41 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
                 EventImage.objects.create(event=instance, image=img)
 
         return instance
+
+
+# ---------------------------
+# Response Serializers
+# ---------------------------
+
+class StandardResponseSerializer(serializers.Serializer):
+    """Standard response format for all API endpoints."""
+    detail = serializers.CharField(help_text="Response message")
+    data = serializers.JSONField(allow_null=True, required=False, help_text="Response payload")
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "EventsStandardResponseSerializer"
+
+
+class EventResponseSerializer(serializers.Serializer):
+    """Response for single event endpoints (create, retrieve, update)."""
+    detail = serializers.CharField(help_text="Response message")
+    data = EventSerializer(help_text="Event data")
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "EventsEventResponseSerializer"
+
+
+class EventListResponseSerializer(serializers.Serializer):
+    """Response for paginated event list endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    count = serializers.IntegerField(help_text="Total number of events")
+    next = serializers.CharField(allow_null=True, help_text="URL to next page")
+    previous = serializers.CharField(allow_null=True, help_text="URL to previous page")
+    results = EventSerializer(many=True, help_text="List of events")
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "EventsEventListResponseSerializer"
 

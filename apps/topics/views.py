@@ -92,8 +92,9 @@ class AdminTopicListCreateAPIView(APIView):
 
         return Response(
             {
-                "success": True,
-                "data": AdminTopicReadSerializer(topic).data
+                "detail": "Topic created successfully",
+                "data": AdminTopicReadSerializer(topic).data,
+                "success": True
             },
             status=status.HTTP_201_CREATED
         )
@@ -120,8 +121,9 @@ class AdminTopicUpdateAPIView(APIView):
 
         return Response(
             {
-                "success": True,
-                "data": AdminTopicReadSerializer(topic).data
+                "detail": "Topic updated successfully",
+                "data": AdminTopicReadSerializer(topic).data,
+                "success": True
             },
             status=status.HTTP_200_OK
         )
@@ -136,7 +138,7 @@ class AdminTopicUpdatePublishStatusAPIView(APIView):
         topic.save()
 
         return Response(
-            {"success": True, "message": "Publish status updated successfully."}
+            {"detail": "Publish status updated successfully", "data": None, "success": True}
         )
 
 class ExtractArticleDataView(generics.CreateAPIView):
@@ -159,10 +161,13 @@ class ExtractArticleDataView(generics.CreateAPIView):
             summary, title, image_paths = inshort_generator(url)
             return Response(
                 {
-                    "success": True,
-                    "title": title,
-                    "summary": summary,
-                    "images": image_paths,
+                    "detail": "Article data extracted successfully",
+                    "data": {
+                        "title": title,
+                        "summary": summary,
+                        "images": image_paths,
+                    },
+                    "success": True
                 },
                 status=status.HTTP_200_OK,
             )
@@ -170,8 +175,9 @@ class ExtractArticleDataView(generics.CreateAPIView):
         except Exception as exc:
             return Response(
                 {
-                    "success": False,
-                    "error": str(exc),
+                    "detail": str(exc),
+                    "data": None,
+                    "success": False
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -204,11 +210,14 @@ class CleanupUnwantedImages(APIView):
                 )
         return Response(
             {
-                "success": True,
-                "deleted_count": len(deleted),
-                "failed_count": len(failed),
-                "deleted": deleted,
-                "failed": failed,
+                "detail": "Cleanup completed",
+                "data": {
+                    "deleted_count": len(deleted),
+                    "failed_count": len(failed),
+                    "deleted": deleted,
+                    "failed": failed,
+                },
+                "success": True
             },
             status=status.HTTP_200_OK,
         )
@@ -420,20 +429,20 @@ class StartTranscriptionAPIView(APIView):
             result = start_transcription(topic_id)
             return Response(
                 {
-                    "success": True,
-                    "message": "Transcription started successfully",
-                    "data": result
+                    "detail": "Transcription started successfully",
+                    "data": result,
+                    "success": True
                 },
                 status=status.HTTP_200_OK
             )
         except ValueError as e:
             return Response(
-                {"success": False, "error": str(e)},
+                {"detail": str(e), "data": None, "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
             return Response(
-                {"success": False, "error": str(e)},
+                {"detail": str(e), "data": None, "success": False},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -452,19 +461,20 @@ class TranscriptionStatusAPIView(APIView):
             result = check_transcription_status(topic_id)
             return Response(
                 {
-                    "success": True,
-                    "data": result
+                    "detail": "Transcription status retrieved successfully",
+                    "data": result,
+                    "success": True
                 },
                 status=status.HTTP_200_OK
             )
         except ValueError as e:
             return Response(
-                {"success": False, "error": str(e)},
+                {"detail": str(e), "data": None, "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
         except Exception as e:
             return Response(
-                {"success": False, "error": str(e)},
+                {"detail": str(e), "data": None, "success": False},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -485,7 +495,7 @@ class DownloadTranscriptAPIView(APIView):
             
             if not hasattr(topic, 'transcription'):
                 return Response(
-                    {"success": False, "error": "No transcription exists for this topic"},
+                    {"detail": "No transcription exists for this topic", "data": None, "success": False},
                     status=status.HTTP_404_NOT_FOUND
                 )
             
@@ -493,7 +503,7 @@ class DownloadTranscriptAPIView(APIView):
             
             if not transcription.transcript_text:
                 return Response(
-                    {"success": False, "error": "Transcript text not available yet"},
+                    {"detail": "Transcript text not available yet", "data": None, "success": False},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
@@ -504,7 +514,7 @@ class DownloadTranscriptAPIView(APIView):
             
         except Exception as e:
             return Response(
-                {"success": False, "error": str(e)},
+                {"detail": str(e), "data": None, "success": False},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
@@ -525,7 +535,7 @@ class DownloadTranscriptSRTAPIView(APIView):
             
             if not hasattr(topic, 'transcription'):
                 return Response(
-                    {"success": False, "error": "No transcription exists for this topic"},
+                    {"detail": "No transcription exists for this topic", "data": None, "success": False},
                     status=status.HTTP_404_NOT_FOUND
                 )
             
@@ -533,7 +543,7 @@ class DownloadTranscriptSRTAPIView(APIView):
             
             if not transcription.transcript_srt:
                 return Response(
-                    {"success": False, "error": "Transcript SRT not available yet"},
+                    {"detail": "Transcript SRT not available yet", "data": None, "success": False},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
@@ -544,6 +554,6 @@ class DownloadTranscriptSRTAPIView(APIView):
             
         except Exception as e:
             return Response(
-                {"success": False, "error": str(e)},
+                {"detail": str(e), "data": None, "success": False},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

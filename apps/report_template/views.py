@@ -8,9 +8,12 @@ from drf_yasg.utils import swagger_auto_schema
 
 from apps.second_opinion.models import SecondOpinionDoctorRequest
 from apps.report_template.models import ReportTemplate
-from apps.report_template.serializers import ReportTemplateSerializer
+from apps.report_template.serializers import (
+    ReportTemplateSerializer, StandardResponseSerializer, ReportTemplateResponseSerializer
+)
 from apps.report_template.services import ReportPDFService, calculate_age
 from core.permissions import IsDoctor
+from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401, FORBIDDEN_403
 
 class ReportTemplateView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsDoctor]
@@ -23,12 +26,22 @@ class ReportTemplateView(APIView):
             return None
 
     # GET template
+    @swagger_auto_schema(
+        operation_summary="Get doctor's report template",
+        operation_description="Retrieve the report template for the authenticated doctor.",
+        tags=["Report Template"],
+        responses={
+            200: ReportTemplateResponseSerializer,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def get(self, request):
         template = self.get_object(request.user)
         if not template:
             return Response(
                 {
                     "detail": "Report template not created yet.",
+                    "data": None,
                     "success": False,
                 },
             )
@@ -42,44 +55,67 @@ class ReportTemplateView(APIView):
         )
 
     # POST create template
-    @swagger_auto_schema(request_body=ReportTemplateSerializer)
+    @swagger_auto_schema(
+        operation_summary="Create report template",
+        operation_description="Create a new report template for the authenticated doctor.",
+        tags=["Report Template"],
+        request_body=ReportTemplateSerializer,
+        responses={
+            201: ReportTemplateResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def post(self, request):
         existing = self.get_object(request.user)
         if existing:
             return Response(
                 {
                     "detail": "Template already exists. Use PATCH to update.",
+                    "data": None,
                     "success": False,
                 },
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         serializer = ReportTemplateSerializer(
             data=request.data,
             context={"request": request}
         )
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                {
-                    "detail": "Template created successfully.",
-                    "data": serializer.data,
-                    "success": True,
-                }
-            )
-
-        return Response(serializer.errors)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {
+                "detail": "Template created successfully.",
+                "data": serializer.data,
+                "success": True,
+            },
+            status=status.HTTP_201_CREATED
+        )
 
     # PATCH update template
-    @swagger_auto_schema(request_body=ReportTemplateSerializer)
+    @swagger_auto_schema(
+        operation_summary="Update report template",
+        operation_description="Update the report template for the authenticated doctor.",
+        tags=["Report Template"],
+        request_body=ReportTemplateSerializer,
+        responses={
+            200: ReportTemplateResponseSerializer,
+            400: BAD_REQUEST_400,
+            404: NOT_FOUND_404,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def patch(self, request):
         template = self.get_object(request.user)
         if not template:
             return Response(
                 {
                     "detail": "Template not found. Create it first.",
+                    "data": None,
                     "success": False,
                 },
+                status=status.HTTP_404_NOT_FOUND
             )
 
         serializer = ReportTemplateSerializer(
@@ -88,22 +124,35 @@ class ReportTemplateView(APIView):
             partial=True,
             context={"request": request}
         )
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(
-                {
-                    "detail": "Template updated successfully.", 
-                    "data": serializer.data,
-                    "success": True,
-                }
-            )
-
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {
+                "detail": "Template updated successfully.", 
+                "data": serializer.data,
+                "success": True,
+            }
+        )
 
 class GenerateSecondOpinionReportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="Generate second opinion report PDF",
+        operation_description=(
+            "Generate a PDF report for a completed second opinion request.\n\n"
+            "**Access:** Only the patient or the doctor involved can access this report.\n"
+            "**Requirement:** The second opinion request must be completed."
+        ),
+        tags=["Report Template"],
+        responses={
+            200: "PDF file download",
+            400: BAD_REQUEST_400,
+            403: FORBIDDEN_403,
+            404: NOT_FOUND_404,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def get(self, request, doctor_request_id):
         try:
             doctor_request = SecondOpinionDoctorRequest.objects.select_related(
@@ -117,7 +166,7 @@ class GenerateSecondOpinionReportView(APIView):
             )
         except SecondOpinionDoctorRequest.DoesNotExist:
             return Response(
-                {"detail": "Completed report not found"},
+                {"detail": "Completed report not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -127,7 +176,7 @@ class GenerateSecondOpinionReportView(APIView):
         # ---- Step 2: Authorization check ----
         if request.user != doctor and request.user != patient:
             return Response(
-                {"detail": "You are not allowed to access this report"},
+                {"detail": "You are not allowed to access this report", "data": None, "success": False},
                 status=status.HTTP_403_FORBIDDEN
             )
 
@@ -136,7 +185,7 @@ class GenerateSecondOpinionReportView(APIView):
             template = ReportTemplate.objects.get(doctor=doctor)
         except ReportTemplate.DoesNotExist:
             return Response(
-                {"detail": "Doctor report template not configured"},
+                {"detail": "Doctor report template not configured", "data": None, "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 

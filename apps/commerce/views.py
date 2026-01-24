@@ -14,6 +14,7 @@ from drf_yasg import openapi
 from decimal import Decimal
 
 from core.permissions import IsAdmin
+from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
 from apps.accounts.models import UserRole
 from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order, OrderItem, Payment
 from apps.commerce.models import PaymentStatus
@@ -23,7 +24,11 @@ from apps.commerce.serializers import (
     ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer,
     WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer,
     AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer, AdminCreateOrderSerializer,
-    CreatePaymentOrderSerializer, VerifyPaymentSerializer
+    CreatePaymentOrderSerializer, VerifyPaymentSerializer,
+    # Response serializers
+    StandardResponseSerializer, ProductDetailResponseSerializer, ProductReviewListResponseSerializer,
+    ProductReviewResponseSerializer, CartResponseSerializer, AddressListResponseSerializer,
+    AddressResponseSerializer, WishlistResponseSerializer, OrderDetailResponseSerializer
 )
 from apps.commerce.constants import OrderStatus
 from external.razorpay.service import razorpay_service
@@ -101,8 +106,8 @@ class ProductDetailView(APIView):
         operation_description="Get detailed information about a specific product including images, rating, and reviews count.",
         tags=["Commerce - Products"],
         responses={
-            200: ProductDetailSerializer(),
-            404: openapi.Response(description="Product not found")
+            200: ProductDetailResponseSerializer(),
+            404: NOT_FOUND_404
         }
     )
     def get(self, request, product_id):
@@ -110,12 +115,16 @@ class ProductDetailView(APIView):
             product = Product.objects.get(id=product_id)
         except Product.DoesNotExist:
             return Response(
-                {"detail": "Product not found"},
+                {"detail": "Product not found", "data": None, "success": False},
                 status=404
             )
 
         serializer = ProductDetailSerializer(product)
-        return Response(serializer.data)
+        return Response({
+            "detail": "Product retrieved successfully",
+            "data": serializer.data,
+            "success": True
+        })
 
 class ProductReviewListView(APIView):
     permission_classes = [AllowAny]
@@ -124,14 +133,15 @@ class ProductReviewListView(APIView):
         operation_id="list_product_reviews",
         operation_description="Get all reviews for a specific product, ordered by most recent first.",
         tags=["Commerce - Products"],
-        responses={200: ProductReviewSerializer(many=True)}
+        responses={200: ProductReviewListResponseSerializer()}
     )
     def get(self, request, product_id):
         reviews = ProductReview.objects.filter(product_id=product_id).order_by("-created_at")
         serializer = ProductReviewSerializer(reviews, many=True)
         return Response({
-            "success": True,
-            "data": serializer.data
+            "detail": "Reviews retrieved successfully",
+            "data": serializer.data,
+            "success": True
         })
 
 class CreateUpdateProductReviewView(APIView):
@@ -143,8 +153,8 @@ class CreateUpdateProductReviewView(APIView):
         tags=["Commerce - Products"],
         request_body=CreateUpdateReviewSerializer,
         responses={
-            200: ProductReviewSerializer,
-            400: openapi.Response(description="Validation error")
+            200: ProductReviewResponseSerializer(),
+            400: BAD_REQUEST_400
         }
     )
     def post(self, request):
@@ -155,8 +165,9 @@ class CreateUpdateProductReviewView(APIView):
         serializer.is_valid(raise_exception=True)
         review = serializer.save()
         return Response({
-            "success": True,
-            "data": ProductReviewSerializer(review).data
+            "detail": "Review saved successfully",
+            "data": ProductReviewSerializer(review).data,
+            "success": True
         })
 
 class ApplyCouponView(APIView):
@@ -168,8 +179,8 @@ class ApplyCouponView(APIView):
         tags=["Commerce - Cart"],
         request_body=ApplyCouponSerializer,
         responses={
-            200: openapi.Response(description="Coupon applied successfully"),
-            400: openapi.Response(description="Invalid or ineligible coupon")
+            200: StandardResponseSerializer(),
+            400: BAD_REQUEST_400
         }
     )
     def post(self, request):
@@ -180,7 +191,7 @@ class ApplyCouponView(APIView):
         try:
             coupon = Coupon.objects.get(code__iexact=code)
         except Coupon.DoesNotExist:
-            return Response({"success": False, "detail": "Invalid coupon"}, status=400)
+            return Response({"detail": "Invalid coupon", "data": None, "success": False}, status=400)
 
         # Get cart
         cart, _ = Cart.objects.get_or_create(user=request.user)
@@ -195,7 +206,7 @@ class ApplyCouponView(APIView):
         # Use model validation
         if not coupon.is_valid(cart_total=total):
             return Response(
-                {"success": False, "detail": "Coupon is not valid for this cart"},
+                {"detail": "Coupon is not valid for this cart", "data": None, "success": False},
                 status=400
             )
 
@@ -204,8 +215,9 @@ class ApplyCouponView(APIView):
         cart.save(update_fields=["coupon"])
 
         return Response({
-            "success": True,
-            "message": "Coupon applied successfully"
+            "detail": "Coupon applied successfully",
+            "data": None,
+            "success": True
         })
 
 class RemoveCouponView(APIView):
@@ -215,15 +227,16 @@ class RemoveCouponView(APIView):
         operation_id="remove_coupon",
         operation_description="Remove any applied coupon from the user's cart.",
         tags=["Commerce - Cart"],
-        responses={200: openapi.Response(description="Coupon removed successfully")}
+        responses={200: StandardResponseSerializer()}
     )
     def delete(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         cart.coupon = None
         cart.save(update_fields=["coupon"])
         return Response({
-            "success": True,
-            "message": "Coupon removed"
+            "detail": "Coupon removed",
+            "data": None,
+            "success": True
         })
 
 class CartDetailView(APIView):
@@ -233,12 +246,16 @@ class CartDetailView(APIView):
         operation_id="get_cart",
         operation_description="Get the current user's cart with all items, applied coupon, and calculated totals including discounts.",
         tags=["Commerce - Cart"],
-        responses={200: CartSerializer()}
+        responses={200: CartResponseSerializer()}
     )
     def get(self, request):
         cart, _ = Cart.objects.get_or_create(user=request.user)
         serializer = CartSerializer(cart)
-        return Response(serializer.data)
+        return Response({
+            "detail": "Cart retrieved successfully",
+            "data": serializer.data,
+            "success": True
+        })
 
 class AddToCartView(APIView):
     permission_classes = [IsAuthenticated]
@@ -250,8 +267,8 @@ class AddToCartView(APIView):
         tags=["Commerce - Cart"],
         request_body=AddToCartSerializer(),
         responses={
-            201: openapi.Response(description="Item added to cart"),
-            400: openapi.Response(description="Invalid product")
+            201: StandardResponseSerializer(),
+            400: BAD_REQUEST_400
         }
     )
     def post(self, request):
@@ -272,7 +289,7 @@ class AddToCartView(APIView):
             item.quantity += quantity
             item.save(update_fields=["quantity"])
 
-        return Response({"message": "Item added to cart", "success" : True}, status=201)
+        return Response({"detail": "Item added to cart", "data": None, "success": True}, status=201)
 
 class UpdateCartItemView(APIView):
     permission_classes = [IsAuthenticated]
@@ -289,15 +306,15 @@ class UpdateCartItemView(APIView):
             }
         ),
         responses={
-            200: openapi.Response(description="Cart updated"),
-            404: openapi.Response(description="Item not found")
+            200: StandardResponseSerializer(),
+            404: NOT_FOUND_404
         }
     )
     def patch(self, request, item_id):
         try:
             item = CartItem.objects.get(id=item_id, cart__user=request.user)
         except CartItem.DoesNotExist:
-            return Response({"detail": "Item not found"}, status=404)
+            return Response({"detail": "Item not found", "data": None, "success": False}, status=404)
 
         quantity = request.data.get("quantity")
         saved_for_later = request.data.get("saved_for_later")
@@ -305,14 +322,14 @@ class UpdateCartItemView(APIView):
         if quantity is not None:
             if quantity <= 0:
                 item.delete()
-                return Response({"message": "Item removed"})
+                return Response({"detail": "Item removed", "data": None, "success": True})
             item.quantity = quantity
 
         if saved_for_later is not None:
             item.saved_for_later = saved_for_later
 
         item.save()
-        return Response({"message": "Cart updated", "success" : True})
+        return Response({"detail": "Cart updated", "data": None, "success": True})
 
 class RemoveCartItemView(APIView):
     permission_classes = [IsAuthenticated]
@@ -321,13 +338,13 @@ class RemoveCartItemView(APIView):
         operation_id="remove_cart_item",
         operation_description="Remove an item from the cart.",
         tags=["Commerce - Cart"],
-        responses={200: openapi.Response(description="Item removed from cart")}
+        responses={200: StandardResponseSerializer()}
     )
     def delete(self, request, item_id):
         CartItem.objects.filter(
             id=item_id, cart__user=request.user
         ).delete()
-        return Response({"message": "Item removed", "success" : True})
+        return Response({"detail": "Item removed", "data": None, "success": True})
 
 class AddressListCreateView(APIView):
     permission_classes = [IsAuthenticated]
@@ -336,7 +353,7 @@ class AddressListCreateView(APIView):
         operation_id="list_addresses",
         operation_description="List all addresses for the current user, ordered by default status and creation date.",
         tags=["Commerce - Address"],
-        responses={200: AddressSerializer(many=True)}
+        responses={200: AddressListResponseSerializer()}
     )
     def get(self, request):
         addresses = Address.objects.filter(
@@ -344,8 +361,9 @@ class AddressListCreateView(APIView):
         ).order_by("-is_default", "-created_at")
         serializer = AddressSerializer(addresses, many=True)
         return Response({
-            "success": True,
-            "data": serializer.data
+            "detail": "Addresses retrieved successfully",
+            "data": serializer.data,
+            "success": True
         })
     
     @swagger_auto_schema(
@@ -354,8 +372,8 @@ class AddressListCreateView(APIView):
         tags=["Commerce - Address"],
         request_body=AddressCreateSerializer,
         responses={
-            201: AddressSerializer,
-            400: openapi.Response(description="Duplicate address or validation error")
+            201: AddressResponseSerializer(),
+            400: BAD_REQUEST_400
         }
     )
     def post(self, request):
@@ -377,16 +395,18 @@ class AddressListCreateView(APIView):
         except IntegrityError:
             return Response(
                 {
-                    "success": False,
-                    "detail": "This address already exists."
+                    "detail": "This address already exists.",
+                    "data": None,
+                    "success": False
                 },
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         return Response(
             {
-                "success": True,
-                "data": AddressSerializer(address).data
+                "detail": "Address created successfully",
+                "data": AddressSerializer(address).data,
+                "success": True
             },
             status=status.HTTP_201_CREATED
         )
@@ -399,21 +419,21 @@ class AddressDetailView(APIView):
         operation_description="Get details of a specific address.",
         tags=["Commerce - Address"],
         responses={
-            200: AddressSerializer(),
-            404: openapi.Response(description="Address not found")
+            200: AddressResponseSerializer(),
+            404: NOT_FOUND_404
         }
     )
     def get(self, request, address_id):
         try:
             address = Address.objects.get(id=address_id, user=request.user)
         except Address.DoesNotExist:
-            return Response({"detail": "Address not found"}, status=404)
+            return Response({"detail": "Address not found", "data": None, "success": False}, status=404)
 
         serializer = AddressSerializer(address)
-        serializer.data["success"] = True
         return Response({
-            "success": True,
-            "data": serializer.data
+            "detail": "Address retrieved successfully",
+            "data": serializer.data,
+            "success": True
         })
 
     @swagger_auto_schema(
@@ -422,15 +442,15 @@ class AddressDetailView(APIView):
         tags=["Commerce - Address"],
         request_body=AddressUpdateSerializer,
         responses={
-            200: AddressSerializer,
-            404: openapi.Response(description="Address not found")
+            200: AddressResponseSerializer(),
+            404: NOT_FOUND_404
         }
     )
     def patch(self, request, address_id):
         try:
             address = Address.objects.get(id=address_id, user=request.user)
         except Address.DoesNotExist:
-            return Response({"detail": "Address not found"}, status=404)
+            return Response({"detail": "Address not found", "data": None, "success": False}, status=404)
 
         serializer = AddressUpdateSerializer(
             address,
@@ -448,8 +468,9 @@ class AddressDetailView(APIView):
 
         address = serializer.save()
         return Response({
-            "success": True,
-            "data": AddressSerializer(address).data
+            "detail": "Address updated successfully",
+            "data": AddressSerializer(address).data,
+            "success": True
         })
 
     @swagger_auto_schema(
@@ -457,8 +478,8 @@ class AddressDetailView(APIView):
         operation_description="Delete a delivery address.",
         tags=["Commerce - Address"],
         responses={
-            200: openapi.Response(description="Address deleted successfully"),
-            404: openapi.Response(description="Address not found")
+            200: StandardResponseSerializer(),
+            404: NOT_FOUND_404
         }
     )
     def delete(self, request, address_id):
@@ -469,12 +490,12 @@ class AddressDetailView(APIView):
 
         if deleted_count == 0:
             return Response(
-                {"detail": "Address not found"},
+                {"detail": "Address not found", "data": None, "success": False},
                 status=status.HTTP_404_NOT_FOUND
             )
 
         return Response(
-            {"success": True},
+            {"detail": "Address deleted successfully", "data": None, "success": True},
             status=status.HTTP_200_OK
         )
 
@@ -487,12 +508,16 @@ class WishlistDetailView(APIView):
         operation_id="get_wishlist",
         operation_description="Get the current user's wishlist with all saved products.",
         tags=["Commerce - Wishlist"],
-        responses={200: WishlistSerializer()}
+        responses={200: WishlistResponseSerializer()}
     )
     def get(self, request):
         wishlist, _ = Wishlist.objects.get_or_create(user=request.user)
         serializer = WishlistSerializer(wishlist)
-        return Response({"success": True, "data": serializer.data})
+        return Response({
+            "detail": "Wishlist retrieved successfully",
+            "data": serializer.data,
+            "success": True
+        })
 
 # Add Item to Wishlist
 class AddToWishlistView(APIView):
@@ -504,8 +529,8 @@ class AddToWishlistView(APIView):
         tags=["Commerce - Wishlist"],
         request_body=AddToWishlistSerializer,
         responses={
-            201: openapi.Response(description="Product added to wishlist"),
-            400: openapi.Response(description="Product already in wishlist or invalid product")
+            201: StandardResponseSerializer(),
+            400: BAD_REQUEST_400
         }
     )
     def post(self, request):
@@ -522,12 +547,12 @@ class AddToWishlistView(APIView):
 
         if not created:
             return Response(
-                {"success": False, "detail": "Product already in wishlist"},
+                {"detail": "Product already in wishlist", "data": None, "success": False},
                 status=400
             )
 
         return Response(
-            {"success": True, "message": "Added to wishlist"},
+            {"detail": "Added to wishlist", "data": None, "success": True},
             status=201
         )
 
@@ -540,8 +565,8 @@ class RemoveFromWishlistView(APIView):
         operation_description="Remove a product from the wishlist.",
         tags=["Commerce - Wishlist"],
         responses={
-            200: openapi.Response(description="Product removed from wishlist"),
-            404: openapi.Response(description="Item not found")
+            200: StandardResponseSerializer(),
+            404: NOT_FOUND_404
         }
     )
     def delete(self, request, item_id):
@@ -551,9 +576,9 @@ class RemoveFromWishlistView(APIView):
         ).delete()
 
         if not deleted:
-            return Response({"detail": "Item not found"}, status=404)
+            return Response({"detail": "Item not found", "data": None, "success": False}, status=404)
 
-        return Response({"success": True, "message": "Removed from wishlist"})
+        return Response({"detail": "Removed from wishlist", "data": None, "success": True})
 
 class OrderHistoryPagination(PageNumberPagination):
     page_size = 5
@@ -584,6 +609,7 @@ class OrderHistoryView(APIView):
 
         serializer = OrderHistorySerializer(paginated_orders, many=True)
         response_data = paginator.get_paginated_response(serializer.data).data
+        response_data["detail"] = "Orders retrieved successfully"
         response_data["success"] = True
         return Response(response_data)
 
@@ -595,18 +621,22 @@ class OrderDetailView(APIView):
         operation_description="Get detailed information about a specific order including items and address.",
         tags=["Commerce - Orders"],
         responses={
-            200: OrderHistorySerializer(),
-            404: openapi.Response(description="Order not found")
+            200: OrderDetailResponseSerializer(),
+            404: NOT_FOUND_404
         }
     )
     def get(self, request, order_id):
         try:
             order = Order.objects.get(id=order_id, user=request.user)
         except Order.DoesNotExist:
-            return Response({"detail": "Order not found"}, status=404)
+            return Response({"detail": "Order not found", "data": None, "success": False}, status=404)
 
         serializer = OrderHistorySerializer(order)
-        return Response({"success": True, "data": serializer.data})
+        return Response({
+            "detail": "Order retrieved successfully",
+            "data": serializer.data,
+            "success": True
+        })
 
 
 #### ADMIN APIS FOR PRODUCTS ####
@@ -1108,8 +1138,7 @@ class CreatePaymentOrderView(APIView):
             cart.save(update_fields=["coupon"])
 
         return Response({
-            "success": True,
-            "message": "Payment order created",
+            "detail": "Payment order created",
             "data": {
                 "order_id": str(order.id),
                 "razorpay_order_id": razorpay_order["id"],
@@ -1120,7 +1149,8 @@ class CreatePaymentOrderView(APIView):
                     "name": user.full_name,
                     "email": user.email,
                 }
-            }
+            },
+            "success": True
         }, status=status.HTTP_201_CREATED)
 
 class VerifyPaymentView(APIView):
@@ -1222,13 +1252,13 @@ class VerifyPaymentView(APIView):
                 order.coupon.save(update_fields=["current_uses"])
 
         return Response({
-            "success": True,
-            "message": "Payment verified successfully",
+            "detail": "Payment verified successfully",
             "data": {
                 "order_id": str(order.id),
                 "payment_id": str(payment.id),
                 "status": order.status
-            }
+            },
+            "success": True
         })
 
 class PaymentWebhookView(APIView):
@@ -1307,4 +1337,4 @@ class PaymentWebhookView(APIView):
             order.status = OrderStatus.REFUNDED
             order.save()
 
-        return Response({"success": True, "message": "Webhook processed"})
+        return Response({"detail": "Webhook processed", "data": None, "success": True})

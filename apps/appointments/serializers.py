@@ -94,3 +94,55 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
 
     def get_total_ratings(self, obj):
         return obj.user.ratings_received.aggregate(cnt=Count("id"))["cnt"]
+
+
+#########################   Response Serializers    #########################
+
+class StandardResponseSerializer(serializers.Serializer):
+    """Standard response format for all endpoints."""
+    detail = serializers.CharField(help_text="Response message")
+    data = serializers.JSONField(allow_null=True, required=False, help_text="Response data")
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "AppointmentsStandardResponseSerializer"
+
+
+class PaginationMetaSerializer(serializers.Serializer):
+    """Pagination metadata for list responses."""
+    count = serializers.IntegerField(help_text="Total number of items")
+    next = serializers.CharField(allow_null=True, help_text="URL for next page")
+    previous = serializers.CharField(allow_null=True, help_text="URL for previous page")
+
+
+class DoctorListDataSerializer(serializers.Serializer):
+    """Data structure for paginated doctor list."""
+    doctors = DoctorListSerializer(many=True)
+
+
+class DoctorListResponseSerializer(serializers.Serializer):
+    """Response for doctor list endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = DoctorListDataSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+    count = serializers.IntegerField(help_text="Total number of items")
+    next = serializers.CharField(allow_null=True, help_text="URL for next page")
+    previous = serializers.CharField(allow_null=True, help_text="URL for previous page")
+
+    class Meta:
+        ref_name = "AppointmentsDoctorListResponseSerializer"
+
+
+class DoctorDetailDataSerializer(serializers.Serializer):
+    """Data structure for doctor detail response."""
+    doctor = DoctorDetailSerializer()
+
+
+class DoctorDetailResponseSerializer(serializers.Serializer):
+    """Response for doctor detail endpoint."""
+    detail = serializers.CharField(help_text="Response message")
+    data = DoctorDetailDataSerializer()
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "AppointmentsDoctorDetailResponseSerializer"
