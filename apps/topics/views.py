@@ -58,6 +58,8 @@ class AdminTopicListCreateAPIView(APIView):
     )
     def get(self, request):
         search_term = request.query_params.get("search")
+        publish_status = request.query_params.get("status")
+        
 
         queryset = Topic.objects.all()
 
@@ -66,6 +68,10 @@ class AdminTopicListCreateAPIView(APIView):
                 Q(title__icontains=search_term) |
                 Q(description__icontains=search_term)
             )
+
+        if publish_status:
+            queryset = queryset.filter(publish_status=(publish_status=='publish'))
+
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(
