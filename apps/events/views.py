@@ -3,16 +3,14 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
-from rest_framework import generics, filters
 from drf_yasg.utils import swagger_auto_schema
 from django.db.models import Q
 
 from apps.events.models import Event
 from apps.events.serializers import (
-    EventSerializer, EventCreateUpdateSerializer, StandardResponseSerializer
-    EventResponseSerializer, EventListResponseSerializer, 
+    EventSerializer, EventCreateUpdateSerializer, EventResponseSerializer, EventListResponseSerializer, 
 )
-from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, SUCCESS_200, SUCCESS_201
+from core.api_responses import NOT_FOUND_404
 
 
 
