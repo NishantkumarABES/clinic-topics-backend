@@ -616,27 +616,24 @@ class AdminUserListView(APIView):
     def get(self, request, role):
         if role not in [UserRole.PATIENT, UserRole.DOCTOR]:
             return Response(
-                {
-                    "detail": "Invalid role. Must be 'patient' or 'doctor'",
-                    "success": False
-                },
+                {"detail": "Invalid role. Must be 'patient' or 'doctor'", "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        search_term = request.query_params.get("search", None)
-        speciality = request.query_params.get("speciality", None)
-        status_filter = request.query_params.get("status", None)
-        by_admin = request.query_params.get("by_admin", False)
+        search_term = request.query_params.get("search")
+        speciality = request.query_params.get("speciality")
+        status_filter = request.query_params.get("status")
+        by_admin = request.query_params.get("by_admin")
         ordering = request.query_params.get("ordering", "-created_at")
 
         users = User.objects.filter(role=role)
 
-        # Optimize query for doctors to include doctor_profile
+        # Efficient join
         if role == UserRole.DOCTOR:
-            users = users.select_related('doctor_profile')
-        
-        if by_admin and UserRole.DOCTOR:
-            users = users.filter(by_admin=(by_admin=='true'))
+            users = users.select_related("doctor_profile")
+
+        if by_admin is not None and role == UserRole.DOCTOR:
+            users = users.filter(by_admin=(by_admin.lower() == "true"))
 
         if search_term:
             users = users.filter(
@@ -644,27 +641,31 @@ class AdminUserListView(APIView):
                 Q(email__icontains=search_term) |
                 Q(phone__icontains=search_term)
             )
-        
-        if speciality:
-            users = users.filter(doctor_profile__specialization__icontains=speciality)
 
-        if status_filter and status_filter not in ["active", "inactive"]:
-            return Response(
-                {
-                    "detail": "Invalid status. Must be 'active' or 'inactive'",
-                    "success": False
-                },
-                status=status.HTTP_400_BAD_REQUEST
+        if speciality and role == UserRole.DOCTOR:
+            users = users.filter(
+                doctor_profile__specialization__icontains=speciality
             )
+
         if status_filter:
-            users = users.filter(is_active=(status_filter=="active"))
-        
+            if status_filter not in ["active", "inactive"]:
+                return Response(
+                    {"detail": "Invalid status. Must be 'active' or 'inactive'", "success": False},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            users = users.filter(is_active=(status_filter == "active"))
+
         users = users.order_by(ordering)
+
         paginator = self.pagination_class()
         paginated_users = paginator.paginate_queryset(users, request)
+
         serializer = UserListSerializer(paginated_users, many=True)
+
         response_data = paginator.get_paginated_response(serializer.data).data
-        response_data['success'] = True
+        response_data["success"] = True
+        response_data["detail"] = "User list fetched successfully"
+
         return Response(response_data)
 
 class AdminAllUserListView(APIView):

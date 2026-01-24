@@ -353,42 +353,53 @@ class UserMeSerializer(serializers.ModelSerializer):
             return hasattr(obj, "patient_profile")
         return False
 
+class DoctorProfileListSerializer(serializers.ModelSerializer):
+    average_rating = serializers.SerializerMethodField()
+
+    class Meta:
+        model = DoctorProfile
+        fields = [
+            "credentials",
+            "specialization",
+            "years_of_experience",
+            "license_number",
+            "medical_council",
+            "clinic_name",
+            "clinic_address",
+            "clinic_location",
+            "consultation_fee",
+            "premium_online_fee",
+            "consultation_duration_minutes",
+            "bio",
+            "profile_photo",
+            "average_rating",
+        ]
+
+    def get_average_rating(self, obj):
+        return obj.average_rating()
+
 class UserListSerializer(serializers.ModelSerializer):
-    license_number = serializers.SerializerMethodField()
-    clinic_address = serializers.SerializerMethodField()
-    specialization = serializers.SerializerMethodField()
-    years_of_experience = serializers.SerializerMethodField()
+    doctor_profile = DoctorProfileListSerializer(read_only=True)
 
     class Meta:
         model = User
         fields = [
             "id", "email", "phone", "country_code",
-            "full_name", "date_of_birth", "gender", "state", "is_email_verified",
-            "is_phone_verified", "is_active", "created_at", "updated_at",
-            "license_number", "clinic_address",
-            "specialization", "years_of_experience",
+            "full_name", "date_of_birth", "gender",
+            "state", "is_email_verified", "is_phone_verified",
+            "is_active", "created_at", "updated_at",
+            "doctor_profile",
         ]
         read_only_fields = fields
 
-    def get_license_number(self, obj):
-        if obj.role == UserRole.DOCTOR and hasattr(obj, 'doctor_profile'):
-            return obj.doctor_profile.license_number
-        return None
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
 
-    def get_clinic_address(self, obj):
-        if obj.role == UserRole.DOCTOR and hasattr(obj, 'doctor_profile'):
-            return obj.doctor_profile.clinic_address
-        return None
+        # Hide doctor_profile if user is not a doctor
+        if instance.role != UserRole.DOCTOR:
+            data.pop("doctor_profile", None)
 
-    def get_specialization(self, obj):
-        if obj.role == UserRole.DOCTOR and hasattr(obj, 'doctor_profile'):
-            return obj.doctor_profile.specialization
-        return None
-
-    def get_years_of_experience(self, obj):
-        if obj.role == UserRole.DOCTOR and hasattr(obj, 'doctor_profile'):
-            return obj.doctor_profile.years_of_experience
-        return None
+        return data
 
 class UserUpdateSerializer(serializers.ModelSerializer):
     # Doctor profile fields (optional, only for doctors)
@@ -460,7 +471,6 @@ class StandardResponseSerializer(serializers.Serializer):
 
     class Meta:
         ref_name = "AccountsStandardResponseSerializer"
-
 
 class OTPDataSerializer(serializers.Serializer):
     """Data returned in OTP responses (debug mode only)."""
@@ -559,8 +569,6 @@ class UserDeviceRegisterSerializer(serializers.Serializer):
             }
         )
         return device
-
-
 
 class TokenRefreshRequestSerializer(serializers.Serializer):
     refresh = serializers.CharField()
