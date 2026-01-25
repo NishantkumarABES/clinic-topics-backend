@@ -78,7 +78,19 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
             "speakers",
             "images",
         ]
+        
+    def validate(self, data):
+        start_time = data.get("start_time")
+        end_time = data.get("end_time")
 
+        # ---- Time validation ----
+        if start_time and end_time and start_time > end_time:
+            raise serializers.ValidationError({
+                "end_time": "Event end time must be later than or equal to start time."
+            })
+
+        return data
+    
     def validate_speakers(self, value):
         try:
             data = json.loads(value)

@@ -102,16 +102,18 @@ class AdvertisementCreateView(APIView):
             return Response(
                 {
                     "success": True,
-                    "message": "Advertisement created successfully",
+                    "detail": "Advertisement created successfully",
                     "data": serializer.data
                 },
                 status=status.HTTP_201_CREATED
             )
+        field, errors = next(iter(serializer.errors.items()))
+        first_error = f"{field}: {errors[0]}"
         return Response(
             {
                 "success": False,
-                "message": "Failed to create advertisement",
-                "errors": serializer.errors
+                "detail": first_error,
+                "data": None 
             },
             status=status.HTTP_400_BAD_REQUEST
         )
