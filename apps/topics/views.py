@@ -396,10 +396,13 @@ class TopicsFeedView(APIView):
 
         # Build response
         response_data = paginator.get_paginated_response(feed_items).data
-        response_data['success'] = True
         response_data['ad_interval'] = ad_interval
 
-        return Response(response_data, status=status.HTTP_200_OK)
+        return Response({
+            "detail": "Topics feed retrieved successfully",
+            "data": response_data,
+            "success": True
+        })
 
 
 #########  TRANSCRIPTION APIs ######################

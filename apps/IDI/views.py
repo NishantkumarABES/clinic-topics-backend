@@ -9,9 +9,9 @@ from drf_yasg.utils import swagger_auto_schema
 from apps.IDI.models import IDI
 from apps.IDI.serializers import (
     IDIReadSerializer, IDIWriteSerializer, AdminIDIListPagination,
-    IDIDataResponseSerializer, IDIListDataSerializer, StandardResponseSerializer
+    IDIDataResponseSerializer, IDIListDataSerializer
 )
-from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404
+from core.api_responses import NOT_FOUND_404
 
 
 class AdminIDIListCreateAPIView(APIView):
@@ -131,9 +131,13 @@ class IDIListAPIView(APIView):
 
         serializer = IDIReadSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
-        response.data["success"] = True
-        response.data["detail"] = "IDI list retrieved successfully"
-        return response
+        return Response(
+            {
+                "detail" : "IDI list retrieved successfully",
+                "data" : response.data,
+                "success" : True
+            }
+        )
 
 class IDIDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
