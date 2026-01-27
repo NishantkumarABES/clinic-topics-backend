@@ -11,6 +11,7 @@ class UserRole:
     
 class UserState:
     CREATED = "created"
+    INACTIVE = "inactive"
     ACTIVE = "active"
     SUSPENDED = "suspended"
     DEACTIVATED = "deactivated"
@@ -18,6 +19,7 @@ class UserState:
 
     CHOICES = (
         (CREATED, "Created"),
+        (INACTIVE, "Inactive"),
         (ACTIVE, "Active"),
         (SUSPENDED, "Suspended"),
         (DEACTIVATED, "Deactivated"),

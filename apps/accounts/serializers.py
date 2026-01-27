@@ -142,10 +142,11 @@ class RegisterSerializer(serializers.Serializer):
         user = User.objects.create_user(
             email=validated_data["email"],
             phone=validated_data["phone"],
+            country_code=validated_data["country_code"],
             password=password,
             full_name=validated_data["full_name"],
             role=role,
-            state=UserState.CREATED,
+            state=UserState.CREATED if not(is_admin_creating_doctor) else UserState.INACTIVE,
             terms_accepted=validated_data["terms_accepted"],
             terms_accepted_at=timezone.now(),
             terms_version="1.0.0",
