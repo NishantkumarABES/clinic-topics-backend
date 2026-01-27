@@ -278,17 +278,11 @@ class EmailLoginSerializer(serializers.Serializer):
 
         # Manually verify password (works even if user.is_active=False)
         if not user.check_password(password):
-            return {
-                "detail": "Invalid email or password",
-                "data": None,
-                "success": False
-            }
+            raise ValidationError("Invalid email or password")
+ 
         if not user.can_authenticate():
-            return {
-                "detail": "User account is inactive",
-                "data": None,
-                "success": False
-            }
+            raise ValidationError("User account is inactive")
+            
         # If admin-created doctor logging in first time → activate
         if user.by_admin and not user.is_active:
             user.is_active = True
