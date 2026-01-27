@@ -1,8 +1,8 @@
+import uuid
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.contrib.auth.base_user import BaseUserManager
 from django.core.exceptions import ValidationError
-from django.db import transaction
-from django.db import models
+from django.db import transaction, models
 from django.db.models import Q, Index
 from django.utils import timezone
 
@@ -54,6 +54,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
     username = None
 
     # Identity
+    username = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     email = models.EmailField(db_index=True)
     phone = models.CharField(max_length=15, db_index=True)
     country_code = models.CharField(max_length=5, default="+91")
@@ -88,8 +89,8 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
     is_phone_verified = models.BooleanField(default=False)
     by_admin = models.BooleanField(default=False)
 
-    USERNAME_FIELD = "email"
-    REQUIRED_FIELDS = []
+    USERNAME_FIELD = "username"
+    REQUIRED_FIELDS = ["email"]
 
     objects = UserManager()
 
