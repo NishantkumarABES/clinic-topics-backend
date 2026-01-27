@@ -609,9 +609,11 @@ class OrderHistoryView(APIView):
 
         serializer = OrderHistorySerializer(paginated_orders, many=True)
         response_data = paginator.get_paginated_response(serializer.data).data
-        response_data["detail"] = "Orders retrieved successfully"
-        response_data["success"] = True
-        return Response(response_data)
+        return Response({
+            "detail": "Orders retrieved successfully",
+            "data": response_data,
+            "success": True
+        })
 
 class OrderDetailView(APIView):
     permission_classes = [IsAuthenticated]

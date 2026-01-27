@@ -14,7 +14,6 @@ from config.settings import OTP_EXPIRY_MINUTES
 
 def assert_identity_available(email=None, phone=None):
     qs = User.objects.exclude(state=UserState.DELETED)
-
     if email and qs.filter(email=email).exists():
         raise ValidationError("Email already linked to another account")
 

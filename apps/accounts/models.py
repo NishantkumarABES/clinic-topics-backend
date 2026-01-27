@@ -54,8 +54,8 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
     username = None
 
     # Identity
-    email = models.EmailField(unique=True)
-    phone = models.CharField(max_length=15, unique=True)
+    email = models.EmailField(db_index=True)
+    phone = models.CharField(max_length=15, db_index=True)
     country_code = models.CharField(max_length=5, default="+91")
     full_name = models.CharField(max_length=255)
     is_staff = models.BooleanField(default=False)
@@ -109,6 +109,12 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.full_name} ({self.role})"
+    
+    class Meta:
+        indexes = [
+            models.Index(fields=["email", "state"]),
+            models.Index(fields=["phone", "state"]),
+        ]
 
 class UserDevice(TimeStampedUUIDModel):
     user = models.ForeignKey(

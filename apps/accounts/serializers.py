@@ -8,7 +8,7 @@ from rest_framework.exceptions import ValidationError
 from apps.accounts.services import normalize_phone
 from apps.accounts.models import User, PasswordResetToken, EmailOTP, AuthProvider, UserDevice
 from apps.accounts.constants import UserState, UserRole, UserState, DeviceType
-from apps.accounts.services import send_doctor_invitation_email
+from apps.accounts.services import send_doctor_invitation_email, assert_identity_available
 from apps.accounts.social_providers import social_provider_verification
 from apps.profiles.models import DoctorProfile
 
@@ -106,12 +106,8 @@ class RegisterSerializer(serializers.Serializer):
             raise ValidationError("Email or phone must be verified")
 
         # ---- Unique constraints ----
-        if User.objects.filter(email=data["email"]).exists():
-            raise ValidationError({"email": "Email already registered"})
-
-        if User.objects.filter(phone=data["phone"]).exists():
-            raise ValidationError({"phone": "Phone already registered"})
-
+        assert_identity_available(email=data["email"], phone=data["phone"])
+        
         # ---- Doctor-specific validation ----
         if role == UserRole.DOCTOR:
             required = ["specialization", "license_number", "years_of_experience"]
