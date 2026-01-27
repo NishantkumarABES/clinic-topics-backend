@@ -48,11 +48,7 @@ class AdminIDIListCreateAPIView(APIView):
 
         serializer = IDIReadSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data)
-        return Response({
-            "detail": "IDI list retrieved successfully",
-            "data": response.data,
-            "success": True
-        })
+        return Response(response.data)
 
     @swagger_auto_schema(auto_schema=None)
     def post(self, request):

@@ -33,8 +33,6 @@ class TopicDetailSerializer(serializers.ModelSerializer):
             "publishing_time",
         ]
 
-
-
 class AdminTopicReadSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(
         source="author.full_name",
@@ -71,23 +69,38 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
             return TopicTranscriptionSerializer(obj.transcription).data
         return None
 
-
 class AdminTopicWriteSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(required=False, write_only=True)
+
     class Meta:
         model = Topic
         fields = [
             "title",
             "description",
-            "image",
+            "image",          # uploaded file
             "source_url",
             "publishing_time",
         ]
 
     def create(self, validated_data):
         request = self.context.get("request")
+        uploaded_image = validated_data.pop("image", None)
+
+        # attach author
         if request and request.user.is_authenticated:
             validated_data["author"] = request.user
-        return super().create(validated_data)
+        topic = Topic.objects.create(**validated_data)
+        if uploaded_image:
+            result = CloudinaryService.upload_image(
+                content=uploaded_image,
+                folder="topics",
+                public_id=f"topic_{topic.id}"
+            )
+
+            topic.image = result["secure_url"]
+            topic.save(update_fields=["image"])
+
+        return topic
 
 class ArticleExtractionSerializer(serializers.Serializer):
     url = serializers.URLField()
@@ -154,7 +167,6 @@ class AdvertisementFeedItemSerializer(serializers.Serializer):
 
     def get_type(self, obj):
         return "advertisement"
-
 
 class TopicTranscriptionSerializer(serializers.ModelSerializer):
     """Serializer for transcription data"""
