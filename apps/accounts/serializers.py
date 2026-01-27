@@ -270,13 +270,25 @@ class EmailLoginSerializer(serializers.Serializer):
         user = User.objects.filter(email=email).first()
 
         if not user:
-            raise serializers.ValidationError("Invalid email or password")
+            return {
+                "detail":  "Invalid email or password",
+                "data": None,
+                "success": False
+            }
 
         # Manually verify password (works even if user.is_active=False)
         if not user.check_password(password):
-            raise serializers.ValidationError("Invalid email or password")
+            return {
+                "detail": "Invalid email or password",
+                "data": None,
+                "success": False
+            }
         if not user.can_authenticate():
-            raise serializers.ValidationError("User account is not active")
+            return {
+                "detail": "User account is inactive",
+                "data": None,
+                "success": False
+            }
         # If admin-created doctor logging in first time → activate
         if user.by_admin and not user.is_active:
             user.is_active = True

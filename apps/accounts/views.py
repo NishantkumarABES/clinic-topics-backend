@@ -609,6 +609,15 @@ class AdminUserListPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+ordering_column_map = {
+    "specialization" : "doctor_profile__specialization",
+    "-specialization" : "-doctor_profile__specialization",
+    "years_of_experience" : "doctor_profile__years_of_experience",
+    "-years_of_experience" : "-doctor_profile__years_of_experience",
+    "license_number" : "doctor_profile__license_number",
+    "-license_number" : "-doctor_profile__license_number",
+}
+
 class AdminUserListView(APIView):
     permission_classes = [IsAdmin]
     pagination_class = AdminUserListPagination
@@ -656,7 +665,7 @@ class AdminUserListView(APIView):
                 )
             users = users.filter(is_active=(status_filter == "active"))
 
-        users = users.order_by(ordering)
+        users = users.order_by(ordering_column_map.get(ordering, ordering))
 
         paginator = self.pagination_class()
         paginated_users = paginator.paginate_queryset(users, request)

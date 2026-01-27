@@ -112,6 +112,7 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
         return f"{self.full_name} ({self.role})"
     
     class Meta:
+        ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["email", "state"]),
             models.Index(fields=["phone", "state"]),
