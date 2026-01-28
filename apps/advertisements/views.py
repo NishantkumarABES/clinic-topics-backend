@@ -15,9 +15,6 @@ from core.permissions import IsAdmin
 from core.api_responses import UNAUTHORIZE_401
 
 
-
-
-
 class AdvertisementPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = 'page_size'
@@ -36,9 +33,10 @@ class UserAdvertisementListView(APIView):
     )
     def get(self, request):
         user = request.user
+        user_role = user.role
 
         # Start with only enabled advertisements
-        queryset = Advertisement.objects.filter(status='enabled')
+        queryset = Advertisement.objects.filter(status='enabled', target_user=user_role)
 
         if user.role == UserRole.DOCTOR:
             # For doctors, filter by matching specialization

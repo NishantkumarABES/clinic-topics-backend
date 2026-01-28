@@ -195,4 +195,4 @@ class SonixClient:
         
 
 sonix_client = SonixClient(os.getenv("SONIX_API_KEY"))
-sonix_client.verify_api_key()
+# sonix_client.verify_api_key()

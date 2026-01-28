@@ -5,7 +5,10 @@ from apps.advertisements.models import Advertisement
 class AdvertisementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Advertisement
-        fields = ['id', 'title', 'url', 'image', 'specializations', 'status', 'created_at', 'updated_at']
+        fields = fields = [
+            'id', 'title', 'url', 'image', 'target_user', 
+            'specializations', 'status', 'created_at', 'updated_at'
+        ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 
     def validate_url(self, value):
@@ -14,14 +17,14 @@ class AdvertisementSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("URL is required")
         return value
 
-
 class AdvertisementListSerializer(serializers.ModelSerializer):
     """Lightweight serializer for listing advertisements"""
     class Meta:
         model = Advertisement
-        fields = ['id', 'title', 'url', 'image', 'specializations', 'status', 'created_at', 'updated_at']
-
-
+        fields = [
+            'id', 'title', 'url', 'image', 'target_user', 
+            'specializations', 'status', 'created_at', 'updated_at'
+        ]
 
 ####################### RESPONSE SERIALIZERS ########################
 class PaginatedAdvertisementResponseSerializer(serializers.Serializer):

@@ -12,6 +12,12 @@ class Advertisement(TimeStampedUUIDModel):
     url = models.URLField(max_length=500)
     image = models.ImageField(upload_to='advertisements/')
     specializations = models.JSONField(default=list)
+    target_user = models.CharField(
+        max_length=10,
+        choices=[("doctor", "Doctor"), ("patient", "Patient")],
+        null=True,
+        blank=True
+    )
     status = models.CharField(
         max_length=10,
         choices=AdvertisementStatus.choices,
