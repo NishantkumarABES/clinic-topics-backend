@@ -28,6 +28,12 @@ def send_push_notification(user, title: str, body: str, data: dict = None):
 
     return _send_expo_messages(tokens, messages)
 
+class SilentPushMessage(PushMessage):
+    def get_payload(self):
+        payload = super().get_payload()
+        payload['_contentAvailable'] = 1
+        return payload
+
 def send_silent_push_notification(user, data: dict):
     devices = UserDevice.objects.filter(user=user, is_active=True)
 
@@ -37,7 +43,7 @@ def send_silent_push_notification(user, data: dict):
     tokens = [d.device_token for d in devices]
 
     messages = [
-        PushMessage(
+        SilentPushMessage(
             to=token,
             data={k: str(v) for k, v in (data or {}).items()},
             priority="high"
