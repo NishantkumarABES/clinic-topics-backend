@@ -155,6 +155,7 @@ def send_push_notification(user, title: str, body: str, data: dict = None):
 def send_silent_push_notification(user, data: dict):
     """
     Generic silent/background push.
+    (Expo treats data-only messages as background notifications automatically.)
     """
     devices = UserDevice.objects.filter(user=user, is_active=True)
 
@@ -166,9 +167,7 @@ def send_silent_push_notification(user, data: dict):
     messages = [
         PushMessage(
             to=token,
-            data={k: str(v) for k, v in (data or {}).items()},
-            content_available=True,  # iOS background flag
-            priority="high"
+            data={k: str(v) for k, v in (data or {}).items()}
         )
         for token in tokens
     ]
@@ -189,9 +188,7 @@ def send_call_silent_push(user, data: dict):
     messages = [
         PushMessage(
             to=token,
-            data={k: str(v) for k, v in data.items()},
-            content_available=True,
-            priority="high"
+            data={k: str(v) for k, v in data.items()}
         )
         for token in tokens
     ]
@@ -220,13 +217,13 @@ def _send_expo_messages(tokens, messages):
         else:
             failed_count += 1
 
-            # Token invalid → deactivate
+            # Invalid Expo token → deactivate
             if isinstance(response.details, DeviceNotRegisteredError):
                 UserDevice.objects.filter(
                     device_token=tokens[idx]
                 ).update(is_active=False)
 
-            # Other errors logged but token kept
+            # Oversized payload → ignore but counted
             if isinstance(response.details, MessageTooBigError):
                 pass
 
@@ -235,3 +232,7 @@ def _send_expo_messages(tokens, messages):
         "sent": success_count,
         "failed": failed_count
     }
+
+if __name__ == "__main__":
+    _send_expo_messages(tokens='ExponentPushToken[Y0bEdKB1Wele4ksiEI2iG6]', messages= 'Testing the expo message')
+    
