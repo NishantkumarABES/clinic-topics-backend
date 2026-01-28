@@ -75,14 +75,13 @@ def send_call_silent_push(user, data: dict):
     return _send_expo_messages(tokens, messages)
 
 def _send_expo_messages(tokens, messages):
-    """
-    Shared sender with error handling and token cleanup.
-    """
     success_count = 0
     failed_count = 0
 
     try:
-        responses = expo_client.publish_multiple(messages)
+        # responses = expo_client.publish_multiple(messages)
+        for each_msg in messages:
+            responses = expo_client.publish(each_msg)
     except PushServerError:
         return {"success": False, "reason": "Expo push server error"}
 
