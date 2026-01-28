@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     "apps.appointments.app.AppointmentsConfig",
     "apps.video_calls.app.VideoCallsConfig",
     "apps.report_template.app.ReportTemplateConfig",
+    "apps.notifications.app.NotificationsConfig",
     "core.app.CoreConfig",
 ]
 
