@@ -3,21 +3,19 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.utils.timezone import now
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
-
-
-from apps.topics.services import inshort_generator
+from apps.topics.services import inshort_generator, check_transcription_status, start_transcription
 from apps.topics.models import Topic
 from apps.topics.serializers import (
     TopicListSerializer, TopicDetailSerializer, ArticleExtractionSerializer, CleanupImagesSerializer, AdminTopicReadSerializer,
     AdminTopicWriteSerializer, DoctorTopicCreateSerializer, TopicCreateSuccessResponseSerializer
 )
+from apps.notifications.services import create_admin_notification
 from core.permissions import IsAdmin, IsDoctor
 from external.cloudinary.utils import CloudinaryService
 cloudinary = CloudinaryService()
@@ -36,9 +34,6 @@ class TopicDetailView(generics.RetrieveAPIView):
     queryset = Topic.objects.filter(publishing_time__lte=now())
     serializer_class = TopicDetailSerializer
     permission_classes = [permissions.AllowAny]
-
-
-
 
 #########  ADMIN TOPICS APIs ######################
 
@@ -258,9 +253,13 @@ class DoctorTopicCreateAPIView(APIView):
             data=request.data,
             context={"request": request}
         )
+        doctor_full_name = request.user.full_name
         serializer.is_valid(raise_exception=True)
         topic = serializer.save()
-
+        create_admin_notification(
+            title="Topic Upload Request",
+            message="Dr. {doctor_full_name} has submitted a new topic for approval.",
+        ) 
         return Response(
             {
                 "success": True,
@@ -432,8 +431,6 @@ class StartTranscriptionAPIView(APIView):
         }
     )
     def post(self, request, topic_id):
-        from apps.topics.services import start_transcription
-        
         try:
             result = start_transcription(topic_id)
             return Response(
@@ -464,8 +461,6 @@ class TranscriptionStatusAPIView(APIView):
         responses={200: "Transcription status"}
     )
     def get(self, request, topic_id):
-        from apps.topics.services import check_transcription_status
-        
         try:
             result = check_transcription_status(topic_id)
             return Response(

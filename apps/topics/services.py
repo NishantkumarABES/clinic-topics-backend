@@ -1,10 +1,14 @@
-import requests, uuid, nltk
+import requests, uuid, nltk, random
 import numpy as np
+from google import genai
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
-from google import genai
 from nltk.tokenize import sent_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
+from apps.topics.models import Topic, TopicTranscription
+from external.sonix.service import sonix_client, SonixAPIError
+from django.conf import settings
+
 
 try:
     nltk.data.find("tokenizers/punkt")
@@ -123,18 +127,58 @@ def inshort_generator(url: str) -> str:
     return summary, article_title, image_paths
 
 
+
+
+# ---------------------------------------------------------------------
+# Internal helpers for DEBUG dummy behavior
+# ---------------------------------------------------------------------
+
+def _dummy_sonix_create(topic: Topic):
+    """Simulate Sonix transcription creation"""
+    fake_id = f"debug-{uuid.uuid4()}"
+    return {
+        "id": fake_id,
+        "status": "processing"
+    }
+
+
+def _dummy_sonix_status(sonix_media_id: str):
+    """Simulate Sonix status progression"""
+    # Randomly move to completed to simulate async processing
+    status = random.choice(["processing", "completed"])
+    return {"status": status}
+
+
+def _dummy_sonix_transcript(sonix_media_id: str):
+    """Return a fixed dummy transcript"""
+    transcript_text = (
+        "This is a dummy transcript generated in DEBUG mode. "
+        "It simulates the transcription of a topic video without calling Sonix API. "
+        "The purpose is to allow frontend and backend integration testing."
+    )
+
+    transcript_srt = """1
+00:00:00,000 --> 00:00:04,000
+This is a dummy transcript generated in DEBUG mode.
+"""
+
+    transcript_json = {
+        "media_id": sonix_media_id,
+        "segments": [
+            {"start": 0.0, "end": 4.0, "text": "This is a dummy transcript generated in DEBUG mode."}
+        ]
+    }
+
+    return transcript_text, transcript_srt, transcript_json
+
+
+
+
 # ============================================
 # Video Transcription Services
 # ============================================
 
 def start_transcription(topic_id: str) -> dict:
-    """
-    Initiates a transcription job for a topic's video URL using Sonix API.
-    Creates a TopicTranscription record to track the process.
-    """
-    from apps.topics.models import Topic, TopicTranscription
-    from external.sonix.service import sonix_client, SonixAPIError
-    
     topic = Topic.objects.get(id=topic_id)
     
     if not topic.video_url:
@@ -145,12 +189,16 @@ def start_transcription(topic_id: str) -> dict:
         raise ValueError("Transcription already exists for this topic")
     
     try:
-        # Create transcription job via Sonix
-        result = sonix_client.create_transcription_from_url(
-            media_url=topic.video_url,
-            language="en",
-            name=topic.title
-        )
+        # --- DEBUG MODE: Dummy Sonix call ---
+        if settings.DEBUG:
+            result = _dummy_sonix_create(topic)
+        else:
+            result = None
+            # result = sonix_client.create_transcription_from_url(
+            #     media_url=topic.video_url,
+            #     language="en",
+            #     name=topic.title
+            # )
         
         # Create transcription record
         transcription = TopicTranscription.objects.create(
@@ -171,15 +219,7 @@ def start_transcription(topic_id: str) -> dict:
     except Exception as e:
         raise Exception(f"Failed to start transcription: {str(e)}")
 
-
 def check_transcription_status(topic_id: str) -> dict:
-    """
-    Checks the current status of a transcription job from Sonix.
-    Updates the local database record with the latest status.
-    """
-    from apps.topics.models import Topic, TopicTranscription
-    from external.sonix.service import sonix_client, SonixAPIError
-    
     topic = Topic.objects.get(id=topic_id)
     
     if not hasattr(topic, 'transcription'):
@@ -189,7 +229,11 @@ def check_transcription_status(topic_id: str) -> dict:
     
     try:
         # Get status from Sonix
-        status_data = sonix_client.get_media_status(transcription.sonix_media_id)
+        if settings.DEBUG:
+            status_data = _dummy_sonix_status(transcription.sonix_media_id)
+        else:
+            status_data = None
+            # status_data = sonix_client.get_media_status(transcription.sonix_media_id)
         
         # Update local record
         transcription.status = status_data['status']
@@ -211,15 +255,7 @@ def check_transcription_status(topic_id: str) -> dict:
         transcription.save()
         raise Exception(f"Sonix API error: {str(e)}")
 
-
 def retrieve_and_summarize_transcript(topic_id: str) -> dict:
-    """
-    Retrieves completed transcript from Sonix and generates AI summary.
-    Stores both transcript and summary in the database.
-    """
-    from apps.topics.models import Topic, TopicTranscription
-    from external.sonix.service import sonix_client, SonixAPIError
-    
     topic = Topic.objects.get(id=topic_id)
     
     if not hasattr(topic, 'transcription'):
@@ -231,10 +267,16 @@ def retrieve_and_summarize_transcript(topic_id: str) -> dict:
         raise ValueError("Transcription is not completed yet")
     
     try:
-        # Fetch transcript in multiple formats
-        transcript_text = sonix_client.get_transcript_text(transcription.sonix_media_id)
-        transcript_srt = sonix_client.get_transcript_srt(transcription.sonix_media_id)
-        transcript_json = sonix_client.get_transcript_json(transcription.sonix_media_id)
+        # --- DEBUG MODE: Dummy transcript ---
+        if settings.DEBUG:
+            transcript_text, transcript_srt, transcript_json = _dummy_sonix_transcript(
+                transcription.sonix_media_id
+            )
+        else:
+            transcript_text, transcript_srt, transcript_json = None, None, None
+            # transcript_text = sonix_client.get_transcript_text(transcription.sonix_media_id)
+            # transcript_srt = sonix_client.get_transcript_srt(transcription.sonix_media_id)
+            # transcript_json = sonix_client.get_transcript_json(transcription.sonix_media_id)
         
         # Generate AI summary from transcript text
         summary = summarizer(transcript_text, word_limit=300)
@@ -257,7 +299,6 @@ def retrieve_and_summarize_transcript(topic_id: str) -> dict:
         transcription.error_message = str(e)
         transcription.save()
         raise Exception(f"Failed to retrieve transcript: {str(e)}")
-
 
 def get_transcription_data(topic_id: str) -> dict:
     """

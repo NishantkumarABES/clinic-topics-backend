@@ -18,7 +18,7 @@ class AdminNotificationSummary(APIView):
             is_read=False
         ).count()
 
-        latest = Notification.objects.filter(recipient=user)[:5]
+        latest = Notification.objects.filter(recipient=user)
 
         serializer = NotificationSerializer(latest, many=True)
 

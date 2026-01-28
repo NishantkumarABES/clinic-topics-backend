@@ -31,6 +31,7 @@ from apps.commerce.serializers import (
     AddressResponseSerializer, WishlistResponseSerializer, OrderDetailResponseSerializer
 )
 from apps.commerce.constants import OrderStatus
+from apps.notifications.services import create_admin_notification
 from external.razorpay.service import razorpay_service
 
 
@@ -887,6 +888,28 @@ class AdminOrderListAPIView(APIView):
                     quantity=item_data["quantity"],
                     price_at_purchase=item_data["price_at_purchase"]
                 )
+            
+            # Reduce stock
+            product.stock_quantity -= item_data["quantity"]
+
+            # If stock hits zero → notify admin
+            if product.stock_quantity <= 0:
+                product.stock_quantity = 0  # safety clamp
+
+                create_admin_notification(
+                    title="Out of stock",
+                    message=(
+                        f"The product '{product.name}' is now out of stock "
+                        f"after manual order #{order.id}. Please restock inventory."
+                    ),
+                    data={
+                        "product_id": str(product.id),
+                        "order_id": str(order.id),
+                        "trigger": "manual_admin_order"
+                    }
+                )
+
+            product.save(update_fields=["stock_quantity"])
 
         return Response(
             {
@@ -1243,6 +1266,19 @@ class VerifyPaymentView(APIView):
             for item in order.items.select_related("product"):
                 product = item.product
                 product.stock_quantity -= item.quantity
+                if product.stock_quantity <= 0:
+                    product.stock_quantity = 0  # safety clamp
+                    create_admin_notification(
+                        title="Out of stock",
+                        message=(
+                            f"The product '{product.name}' is now out of stock "
+                            f"after order #{order.id}. Please restock inventory."
+                        ),
+                        data={
+                            "product_id": str(product.id),
+                            "order_id": str(order.id)
+                        }
+                    )
                 product.save(update_fields=["stock_quantity"])
 
             # Clear the user's cart

@@ -7,9 +7,6 @@ from apps.notifications.models import Notification
 expo_client = PushClient()
 
 def send_push_notification(user, title: str, body: str, data: dict = None):
-    """
-    Standard visible notification.
-    """
     devices = UserDevice.objects.filter(user=user, is_active=True)
 
     if not devices.exists():
@@ -23,7 +20,8 @@ def send_push_notification(user, title: str, body: str, data: dict = None):
             title=title,
             body=body,
             data={k: str(v) for k, v in (data or {}).items()},
-            sound="default"
+            sound="default",
+            priority="high"
         )
         for token in tokens
     ]
@@ -31,10 +29,6 @@ def send_push_notification(user, title: str, body: str, data: dict = None):
     return _send_expo_messages(tokens, messages)
 
 def send_silent_push_notification(user, data: dict):
-    """
-    Generic silent/background push.
-    (Expo treats data-only messages as background notifications automatically.)
-    """
     devices = UserDevice.objects.filter(user=user, is_active=True)
 
     if not devices.exists():
@@ -45,7 +39,8 @@ def send_silent_push_notification(user, data: dict):
     messages = [
         PushMessage(
             to=token,
-            data={k: str(v) for k, v in (data or {}).items()}
+            data={k: str(v) for k, v in (data or {}).items()},
+            priority="high"
         )
         for token in tokens
     ]
@@ -112,21 +107,17 @@ def _send_expo_messages(tokens, messages):
     }
 
 def create_admin_notification(title: str, message: str, data: dict = None):
-    admins = User.objects.filter(is_staff=True, is_active=True, is_superuser=False)
+    admin = User.objects.filter(is_staff=True, is_active=True, is_superuser=False).first()
+    if not admin:
+        raise ValueError("No active staff admin exists")
 
-    notifications = [
-        Notification(
-            recipient=admin,
-            title=title,
-            message=message,
-            data=data or {}
-        )
-        for admin in admins
-    ]
-
-    Notification.objects.bulk_create(notifications)
-
-    return len(notifications)
+    notification = Notification.objects.create(
+        recipient=admin,
+        title=title,
+        message=message,
+        data=data or {}
+    )
+    return "Notification created successfully"
 
 
 
