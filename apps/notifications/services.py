@@ -65,7 +65,7 @@ def send_call_silent_push(user, data: dict):
     tokens = [d.device_token for d in devices]
 
     messages = [
-        PushMessage(
+        SilentPushMessage(
             to=token,
             data={k: str(v) for k, v in data.items()}
         )
