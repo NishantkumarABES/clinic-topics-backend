@@ -1,3 +1,5 @@
+from datetime import date
+
 
 def otp_email_html(full_name: str | None, otp: str) -> str:
     name = full_name or "User"
@@ -30,7 +32,7 @@ def otp_email_html(full_name: str | None, otp: str) -> str:
                 If you didn’t request this, please ignore this email.
               </p>
               <p style="font-size:13px;color:#aaa;margin-top:30px;">
-                © ClinicTopics
+                {date.today().year} © ClinicTopics
               </p>
             </td>
           </tr>
@@ -77,7 +79,7 @@ def password_reset_html(full_name: str | None, reset_link: str) -> str:
                 If you didn’t request a password reset, ignore this email.
               </p>
               <p style="font-size:13px;color:#aaa;margin-top:30px;">
-                © ClinicTopics
+                {date.today().year} © ClinicTopics
               </p>
             </td>
           </tr>
@@ -106,6 +108,14 @@ def doctor_invitation_html(full_name: str, email: str, temp_password: str) -> st
         <table width="600" style="background:#ffffff;border-radius:8px;padding:30px;">
           <tr>
             <td style="text-align:center;">
+
+              <!-- Logo -->
+              <img 
+                src="https://admin-panel-frontend-2yrl.onrender.com/src/assets/logo.svg"
+                alt="ClinicTopics Logo"
+                style="max-width:180px;height:auto;margin-bottom:20px;"
+              />
+
               <h2 style="color:#222;">You're Invited to ClinicTopics</h2>
               <p style="font-size:16px;color:#555;">
                 Hello Dr. {name},<br><br>
@@ -119,7 +129,7 @@ def doctor_invitation_html(full_name: str, email: str, temp_password: str) -> st
                 Please log in using the ClinicTopics mobile app and change your password immediately after login.
               </p>
               <p style="font-size:13px;color:#aaa;margin-top:30px;">
-                © ClinicTopics
+                {date.today().year} © ClinicTopics
               </p>
             </td>
           </tr>

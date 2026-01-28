@@ -1,8 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from drf_yasg.utils import swagger_auto_schema
-
-from apps.accounts.constants import UserRole
+from django.db.models import Count, Q
+from apps.accounts.constants import UserRole, UserState
 from apps.accounts.models import User
 from core.permissions import IsAdmin
 
@@ -12,12 +12,11 @@ class PatientAnalyticsAPIView(APIView):
 
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
-        total_patients = User.objects.filter(role=UserRole.PATIENT).count()
-        active_patients = User.objects.filter(role=UserRole.PATIENT, is_active=True).count()
-        inactive_patients = total_patients - active_patients
-        data = {
-            "total_patients": total_patients,
-            "active_patients": active_patients,
-            "inactive_patients": inactive_patients,
-        }
-        return Response(data)
+        stats = User.objects.filter(role=UserRole.PATIENT).aggregate(
+            total_patients=Count("id"),
+            created_patients=Count("id", filter=Q(state=UserState.CREATED)),
+            active_patients=Count("id", filter=Q(state=UserState.ACTIVE)),
+            inactive_patients=Count("id", filter=Q(state=UserState.INACTIVE)),
+            deleted_patients=Count("id", filter=Q(state=UserState.DELETED)),
+        )
+        return Response(stats)
