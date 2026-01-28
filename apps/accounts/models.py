@@ -96,8 +96,6 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
 
     def can_authenticate(self):
         return self.state not in {
-            UserState.SUSPENDED,
-            UserState.DEACTIVATED,
             UserState.DELETED
         }
     
