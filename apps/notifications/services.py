@@ -79,9 +79,9 @@ def _send_expo_messages(tokens, messages):
     failed_count = 0
 
     try:
-        # responses = expo_client.publish_multiple(messages)
-        for each_msg in messages:
-            responses = expo_client.publish(each_msg)
+        responses = expo_client.publish_multiple(messages)
+        # for each_msg in messages:
+        #     responses = expo_client.publish(each_msg)
     except PushServerError:
         return {"success": False, "reason": "Expo push server error"}
 
