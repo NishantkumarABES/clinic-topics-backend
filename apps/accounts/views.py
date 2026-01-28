@@ -24,7 +24,7 @@ from apps.accounts.serializers import (
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
-    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, get_user_by_phone
+    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, mark_user_login
 )
 from apps.accounts.social_providers import social_provider_verification
 from apps.accounts.models import User, UserDevice
@@ -250,7 +250,7 @@ class EmailLoginView(APIView):
             )
         remember_me = request.data.get("remember_me", False)
         access_token, refresh_token = get_tokens_for_user(user, remember_me)
-
+        mark_user_login(user)
         return Response({
             "detail" : "Logged in successfully",
             "data": {
@@ -322,7 +322,7 @@ class SocialLoginView(APIView):
             )
         # 4️⃣ Generate tokens
         access_token, refresh_token = get_tokens_for_user(user, remember_me)
-
+        mark_user_login(user)
         # 5️⃣ Response
         return Response({
             "detail" : "Logged in successfully",
@@ -392,7 +392,7 @@ class PhoneLoginView(APIView):
                 }
             )
         access_token, refresh_token = get_tokens_for_user(user)
-
+        mark_user_login(user)
         return Response({
             "detail" : "Logged in successfully",
             "data": {

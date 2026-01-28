@@ -257,3 +257,7 @@ def send_doctor_invitation_email(user, password):
         body_text=text_body,
         body_html=html_body
     )
+
+def mark_user_login(user):
+    user.last_login = timezone.now()
+    user.save(update_fields=["last_login"])

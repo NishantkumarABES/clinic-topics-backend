@@ -166,7 +166,6 @@ class ProfileMeView(APIView):
             "success": True
         })
 
-
 class DoctorRatingView(APIView):
     """
     View and submit ratings for doctors.
