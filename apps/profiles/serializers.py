@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from apps.profiles.models import DoctorProfile, PatientProfile
+from apps.accounts.services import activate_user_if_eligible
 
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
@@ -24,6 +25,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
         for attr, value in user_data.items():
             setattr(user, attr, value)
         user.save()
+        activate_user_if_eligible(user)
         return instance
 
 class PatientProfileSerializer(serializers.ModelSerializer):
@@ -48,6 +50,7 @@ class PatientProfileSerializer(serializers.ModelSerializer):
         for attr, value in user_data.items():
             setattr(user, attr, value)
         user.save()
+        activate_user_if_eligible(user)
         return instance
 
 class DoctorRatingCreateSerializer(serializers.Serializer):
@@ -134,13 +137,11 @@ class StandardResponseSerializer(serializers.Serializer):
     class Meta:
         ref_name = "ProfilesStandardResponseSerializer"
 
-
 class DoctorProfileResponseSerializer(serializers.Serializer):
     """Response for doctor profile endpoints."""
     detail = serializers.CharField(help_text="Response message")
     data = DoctorProfileSerializer()
     success = serializers.BooleanField(help_text="Success status")
-
 
 class PatientProfileResponseSerializer(serializers.Serializer):
     """Response for patient profile endpoints."""
@@ -148,18 +149,15 @@ class PatientProfileResponseSerializer(serializers.Serializer):
     data = PatientProfileSerializer()
     success = serializers.BooleanField(help_text="Success status")
 
-
 class RatingDataSerializer(serializers.Serializer):
     """Data returned in rating creation response."""
     rating_id = serializers.CharField(help_text="ID of the created rating")
-
 
 class RatingCreateResponseSerializer(serializers.Serializer):
     """Response for rating creation endpoint."""
     detail = serializers.CharField(help_text="Response message")
     data = RatingDataSerializer(allow_null=True, required=False)
     success = serializers.BooleanField(help_text="Success status")
-
 
 class RatingsListDataSerializer(serializers.Serializer):
     """Data returned in ratings list response."""
@@ -169,7 +167,6 @@ class RatingsListDataSerializer(serializers.Serializer):
     average_rating = serializers.FloatField(help_text="Average rating")
     total_ratings = serializers.IntegerField(help_text="Total number of ratings")
     rating_breakdown = serializers.DictField(help_text="Rating breakdown by stars")
-
 
 class RatingsListResponseSerializer(serializers.Serializer):
     """Response for ratings list endpoint."""

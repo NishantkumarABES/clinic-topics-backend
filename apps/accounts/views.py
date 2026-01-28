@@ -250,6 +250,7 @@ class EmailLoginView(APIView):
             )
         remember_me = request.data.get("remember_me", False)
         access_token, refresh_token = get_tokens_for_user(user, remember_me)
+        activate_user_if_eligible(user)
         mark_user_login(user)
         return Response({
             "detail" : "Logged in successfully",
@@ -393,6 +394,7 @@ class PhoneLoginView(APIView):
             )
         access_token, refresh_token = get_tokens_for_user(user)
         mark_user_login(user)
+        activate_user_if_eligible(user)
         return Response({
             "detail" : "Logged in successfully",
             "data": {

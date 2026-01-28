@@ -53,8 +53,10 @@ def activate_user_if_eligible(user):
 
     elif user.role == "doctor":
         if hasattr(user, "doctor_profile"):
-            user.state = UserState.ACTIVE
-            user.save(update_fields=["state"])
+            profile = user.doctor_profile
+            if profile.is_complete():
+                user.state = UserState.ACTIVE
+                user.save(update_fields=["state"])
 
     return user
 

@@ -13,16 +13,12 @@ class UserState:
     CREATED = "created"
     INACTIVE = "inactive"
     ACTIVE = "active"
-    SUSPENDED = "suspended"
-    DEACTIVATED = "deactivated"
     DELETED = "deleted"
 
     CHOICES = (
         (CREATED, "Created"),
         (INACTIVE, "Inactive"),
         (ACTIVE, "Active"),
-        (SUSPENDED, "Suspended"),
-        (DEACTIVATED, "Deactivated"),
         (DELETED, "Deleted"),
     )
 

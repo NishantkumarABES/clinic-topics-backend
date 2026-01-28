@@ -137,7 +137,7 @@ class RegisterSerializer(serializers.Serializer):
         is_admin_creating_doctor = is_admin_request and role == UserRole.DOCTOR
         # Admin-created doctors start as inactive, they activate on first login
         # is_active = False if by_admin else True
-        is_active = False if is_admin_creating_doctor else True
+        is_active = True
 
         user = User.objects.create_user(
             email=validated_data["email"],
@@ -146,7 +146,7 @@ class RegisterSerializer(serializers.Serializer):
             password=password,
             full_name=validated_data["full_name"],
             role=role,
-            state=UserState.CREATED if not(is_admin_creating_doctor) else UserState.INACTIVE,
+            state=UserState.CREATED,
             terms_accepted=validated_data["terms_accepted"],
             terms_accepted_at=timezone.now(),
             terms_version="1.0.0",

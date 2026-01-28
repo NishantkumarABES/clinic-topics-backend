@@ -80,6 +80,18 @@ class DoctorProfile(TimeStampedUUIDModel):
             avg=models.Avg("rating")
         )["avg"] or 0
 
+    def is_complete(self):
+        return all([
+            self.specialization,
+            self.years_of_experience is not None,
+            self.license_number,
+            self.license_document,
+            self.consultation_fee is not None,
+            self.premium_online_fee is not None,
+            self.website_url is not None,
+        ])
+
+
     def __str__(self):
         return f"DoctorProfile({self.user.full_name})"
 

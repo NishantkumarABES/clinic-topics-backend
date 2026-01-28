@@ -8,9 +8,7 @@ class LifecycleJWTAuthentication(JWTAuthentication):
         user = super().get_user(validated_token)
 
         if user.state in (
-            UserState.SUSPENDED,
-            UserState.DEACTIVATED,
-            UserState.DELETED,
+            UserState.DELETED
         ):
             raise AuthenticationFailed("User account is not active")
 
