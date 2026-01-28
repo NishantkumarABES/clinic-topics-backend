@@ -109,7 +109,12 @@ class CallInitiateView(APIView):
                 "uid": agora_uid
             }
         }
-        result = dispatch_call_event(receiver, event_data)
+        try:
+            result = dispatch_call_event(receiver, event_data)
+        except Exception as e:
+            return Response(
+                {"detail": str(e), "data": None, "success": False}
+            )
 
         response_data = VideoCallSessionSerializer(call_session).data
         response_data["call_status"] = result["via"]
@@ -122,8 +127,6 @@ class CallInitiateView(APIView):
             "token": token,
             "uid": agora_uid
         }
-        # response_data["experienceId"] = "@clinictopics-org/clinictopics"
-        # response_data["scopeKey"] = "@clinictopics-org/clinictopics"
         return Response(
             {"detail": "Call initiated successfully", "data": response_data, "success": True},
             status=status.HTTP_201_CREATED

@@ -24,7 +24,7 @@ from apps.accounts.serializers import (
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
-    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp
+    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, get_user_by_phone
 )
 from apps.accounts.social_providers import social_provider_verification
 from apps.accounts.models import User, UserDevice
@@ -289,19 +289,22 @@ class SocialLoginView(APIView):
         social_user = verifier(token)
 
         # 2️⃣ Resolve existing user
+        
         user = resolve_social_user(social_user)
-
         if not user:
             return Response(
                 {
                     "detail": "Registration required",
-                    "registration_required": True
+                    "data": {"registration_required": True},
+                    "success": False
                 },
                 status=status.HTTP_404_NOT_FOUND
             )
 
         if not user.can_authenticate():
-            raise AuthenticationFailed("User account is inactive")
+            return Response(
+                {"detail": "User account is inactive", "data":None, "success": False}
+            )
 
         # 3️⃣ Activate if eligible
         activate_user_if_eligible(user)
@@ -345,7 +348,12 @@ class PhoneLoginView(APIView):
     )
     def post(self, request):
         serializer = PhoneOTPVerifySerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        if not serializer.is_valid():
+            field, errors = next(iter(serializer.errors.items()))
+            first_error = f"{field}: {errors[0]}".replace("non_field_errors:", "").strip()
+            return Response(
+                {"detail": first_error, "data": None, "success": False}
+            )
 
         phone = serializer.validated_data["phone"]
         phone_number = serializer.validated_data["phone_number"]
@@ -354,12 +362,18 @@ class PhoneLoginView(APIView):
         verify_phone_otp(phone=phone_number, otp=otp)
 
         try:
-            user = User.objects.get(phone=phone)
+            user = User.objects.exclude(state=UserState.DELETED).get(phone=phone)
         except User.DoesNotExist:
             return Response(
-                {"detail": "User with this phone number does not exist", "success": False},
-                status=status.HTTP_404_NOT_FOUND
+                {"detail": "User with this phone number does not exist", 
+                 "data": None, "success": False}
             )
+        
+        if not user.can_authenticate():
+            return Response({
+                "detail": "User account is inactive", 
+                "data": None, "success": False
+            })
 
         if not user.is_phone_verified:
             user.is_phone_verified = True

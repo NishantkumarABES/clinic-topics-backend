@@ -28,7 +28,7 @@ def get_user_by_email(email) -> User | None:
 
 def get_user_by_phone(phone) -> User | None:
     try:
-        return User.objects.get(phone=phone)
+        return User.objects.exclude(state=UserState.DELETED).get(phone=phone)
     except User.DoesNotExist:
         return None
 
@@ -156,16 +156,22 @@ def resolve_social_user(social_user):
             provider=social_user.provider,
             provider_user_id=social_user.provider_user_id
         )
+        if auth.user.state == UserState.DELETED:
+            return None
+
         return auth.user
+
     except AuthProvider.DoesNotExist:
         pass
 
-    # Case 2: No link exists, but email matches an existing user
+    # Case 2: No link exists, but email matches an existing NON-DELETED user
     if social_user.email:
         try:
-            user = User.objects.get(email=social_user.email)
+            user = User.objects.exclude(state=UserState.DELETED).get(
+                email=social_user.email
+            )
 
-            # Auto-link this social provider to existing user
+            # ✅ Safe auto-link only for active/non-deleted users
             AuthProvider.objects.create(
                 user=user,
                 provider=social_user.provider,
