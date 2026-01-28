@@ -18,6 +18,14 @@ class DoctorAnalyticsView(APIView):
             active_doctors=Count("id", filter=Q(state=UserState.ACTIVE)),
             inactive_doctors=Count("id", filter=Q(state=UserState.INACTIVE)),
             deleted_doctors=Count("id", filter=Q(state=UserState.DELETED)),
+            pending_invitations=Count(
+                "id",
+                filter=Q(by_admin=True, last_login__isnull=True)
+            ),
+            accepted_invitations=Count(
+                "id",
+                filter=Q(by_admin=True, last_login__isnull=False)
+            ),
         )
         return Response(stats)
         
