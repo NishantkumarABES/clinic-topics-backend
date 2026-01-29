@@ -5,7 +5,7 @@ from apps.commerce.views import (
     ApplyCouponView, RemoveCouponView, AdminCouponListCreateView, AdminCouponUpdateDestroyView, WishlistDetailView, AddToWishlistView, 
     RemoveFromWishlistView, OrderHistoryView, OrderDetailView,
     AdminOrderListAPIView, AdminOrderAnalyticsAPIView, AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView,
-    CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView
+    CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, CancelOrderView, RefundOrderView, RetryPaymentView
 )
 
 urlpatterns = [
@@ -30,6 +30,9 @@ urlpatterns = [
 
     path("orders/", OrderHistoryView.as_view()),
     path("orders/<uuid:order_id>/", OrderDetailView.as_view()),
+    path("orders/<uuid:order_id>/cancel/", CancelOrderView.as_view()),
+    path("orders/<uuid:order_id>/refund/", RefundOrderView.as_view()),
+    path("orders/<uuid:order_id>/retry-payment/", RetryPaymentView.as_view()),
 
     # Payment endpoints
     path("payment/create-order/", CreatePaymentOrderView.as_view(), name="payment-create-order"),

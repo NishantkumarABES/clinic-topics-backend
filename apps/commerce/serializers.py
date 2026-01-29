@@ -13,26 +13,39 @@ class ProductImageSerializer(serializers.ModelSerializer):
 
 class ProductListSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
+    base_price = serializers.DecimalField(source="price", max_digits=10, decimal_places=2, read_only=True)
+    tax_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
+    discount_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
+    final_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
-            "id", "name", "price", "tax_percentage", "discount_percentage",
+            "id", "name", "base_price", "tax_percentage", "discount_percentage", "final_price",
             "images", "category", "brand", "description", "for_patients", "for_doctors"
         ]
+    def get_final_price(self, obj):
+        return obj.get_unit_final_price()
     
 class ProductDetailSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
+    base_price = serializers.DecimalField(source="price", max_digits=10, decimal_places=2, read_only=True)
+    tax_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
+    discount_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
+    final_price = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     total_reviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
-            "id", "name", "price", "tax_percentage",
+            "id", "name", "base_price", "tax_percentage", "discount_percentage", "final_price"
             "images", "category", "brand", "description",
             "average_rating", "total_reviews", "for_patients", "for_doctors"
         ]
+    
+    def get_final_price(self, obj):
+        return obj.get_unit_final_price()
     
     def get_average_rating(self, obj):
         agg = obj.reviews.aggregate(avg=models.Avg("rating"))
@@ -124,29 +137,13 @@ class CartItemSerializer(serializers.ModelSerializer):
     product_id = serializers.UUIDField(source="product.id", read_only=True)
     product_name = serializers.CharField(source="product.name", read_only=True)
     product_image = serializers.SerializerMethodField()
-
-    tax_percentage = serializers.DecimalField(
-        source="product.tax_percentage",
-        max_digits=5,
-        decimal_places=2,
-        read_only=True
-    )
-    discount_percentage = serializers.DecimalField(
-        source="product.discount_percentage",
-        max_digits=5,
-        decimal_places=2,
-        read_only=True
-    )
-
-    price = serializers.DecimalField(
-        source="product.price",
-        max_digits=10,
-        decimal_places=2,
-        read_only=True
-    )
-
+    base_price = serializers.DecimalField(source="product.price", max_digits=10, decimal_places=2, read_only=True)
+    tax_percentage = serializers.DecimalField(source="product.tax_percentage", max_digits=5, decimal_places=2, read_only=True)
+    discount_percentage = serializers.DecimalField(source="product.discount_percentage", max_digits=5, decimal_places=2, read_only=True)
     final_price = serializers.SerializerMethodField()
+    final_total = serializers.SerializerMethodField()
 
+    
     class Meta:
         model = CartItem
         fields = [
@@ -154,11 +151,12 @@ class CartItemSerializer(serializers.ModelSerializer):
             "product_id",
             "product_name",
             "product_image",
-            "price",
+            "base_price",
             "tax_percentage",
             "discount_percentage",
             "final_price",
             "quantity",
+            "final_total",
             "saved_for_later",
         ]
     
@@ -172,6 +170,9 @@ class CartItemSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(image_obj.image.url)
 
         return image_obj.image.url
+    
+    def get_final_total(self, obj):
+        return round(obj.product.get_unit_final_price() * obj.quantity, 2)
 
     def get_final_price(self, obj):
         return obj.product.get_unit_final_price()
@@ -299,14 +300,13 @@ class AddToWishlistSerializer(serializers.Serializer):
         return value
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source="product.name", read_only=True)
     product_id = serializers.UUIDField(source="product.id", read_only=True)
-    unit_price = serializers.DecimalField(
-        source="price_at_purchase",
-        max_digits=10,
-        decimal_places=2,
-        read_only=True
-    )
+    product_name = serializers.CharField(source="product.name", read_only=True)
+    base_price = serializers.DecimalField(source="product.price", max_digits=10, decimal_places=2, read_only=True)
+    tax_percentage = serializers.DecimalField(source="product.tax_percentage", max_digits=5, decimal_places=2, read_only=True)
+    discount_percentage = serializers.DecimalField(source="product.discount_percentage", max_digits=5, decimal_places=2, read_only=True)
+
+    final_price = serializers.DecimalField(source="price_at_purchase", max_digits=10, decimal_places=2, read_only=True)
     final_total = serializers.SerializerMethodField()
 
     class Meta:
@@ -315,8 +315,11 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "id",
             "product_id",
             "product_name",
+            "base_price",
+            "tax_percentage",
+            "discount_percentage",
+            "final_price",
             "quantity",
-            "unit_price",
             "final_total"
         ]
     
@@ -598,6 +601,8 @@ class PaymentSerializer(serializers.ModelSerializer):
             "created_at",
         ]
 
+class RetryPaymentSerializer(serializers.Serializer):
+    order_id = serializers.UUIDField()
 
 #########################   Response Serializers    #########################
 
@@ -618,13 +623,11 @@ class ProductDetailResponseSerializer(serializers.Serializer):
     data = ProductDetailSerializer()
     success = serializers.BooleanField(help_text="Success status")
 
-
 class ProductReviewListResponseSerializer(serializers.Serializer):
     """Response for product review list endpoint."""
     detail = serializers.CharField(help_text="Response message")
     data = ProductReviewSerializer(many=True)
     success = serializers.BooleanField(help_text="Success status")
-
 
 class ProductReviewResponseSerializer(serializers.Serializer):
     """Response for create/update product review endpoint."""
@@ -640,7 +643,6 @@ class CartResponseSerializer(serializers.Serializer):
     data = CartSerializer()
     success = serializers.BooleanField(help_text="Success status")
 
-
 # Address response serializers
 class AddressListResponseSerializer(serializers.Serializer):
     """Response for address list endpoint."""
@@ -648,13 +650,11 @@ class AddressListResponseSerializer(serializers.Serializer):
     data = AddressSerializer(many=True)
     success = serializers.BooleanField(help_text="Success status")
 
-
 class AddressResponseSerializer(serializers.Serializer):
     """Response for single address endpoint."""
     detail = serializers.CharField(help_text="Response message")
     data = AddressSerializer()
     success = serializers.BooleanField(help_text="Success status")
-
 
 # Wishlist response serializers
 class WishlistResponseSerializer(serializers.Serializer):
@@ -671,3 +671,8 @@ class OrderDetailResponseSerializer(serializers.Serializer):
     data = OrderHistorySerializer()
     success = serializers.BooleanField(help_text="Success status")
 
+class CancelOrderSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=False, allow_blank=True)
+
+class RefundRequestSerializer(serializers.Serializer):
+    reason = serializers.CharField(required=False, allow_blank=True)

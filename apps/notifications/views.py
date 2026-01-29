@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
+from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
 
 from apps.notifications.models import Notification
@@ -10,6 +11,7 @@ from apps.notifications.serializers import NotificationSerializer
 class AdminNotificationSummary(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         user = request.user
 
@@ -31,6 +33,7 @@ class AdminNotificationSummary(APIView):
 class MarkAllNotificationsRead(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(auto_schema=None)
     def post(self, request):
         user = request.user
 
@@ -51,6 +54,7 @@ class AdminNotificationList(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = AdminNotificationListPagination  
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         user = request.user
         queryset = Notification.objects.filter(recipient=user)

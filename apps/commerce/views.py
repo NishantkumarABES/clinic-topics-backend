@@ -24,7 +24,7 @@ from apps.commerce.serializers import (
     ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer,
     WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer,
     AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer, AdminCreateOrderSerializer,
-    CreatePaymentOrderSerializer, VerifyPaymentSerializer,
+    CreatePaymentOrderSerializer, VerifyPaymentSerializer, CancelOrderSerializer, RefundRequestSerializer,
     # Response serializers
     StandardResponseSerializer, ProductDetailResponseSerializer, ProductReviewListResponseSerializer,
     ProductReviewResponseSerializer, CartResponseSerializer, AddressListResponseSerializer,
@@ -889,27 +889,26 @@ class AdminOrderListAPIView(APIView):
                     price_at_purchase=item_data["price_at_purchase"]
                 )
             
-            # Reduce stock
-            product.stock_quantity -= item_data["quantity"]
+                # Reduce stock
+                product.stock_quantity -= item_data["quantity"]
 
-            # If stock hits zero → notify admin
-            if product.stock_quantity <= 0:
-                product.stock_quantity = 0  # safety clamp
+                # If stock hits zero → notify admin
+                if product.stock_quantity <= 0:
+                    product.stock_quantity = 0  # safety clamp
 
-                create_admin_notification(
-                    title="Out of stock",
-                    message=(
-                        f"The product '{product.name}' is now out of stock "
-                        f"after manual order #{order.id}. Please restock inventory."
-                    ),
-                    data={
-                        "product_id": str(product.id),
-                        "order_id": str(order.id),
-                        "trigger": "manual_admin_order"
-                    }
-                )
-
-            product.save(update_fields=["stock_quantity"])
+                    create_admin_notification(
+                        title="Out of stock",
+                        message=(
+                            f"The product '{product.name}' is now out of stock "
+                            f"after manual order #{order.id}. Please restock inventory."
+                        ),
+                        data={
+                            "product_id": str(product.id),
+                            "order_id": str(order.id),
+                            "trigger": "manual_admin_order"
+                        }
+                    )
+                    product.save(update_fields=["stock_quantity"])
 
         return Response(
             {
@@ -1376,3 +1375,261 @@ class PaymentWebhookView(APIView):
             order.save()
 
         return Response({"detail": "Webhook processed", "data": None, "success": True})
+
+class RetryPaymentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(auto_schema=None)
+    def post(self, request, order_id):
+
+        # Fetch order
+        try:
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response(
+                {"detail": "Order not found", "data": None, "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Must be pending payment
+        if order.status != OrderStatus.PENDING_PAYMENT:
+            return Response(
+                {"detail": "Payment retry not allowed for this order", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # If a payment was already captured → block
+        if order.payments.filter(status=PaymentStatus.CAPTURED).exists():
+            return Response(
+                {"detail": "Order already paid", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check stock availability again
+        for item in order.items.select_related("product"):
+            if item.product.stock_quantity < item.quantity:
+                return Response(
+                    {
+                        "detail": f"{item.product.name} is out of stock",
+                        "data": None,
+                        "success": False
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        # Create new Razorpay order
+        amount_in_paise = int(order.total_amount * 100)
+
+        try:
+            razorpay_order = razorpay_service.create_order(
+                amount=amount_in_paise,
+                currency="INR",
+                receipt=str(order.id),
+                notes={"order_id": str(order.id), "user_id": str(request.user.id)}
+            )
+        except Exception:
+            return Response(
+                {"detail": "Failed to initiate payment retry", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Store new payment record
+        Payment.objects.create(
+            order=order,
+            razorpay_order_id=razorpay_order["id"],
+            amount=order.total_amount,
+            currency="INR",
+            status=PaymentStatus.CREATED
+        )
+
+        return Response({
+            "detail": "Payment retry initiated",
+            "data": {
+                "order_id": str(order.id),
+                "razorpay_order_id": razorpay_order["id"],
+                "amount": amount_in_paise,
+                "currency": "INR",
+                "key_id": settings.RAZORPAY_KEY_ID,
+                "prefill": {
+                    "name": request.user.full_name,
+                    "email": request.user.email
+                }
+            },
+            "success": True
+        }, status=status.HTTP_201_CREATED)
+
+class CancelOrderView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    swagger_auto_schema(
+        request_body=CancelOrderSerializer,
+        responses={200: StandardResponseSerializer()},
+        tags=["Commerce - Orders"],
+        operation_id="cancel_order",
+        operation_description="Cancel an order.",
+    )
+    def patch(self, request, order_id):
+        try:
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response(
+                {"detail": "Order not found", "data": None, "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Disallow invalid transitions
+        if order.status in [OrderStatus.SHIPPED, OrderStatus.DELIVERED, 
+                            OrderStatus.CANCELLED, OrderStatus.REFUNDED]:
+            return Response(
+                {"detail": "Order cannot be cancelled at this stage", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = CancelOrderSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data.get("reason", "")
+
+        with transaction.atomic():
+            previous_status = order.status
+            order.status = OrderStatus.CANCELLED
+            order.save(update_fields=["status", "updated_at"])
+
+            # If stock was already reduced, restore it
+            if previous_status in [OrderStatus.PAID, OrderStatus.PROCESSING]:
+                for item in order.items.select_related("product"):
+                    product = item.product
+                    product.stock_quantity += item.quantity
+                    product.save(update_fields=["stock_quantity"])
+
+            # Optional: admin notification
+            # create_admin_notification(
+            #     title="Order Cancelled",
+            #     message=f"Order #{order.id} was cancelled by user.",
+            #     data={
+            #         "order_id": str(order.id),
+            #         "user_id": str(request.user.id),
+            #         "reason": reason
+            #     }
+            # )
+
+        return Response({
+            "detail": "Order cancelled successfully",
+            "data": {"order_id": str(order.id), "status": order.status},
+            "success": True
+        })
+
+class RefundOrderView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=RefundRequestSerializer,
+        responses={200: StandardResponseSerializer()},
+        tags=["Commerce - Orders"],
+        operation_id="refund_order",
+        operation_description="Refund an order.",
+    )
+    def post(self, request, order_id):
+        serializer = RefundRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        reason = serializer.validated_data.get("reason", "")
+
+        # Fetch order
+        try:
+            order = Order.objects.get(id=order_id, user=request.user)
+        except Order.DoesNotExist:
+            return Response(
+                {"detail": "Order not found", "data": None, "success": False},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Disallow invalid states
+        if order.status in [OrderStatus.CANCELLED, OrderStatus.REFUNDED]:
+            return Response(
+                {"detail": "Order already closed", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if order.status not in [OrderStatus.PAID, OrderStatus.PROCESSING]:
+            return Response(
+                {"detail": "Order not eligible for refund", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check payment record
+        try:
+            payment = order.payments.get(status=PaymentStatus.CAPTURED)
+        except Payment.DoesNotExist:
+            return Response(
+                {"detail": "No successful payment found", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check refund eligibility per product
+        non_refundable_products = []
+        for item in order.items.select_related("product"):
+            if not item.product.is_refundable:
+                non_refundable_products.append(item.product.name)
+
+        if non_refundable_products:
+            return Response(
+                {
+                    "detail": "Some products in this order are non-refundable",
+                    "data": {"non_refundable": non_refundable_products},
+                    "success": False
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # All good → proceed refund
+        with transaction.atomic():
+            try:
+                # Razorpay refund (amount in paise)
+                refund = razorpay_service.refund_payment(
+                    payment.razorpay_payment_id,
+                    amount=int(payment.amount * 100),
+                    notes={
+                        "order_id": str(order.id),
+                        "reason": reason
+                    }
+                )
+            except Exception as e:
+                return Response(
+                    {"detail": "Refund initiation failed", "data": None, "success": False},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Update payment
+            payment.status = PaymentStatus.REFUNDED
+            payment.save(update_fields=["status", "updated_at"])
+
+            # Update order
+            order.status = OrderStatus.REFUNDED
+            order.save(update_fields=["status", "updated_at"])
+
+            # Restore stock
+            for item in order.items.select_related("product"):
+                product = item.product
+                product.stock_quantity += item.quantity
+                product.save(update_fields=["stock_quantity"])
+
+            # Admin notification
+            create_admin_notification(
+                title="Order Refunded",
+                message=f"Order #{order.id} was refunded successfully.",
+                data={
+                    "order_id": str(order.id),
+                    "user_id": str(request.user.id),
+                    "refund_id": refund.get("id")
+                }
+            )
+
+        return Response({
+            "detail": "Refund completed successfully",
+            "data": {
+                "order_id": str(order.id),
+                "status": order.status
+            },
+            "success": True
+        })
+
+

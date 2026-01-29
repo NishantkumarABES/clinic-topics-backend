@@ -27,7 +27,7 @@ class Product(TimeStampedUUIDModel):
     stock_quantity = models.PositiveIntegerField(default=0)
     for_patients = models.BooleanField(default=True)
     for_doctors = models.BooleanField(default=True)
-
+    is_refundable = models.BooleanField(default=True)
     class Meta:
         constraints = [
             models.UniqueConstraint(
@@ -307,4 +307,5 @@ class Payment(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"Payment {self.razorpay_order_id} - {self.status}"
+
 
