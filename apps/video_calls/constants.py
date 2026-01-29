@@ -8,3 +8,4 @@ class CallStatus(models.TextChoices):
     ENDED = "ended", "Ended"
     REJECTED = "rejected", "Rejected"
     MISSED = "missed", "Missed"
+    FAILED = "failed", "Failed"

@@ -39,9 +39,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Product
         fields = [
-            "id", "name", "base_price", "tax_percentage", "discount_percentage", "final_price"
-            "images", "category", "brand", "description",
-            "average_rating", "total_reviews", "for_patients", "for_doctors"
+            "id", "name", "base_price", "tax_percentage", "discount_percentage", "final_price",
+            "images", "category", "brand", "description", "average_rating", "total_reviews", "for_patients", 
+            "for_doctors"
         ]
     
     def get_final_price(self, obj):

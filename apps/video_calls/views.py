@@ -112,6 +112,8 @@ class CallInitiateView(APIView):
         try:
             result = dispatch_call_event(receiver, event_data)
         except Exception as e:
+            call_session.status = CallStatus.FAILED
+            call_session.save(update_fields=["status"])
             return Response(
                 {"detail": str(e), "data": None, "success": False}
             )
