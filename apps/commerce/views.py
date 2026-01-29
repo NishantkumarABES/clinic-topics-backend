@@ -186,7 +186,10 @@ class ApplyCouponView(APIView):
     )
     def post(self, request):
         serializer = ApplyCouponSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({"detail": str(e), "data": None, "success": False}, status=400)
 
         code = serializer.validated_data["code"]
         try:
@@ -1097,8 +1100,13 @@ class CreatePaymentOrderView(APIView):
 
         # Apply coupon discount if any
         applied_coupon = None
-        if cart.coupon and cart.coupon.is_valid(cart_total=total_amount):
-            coupon = cart.coupon
+        if cart.coupon:
+            coupon = Coupon.objects.select_for_update().get(id=cart.coupon.id)
+            if not coupon.is_valid(cart_total=total_amount):
+                return Response(
+                    {"success": False, "detail": "Coupon no longer valid"},
+                    status=400
+                )
             if coupon.discount_type == "percentage":
                 discount = total_amount * (coupon.discount_value / Decimal("100"))
             else:

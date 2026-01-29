@@ -406,11 +406,38 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
         return instance
 
 ########### ADMIN ORDER SERIALIZERS ###########
-
 class AdminOrderItemSerializer(serializers.ModelSerializer):
-    """Order item serializer for admin with product details."""
+    """Order item serializer for admin with full pricing details."""
+
     product = serializers.SerializerMethodField()
-    unit_price = serializers.DecimalField(source="price_at_purchase", max_digits=10, decimal_places=2)
+
+    # Pricing breakdown
+    base_price = serializers.DecimalField(
+        source="product.price",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+    tax_percentage = serializers.DecimalField(
+        source="product.tax_percentage",
+        max_digits=5,
+        decimal_places=2,
+        read_only=True
+    )
+    discount_percentage = serializers.DecimalField(
+        source="product.discount_percentage",
+        max_digits=5,
+        decimal_places=2,
+        read_only=True
+    )
+
+    final_price = serializers.DecimalField(
+        source="price_at_purchase",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+
     final_total = serializers.SerializerMethodField()
 
     class Meta:
@@ -418,8 +445,11 @@ class AdminOrderItemSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "product",
+            "base_price",
+            "tax_percentage",
+            "discount_percentage",
+            "final_price",
             "quantity",
-            "unit_price",
             "final_total",
         ]
 
@@ -430,18 +460,19 @@ class AdminOrderItemSerializer(serializers.ModelSerializer):
         product = obj.product
         image_obj = product.images.first()
         image_url = None
+
         if image_obj and image_obj.image:
             request = self.context.get("request")
-            if request:
-                image_url = request.build_absolute_uri(image_obj.image.url)
-            else:
-                image_url = image_obj.image.url
+            image_url = (
+                request.build_absolute_uri(image_obj.image.url)
+                if request else image_obj.image.url
+            )
 
         return {
             "id": str(product.id),
             "name": product.name,
-            "image_url": image_url,
             "sku": product.sku,
+            "image_url": image_url,
         }
 
 class AdminAddressSerializer(serializers.ModelSerializer):
@@ -470,11 +501,21 @@ class AdminUserSerializer(serializers.Serializer):
         return getattr(obj, "phone", None)
 
 class AdminOrderListSerializer(serializers.ModelSerializer):
-    """Order serializer for admin list view."""
     user = AdminUserSerializer(read_only=True)
     address = AdminAddressSerializer(read_only=True)
     items_count = serializers.SerializerMethodField()
     items = AdminOrderItemSerializer(many=True, read_only=True)
+    subtotal_amount = serializers.SerializerMethodField()
+    coupon_code = serializers.CharField(source="coupon.code", read_only=True)
+    coupon_discount = serializers.SerializerMethodField()
+    coupon_type = serializers.CharField(source="coupon.discount_type", read_only=True)
+    coupon_value = serializers.DecimalField(
+        source="coupon.discount_value",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+
     class Meta:
         model = Order
         fields = [
@@ -482,6 +523,11 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
             "user",
             "address",
             "status",
+            "subtotal_amount",
+            "coupon_code",
+            "coupon_type",
+            "coupon_value",
+            "coupon_discount",
             "total_amount",
             "payment_method",
             "payment_reference",
@@ -494,11 +540,41 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
     def get_items_count(self, obj):
         return obj.items.count()
 
+    def get_subtotal_amount(self, obj):
+        subtotal = 0
+        for item in obj.items.all():
+            subtotal += item.price_at_purchase * item.quantity
+        return round(subtotal, 2)
+
+    def get_coupon_discount(self, obj):
+        if not obj.coupon:
+            return 0
+
+        subtotal = self.get_subtotal_amount(obj)
+
+        # Discount = subtotal - final total
+        discount = subtotal - obj.total_amount
+
+        if discount < 0:
+            discount = 0
+
+        return round(discount, 2)
+
 class AdminOrderDetailSerializer(serializers.ModelSerializer):
-    """Detailed order serializer for admin detail view."""
     user = AdminUserSerializer(read_only=True)
     address = AdminAddressSerializer(read_only=True)
     items = AdminOrderItemSerializer(many=True, read_only=True)
+
+    subtotal_amount = serializers.SerializerMethodField()
+    coupon_code = serializers.CharField(source="coupon.code", read_only=True)
+    coupon_discount = serializers.SerializerMethodField()
+    coupon_type = serializers.CharField(source="coupon.discount_type", read_only=True)
+    coupon_value = serializers.DecimalField(
+        source="coupon.discount_value",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
 
     class Meta:
         model = Order
@@ -507,6 +583,11 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
             "user",
             "address",
             "status",
+            "subtotal_amount",
+            "coupon_code",
+            "coupon_type",
+            "coupon_value",
+            "coupon_discount",
             "total_amount",
             "payment_method",
             "payment_reference",
@@ -514,6 +595,24 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_subtotal_amount(self, obj):
+        subtotal = 0
+        for item in obj.items.all():
+            subtotal += item.price_at_purchase * item.quantity
+        return round(subtotal, 2)
+
+    def get_coupon_discount(self, obj):
+        if not obj.coupon:
+            return 0
+
+        subtotal = self.get_subtotal_amount(obj)
+        discount = subtotal - obj.total_amount
+
+        if discount < 0:
+            discount = 0
+
+        return round(discount, 2)
 
 class UpdateOrderStatusSerializer(serializers.Serializer):
     """Serializer for updating order status."""

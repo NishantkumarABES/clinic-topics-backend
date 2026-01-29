@@ -11,6 +11,8 @@ from apps.events.serializers import (
     EventSerializer, EventCreateUpdateSerializer, EventResponseSerializer, EventListResponseSerializer, 
 )
 from core.api_responses import NOT_FOUND_404
+from core.permissions import IsAdmin, IsDoctor
+
 
 
 
@@ -89,7 +91,6 @@ class EventListCreateAPIView(APIView):
         })
 
     @swagger_auto_schema(
-        auto_schema=None,
         request_body=EventCreateUpdateSerializer,
         responses={201: EventResponseSerializer}
     )
@@ -101,6 +102,12 @@ class EventListCreateAPIView(APIView):
                 {"detail": str(first_error), "data": None, "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        user_role = request.user.role
+        if user_role not in [IsAdmin.ROLE, IsDoctor.ROLE]:
+            return Response(
+                {"detail": "You do not have permission to perform this action", "data": None, "success": False},
+                status=status.HTTP_403_FORBIDDEN
+            )
         event = serializer.save()
         return Response(
             {
@@ -110,7 +117,6 @@ class EventListCreateAPIView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
-
 
 # -----------------------------------
 # Retrieve + Update (PUT / PATCH)
