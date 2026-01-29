@@ -1,10 +1,13 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.utils.timezone import now
+from django.utils.timezone import now, localtime
+from django.db.models import Sum, F, DecimalField, ExpressionWrapper, Count, Value
+from django.db.models.functions import Coalesce, TruncWeek
+
 from drf_yasg.utils import swagger_auto_schema
 from datetime import timedelta
 
-from apps.commerce.models import Product
+from apps.commerce.models import Product, OrderItem, OrderStatus, Order
 from apps.accounts.models import User
 from apps.topics.models import Topic
 from apps.advertisements.models import Advertisement, AdvertisementStatus
@@ -82,8 +85,6 @@ class AdminDashboardMetricsAPIView(APIView):
 
         return Response(data)
 
-
-
 class AdminDashboardPendingActionAPIView(APIView):
     permission_classes = [IsAdmin]
 
@@ -98,3 +99,109 @@ class AdminDashboardPendingActionAPIView(APIView):
             "unpublished_advt": total_unpublished_advt
         }
         return Response(data)
+
+class TopSellingProductsAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        completed_items = OrderItem.objects.filter(
+            order__status=OrderStatus.PAID   # or COMPLETED
+        )
+
+        # revenue = quantity * price_at_purchase
+        revenue_expression = ExpressionWrapper(
+            F("quantity") * F("price_at_purchase"),
+            output_field=DecimalField(max_digits=12, decimal_places=2)
+        )
+
+        qs = (
+            completed_items
+            .values("product_id", "product__name")
+            .annotate(
+                quantity_sold=Coalesce(Sum("quantity"), Value(0)),
+                revenue=Coalesce(
+                    Sum(revenue_expression),
+                    Value(0, output_field=DecimalField(max_digits=12, decimal_places=2))
+                )
+            )
+            .order_by("-revenue")[:10]
+        )
+
+        response = [
+            {
+                "id": row["product_id"],
+                "name": row["product__name"],
+                "quantity_sold": int(row["quantity_sold"]),
+                "revenue": float(row["revenue"])
+            }
+            for row in qs
+        ]
+
+        return Response(response)
+
+class RevenueAnalyticsAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    # @swagger_auto_schema(auto_schema=None)
+    def get(self, request):
+        qs = (
+            Order.objects
+            .filter(status=OrderStatus.PAID)
+            .annotate(week=TruncWeek("created_at"))
+            .values("week")
+            .annotate(
+                revenue=Sum("total_amount"),
+                orders=Count("id")
+            )
+            .order_by("week")
+        )
+
+        response = []
+        for row in qs:
+            week_date = localtime(row["week"]).date()
+            date_str = week_date.strftime("%b %d").replace(" 0", " ")
+            response.append({
+                "date": date_str,  # e.g. Jan 1
+                "revenue": float(row["revenue"]),
+                "orders": int(row["orders"])
+            })
+
+        return Response(response)
+
+class OrderStatusAnalyticsAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    # @swagger_auto_schema(auto_schema=None)
+    def get(self, request):
+        # Aggregate counts per status
+        qs = (
+            Order.objects
+            .values("status")
+            .annotate(count=Count("id"))
+        )
+
+        total_orders = sum(row["count"] for row in qs) or 1  # avoid division by zero
+
+        response = [
+            {
+                "status": row["status"],
+                "count": row["count"],
+                "percentage": round((row["count"] / total_orders) * 100, 2)
+            }
+            for row in qs
+        ]
+
+        # Optional: enforce consistent ordering based on your frontend status list
+        status_order = [
+            OrderStatus.PENDING_PAYMENT,
+            OrderStatus.PAID,
+            OrderStatus.PROCESSING,
+            OrderStatus.SHIPPED,
+            OrderStatus.DELIVERED,
+            OrderStatus.CANCELLED,
+            OrderStatus.REFUNDED
+        ]
+
+        response.sort(key=lambda x: status_order.index(x["status"]) if x["status"] in status_order else 999)
+
+        return Response(response)
