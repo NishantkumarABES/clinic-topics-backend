@@ -271,11 +271,7 @@ class EmailLoginSerializer(serializers.Serializer):
         user = User.objects.filter(email=email).first()
 
         if not user:
-            return {
-                "detail":  "Invalid email or password",
-                "data": None,
-                "success": False
-            }
+            raise ValidationError("user with this email does not exist")
 
         # Manually verify password (works even if user.is_active=False)
         if not user.check_password(password):
