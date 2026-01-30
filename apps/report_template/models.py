@@ -2,9 +2,6 @@ from django.db import models
 from apps.accounts.models import User
 from core.models import TimeStampedUUIDModel
 
-
-
-
 def clinic_logo_upload_path(instance, filename):
     return f"report_templates/{instance.doctor.id}/logo/{filename}"
 
