@@ -43,21 +43,9 @@ class SecondOpinionPagination(PageNumberPagination):
     max_page_size = 50
 
 class CalculateChargesView(APIView):
-    """
-    Calculate total consultation charges for selected doctors.
-    """
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
-        operation_summary="Calculate consultation charges",
-        operation_description=(
-            "Calculate total consultation charges for selected doctors.\n\n"
-            "**Request Body:**\n"
-            "- `doctor_ids`: List of doctor UUIDs to calculate fees for\n\n"
-            "**Response includes:**\n"
-            "- Individual doctor fees with their details\n"
-            "- Total amount in INR"
-        ),
         tags=["Second Opinion - Patient"],
         request_body=CalculateChargesSerializer,
         responses={
@@ -108,11 +96,6 @@ class SecondOpinionRequestListCreateView(APIView):
 
     @swagger_auto_schema(
         operation_summary="List my second opinion requests",
-        operation_description=(
-            "Get all second opinion requests created by the logged-in patient.\n\n"
-            "**Pagination:** Supports `page` and `page_size` query params.\n"
-            "**Filter:** Use `status` param to filter by payment status (pending/completed/failed)."
-        ),
         tags=["Second Opinion - Patient"],
         responses={
             200: SecondOpinionRequestListResponseSerializer,
@@ -180,32 +163,27 @@ class SecondOpinionRequestListCreateView(APIView):
             data=request.data,
             context={"request": request}
         )
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({
+                "detail": str(e), "data": None, "success": False
+            })
+
+        
         second_opinion_request = serializer.save()
 
         response_serializer = SecondOpinionRequestDetailSerializer(second_opinion_request)
         return Response({
             "detail": "Second opinion request created successfully",
-            "data": response_serializer.data,
-            "success": True
+            "data": response_serializer.data, "success": True
         }, status=201)
 
 class SecondOpinionRequestDetailView(APIView):
-    """
-    Get details of a specific second opinion request.
-    """
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
         operation_summary="Get second opinion request details",
-        operation_description=(
-            "Retrieve full details of a specific second opinion request.\n\n"
-            "**Response includes:**\n"
-            "- Request details (complaint, history, status)\n"
-            "- Assigned doctors with their response status\n"
-            "- Uploaded documents\n"
-            "- Doctor responses (if completed)"
-        ),
         tags=["Second Opinion - Patient"],
         responses={
             200: SecondOpinionRequestDetailResponseSerializer,
@@ -241,14 +219,6 @@ class CreateSecondOpinionPaymentView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Create Razorpay payment order",
-        operation_description=(
-            "Create a Razorpay payment order for a second opinion request.\n\n"
-            "**Flow:**\n"
-            "1. Call this endpoint to get Razorpay order details\n"
-            "2. Use `razorpay_order_id` and `key_id` to open Razorpay checkout\n"
-            "3. After successful payment, call verify endpoint\n\n"
-            "**Note:** Amount is returned in paise (multiply by 100)."
-        ),
         tags=["Second Opinion - Payment"],
         request_body=CreatePaymentOrderSerializer,
         responses={
@@ -263,7 +233,12 @@ class CreateSecondOpinionPaymentView(APIView):
             data=request.data,
             context={"request": request}
         )
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({
+                "detail": str(e), "data": None, "success": False
+            })
 
         second_opinion_request = serializer.validated_data["_second_opinion_request"]
 
@@ -311,22 +286,10 @@ class CreateSecondOpinionPaymentView(APIView):
         }, status=status.HTTP_201_CREATED)
 
 class VerifySecondOpinionPaymentView(APIView):
-    """
-    Verify payment after successful Razorpay transaction.
-    """
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
         operation_summary="Verify Razorpay payment",
-        operation_description=(
-            "Verify payment after successful Razorpay transaction.\n\n"
-            "**Call this after Razorpay checkout success callback.**\n\n"
-            "**Request Body:**\n"
-            "- `second_opinion_request_id`: The request being paid for\n"
-            "- `razorpay_payment_id`: From Razorpay callback\n"
-            "- `razorpay_signature`: From Razorpay callback\n\n"
-            "**On success:** Request status changes to 'completed' and doctors are notified."
-        ),
         tags=["Second Opinion - Payment"],
         request_body=VerifyPaymentSerializer,
         responses={
@@ -391,14 +354,6 @@ class AvailableDoctorsListView(APIView):
 
     @swagger_auto_schema(
         operation_summary="List available doctors",
-        operation_description=(
-            "Get list of doctors available for second opinion consultations.\n\n"
-            "**Response includes for each doctor:**\n"
-            "- Name, specialization, consultation fee\n"
-            "- Profile photo, years of experience\n"
-            "- Average rating and total ratings count\n\n"
-            "**Use filters to narrow down doctors by specialty or search terms.**"
-        ),
         tags=["Second Opinion - Patient"],
         responses={
             200: DoctorBasicInfoListResponseSerializer,
@@ -475,14 +430,6 @@ class DoctorSecondOpinionListView(APIView):
 
     @swagger_auto_schema(
         operation_summary="List my assigned second opinion requests",
-        operation_description=(
-            "Get all paid second opinion requests assigned to the logged-in doctor.\n\n"
-            "**Note:** Only shows requests where payment is completed.\n\n"
-            "**Filter by status:**\n"
-            "- `pending`: Waiting for doctor to start review\n"
-            "- `in_review`: Doctor is currently reviewing\n"
-            "- `completed`: Doctor has submitted response"
-        ),
         tags=["Second Opinion - Doctor"],
         responses={
             200: DoctorSecondOpinionListResponseSerializer,
@@ -536,14 +483,6 @@ class DoctorSecondOpinionDetailView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Get second opinion request details",
-        operation_description=(
-            "Retrieve full details of a specific second opinion request.\n\n"
-            "**Response includes:**\n"
-            "- Patient details (name, age, contact)\n"
-            "- Chief complaint and medical history\n"
-            "- All uploaded documents (reports, scans)\n"
-            "- Current status of the request"
-        ),
         tags=["Second Opinion - Doctor"],
         responses={
             200: DoctorSecondOpinionDetailResponseSerializer,
@@ -582,12 +521,6 @@ class DoctorStartReviewView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Start reviewing request",
-        operation_description=(
-            "Mark a second opinion request as 'in-review'.\n\n"
-            "**Call this when you start reviewing a patient's case.**\n\n"
-            "**Transitions:** pending → in_review\n"
-            "**Note:** Cannot be called if already in_review or completed."
-        ),
         tags=["Second Opinion - Doctor"],
         responses={
             200: StandardResponseSerializer,
@@ -612,7 +545,13 @@ class DoctorStartReviewView(APIView):
             data={},
             context={"doctor_request": doctor_request}
         )
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({
+                "detail": str(e), "data": None, "success": False
+            })
+
         serializer.save()
         doctor_request.second_opinion_request.status = SecondOpinionStatus.IN_REVIEW
         doctor_request.second_opinion_request.save(update_fields=["status"])
@@ -629,15 +568,6 @@ class DoctorSubmitResponseView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Submit final second opinion",
-        operation_description=(
-            "Doctor submits their final structured medical response for a second opinion request.\n\n"
-            "The response must contain four sections:\n"
-            "- findings\n"
-            "- observations\n"
-            "- medical_opinion\n"
-            "- answer_to_patient\n\n"
-            "Request must be in `in_review` status."
-        ),
         tags=["Second Opinion - Doctor"],
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
@@ -689,7 +619,13 @@ class DoctorSubmitResponseView(APIView):
             data=request.data,
             context={"doctor_request": doctor_request}
         )
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({
+                "detail": str(e), "data": None, "success": False
+            })
+
         serializer.save()
 
         req = doctor_request.second_opinion_request
@@ -712,15 +648,6 @@ class SubmitDoctorRatingView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Rate a doctor",
-        operation_description=(
-            "Submit a rating for a doctor after completed second opinion.\n\n"
-            "**Request Body:**\n"
-            "- `doctor_id`: UUID of the doctor to rate\n"
-            "- `second_opinion_request_id`: The completed request\n"
-            "- `rating`: 1-5 stars\n"
-            "- `review`: Optional text review\n\n"
-            "**Note:** Can only rate doctors for completed second opinions."
-        ),
         tags=["Second Opinion - Patient"],
         request_body=DoctorRatingSerializer,
         responses={
@@ -734,7 +661,13 @@ class SubmitDoctorRatingView(APIView):
             data=request.data,
             context={"request": request}
         )
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({
+                "detail": str(e), "data": None, "success": False
+            })
+
         rating = serializer.save()
 
         return Response(

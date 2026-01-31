@@ -895,8 +895,6 @@ class CustomTokenRefreshView(TokenRefreshView):
 
         except Exception as e:
             return Response({
-                "detail": str(e),
-                "data": None,
-                "success": False
-            }, status=status.HTTP_401_UNAUTHORIZED)
+                "detail": str(e), "data": None, "success": False
+            })
 

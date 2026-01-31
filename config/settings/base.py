@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     "apps.video_calls.app.VideoCallsConfig",
     "apps.report_template.app.ReportTemplateConfig",
     "apps.notifications.app.NotificationsConfig",
+    "apps.books.app.BooksConfig",
     "core.app.CoreConfig",
 ]
 
@@ -110,14 +111,15 @@ REST_FRAMEWORK = {
     ),
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
-    ),
+    )
 }
 
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": True,
-    "BLACKLIST_AFTER_ROTATION": True,
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": False,
 
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),

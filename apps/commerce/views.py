@@ -163,7 +163,11 @@ class CreateUpdateProductReviewView(APIView):
             data=request.data,
             context={"request": request}
         )
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as E:
+            return Response({"detail": str(E), "data": None, "success": False})
+
         review = serializer.save()
         return Response({
             "detail": "Review saved successfully",
@@ -385,7 +389,10 @@ class AddressListCreateView(APIView):
             data=request.data,
             context={"request": request}
         )
-        serializer.is_valid(raise_exception=True)
+        try: 
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({"detail": str(e), "data": None, "success": False})
 
         try:
             with transaction.atomic():
@@ -976,7 +983,6 @@ class AdminOrderAnalyticsAPIView(APIView):
             "cancelled_orders": cancelled_orders,
             "total_revenue": float(total_revenue),
         })
-
 
 class AdminOrderDetailAPIView(APIView):
     """Admin endpoint to get order details."""
