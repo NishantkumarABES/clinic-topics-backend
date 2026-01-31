@@ -37,8 +37,8 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    'django.contrib.postgres',
     "cloudinary",
-    # "cloudinary_storage",
     "django.contrib.staticfiles",
     "corsheaders",
     # third-party
@@ -65,7 +65,11 @@ INSTALLED_APPS = [
     "apps.video_calls.app.VideoCallsConfig",
     "apps.report_template.app.ReportTemplateConfig",
     "apps.notifications.app.NotificationsConfig",
+
+    # MY REPOSITE's APP
     "apps.books.app.BooksConfig",
+    "apps.jobs.app.JobsConfig",
+
     "core.app.CoreConfig",
 ]
 

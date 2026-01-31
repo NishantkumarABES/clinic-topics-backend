@@ -16,7 +16,6 @@ class Collection(models.Model):
     def __str__(self):
         return self.name
 
-
 class Book(TimeStampedUUIDModel):
     # Ownership
     uploaded_by = models.ForeignKey(
@@ -87,6 +86,11 @@ class Book(TimeStampedUUIDModel):
         related_name="books",
         blank=True
     )
+    price = models.PositiveIntegerField(
+        default=0,
+        help_text="Price in paise. 0 means free."
+    )
+
 
     class Meta:
         ordering = ["-created_at"]
@@ -98,3 +102,28 @@ class Book(TimeStampedUUIDModel):
 
     def __str__(self):
         return self.title
+
+class BookPurchase(TimeStampedUUIDModel):
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name="book_purchases"
+    )
+    book = models.ForeignKey(
+        Book, on_delete=models.CASCADE,
+        related_name="purchases"
+    )
+
+    # Razorpay
+    razorpay_order_id = models.CharField(max_length=100, unique=True)
+    razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
+
+    amount = models.PositiveIntegerField()  # in paise
+    currency = models.CharField(max_length=10, default="INR")
+
+    is_paid = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ("user", "book")
+
+    def __str__(self):
+        return f"{self.user} → {self.book} ({'PAID' if self.is_paid else 'PENDING'})"
