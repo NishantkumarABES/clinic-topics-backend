@@ -9,7 +9,7 @@ from drf_yasg.utils import swagger_auto_schema
 from apps.second_opinion.models import SecondOpinionDoctorRequest
 from apps.report_template.models import ReportTemplate
 from apps.report_template.serializers import (
-    ReportTemplateSerializer, StandardResponseSerializer, ReportTemplateResponseSerializer
+    ReportTemplateSerializer, ReportTemplateResponseSerializer
 )
 from apps.report_template.services import ReportPDFService, calculate_age
 from core.permissions import IsDoctor
@@ -82,6 +82,12 @@ class ReportTemplateView(APIView):
             data=request.data,
             context={"request": request}
         )
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response(
+                {"detail": str(e), "data": None,"success": False}
+            )
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(
@@ -139,11 +145,6 @@ class GenerateSecondOpinionReportView(APIView):
 
     @swagger_auto_schema(
         operation_summary="Generate second opinion report PDF",
-        operation_description=(
-            "Generate a PDF report for a completed second opinion request.\n\n"
-            "**Access:** Only the patient or the doctor involved can access this report.\n"
-            "**Requirement:** The second opinion request must be completed."
-        ),
         tags=["Report Template"],
         responses={
             200: "PDF file download",
@@ -243,8 +244,13 @@ class GenerateSecondOpinionReportView(APIView):
         }
 
         # ---- Step 8: Generate PDF ----
-        pdf_path = ReportPDFService.generate_pdf(template_data)
-
+        try:
+            pdf_path = ReportPDFService.generate_pdf(template_data)
+        except Exception as e:
+            return Response(
+                {"detail": str(e), "data": None, "success": False},
+            )
+        
         # ---- Step 9: Return file ----
         response = FileResponse(
             open(pdf_path, "rb"),

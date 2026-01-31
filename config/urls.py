@@ -54,6 +54,7 @@ urlpatterns = [
     path("api/v1/video-calls/", include(("apps.video_calls.urls", "video_calls"), namespace="video_calls")),
     path("api/v1/report-template/", include(("apps.report_template.urls", "report_template"), namespace="report_template")),
     path("api/v1/", include(("apps.notifications.urls", "notifications"), namespace="notifications")),
+    path("api/v1/books/", include(("apps.books.urls", "books"), namespace="books")),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

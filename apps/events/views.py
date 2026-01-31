@@ -92,7 +92,8 @@ class EventListCreateAPIView(APIView):
 
     @swagger_auto_schema(
         request_body=EventCreateUpdateSerializer,
-        responses={201: EventResponseSerializer}
+        responses={201: EventResponseSerializer},
+        auto_schema=None
     )
     def post(self, request):
         serializer = EventCreateUpdateSerializer(data=request.data)
@@ -103,7 +104,7 @@ class EventListCreateAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         user_role = request.user.role
-        if user_role not in [IsAdmin.ROLE, IsDoctor.ROLE]:
+        if user_role not in [IsAdmin.ROLE]:
             return Response(
                 {"detail": "You do not have permission to perform this action", "data": None, "success": False},
                 status=status.HTTP_403_FORBIDDEN
