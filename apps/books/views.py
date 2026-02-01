@@ -6,18 +6,18 @@ from rest_framework.pagination import PageNumberPagination
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.shortcuts import get_object_or_404
-from django.db import models
+from django.db import models, transaction
 
 from apps.books.models import Book, BookPurchase
 from apps.books.serializers import (
     BookListSerializer, BookUploadSerializer, BookDetailSerializer, BookReviewSerializer, PaginatedBookListResponseSerializer,
-    CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer
+    CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer
 )
 from apps.books.constants import Status
 from core.permissions import IsDoctor, IsAdmin
 from core.api_responses import BAD_REQUEST_400, UNAUTHORIZE_401
 from external.razorpay.service import razorpay_service
-
+from external.cloudinary.utils import CloudinaryService
 
 
 # -------------------------
@@ -291,10 +291,17 @@ class MyBooksView(APIView):
 class BookDownloadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @swagger_auto_schema(
+        responses={200: BookDownloadResponseSerializer},
+        operation_description="Generate a secure download URL and record the download."
+    )
     def post(self, request, pk):
         book = get_object_or_404(
-            Book, id=pk, status=Status.APPROVED
+            Book, id=pk,
+            status=Status.APPROVED
         )
+
+        # --- Access Control ---
         if book.price > 0:
             has_access = BookPurchase.objects.filter(
                 user=request.user,
@@ -305,16 +312,29 @@ class BookDownloadView(APIView):
             if not has_access:
                 return Response(
                     {"detail": "Purchase required", "success": False},
-                    status=403
+                    status=status.HTTP_403_FORBIDDEN
                 )
 
-        book.downloads = models.F("downloads") + 1
-        book.save(update_fields=["downloads"])
+        # --- Atomic update + URL generation ---
+        with transaction.atomic():
+            Book.objects.filter(pk=book.pk).update(
+                downloads=models.F("downloads") + 1
+            )
+
+            public_id = book.file.name
+            cloudinary_service = CloudinaryService()
+            download_url = cloudinary_service.generate_signed_pdf_url(
+                public_id=public_id, expires_in_seconds=1500,
+            )
+
+        serializer = BookDownloadResponseSerializer(
+            {"download_url": download_url}
+        )
 
         return Response(
             {
-                "detail": "Download recorded",
-                "data": None,
+                "detail": "Download URL generated",
+                "data": serializer.data,
                 "success": True,
             }
         )

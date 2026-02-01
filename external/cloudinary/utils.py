@@ -1,5 +1,8 @@
 from cloudinary.uploader import upload, destroy
+from cloudinary.utils import cloudinary_url
 from urllib.parse import urlparse
+from datetime import timedelta
+from django.utils.timezone import now
 
 class CloudinaryService:
     @staticmethod
@@ -34,10 +37,27 @@ class CloudinaryService:
             content,
             folder=folder,
             public_id=public_id,
-            resource_type="raw"   # ✅ This is the key
+            resource_type="raw",   # ✅ This is the key
         )
         return response
 
+    @staticmethod
+    def generate_signed_pdf_url(public_id: str, expires_in_seconds: int = 1500):
+        expires_at = int(
+            (now() + timedelta(seconds=expires_in_seconds)).timestamp()
+        )
+
+        url, _ = cloudinary_url(
+            public_id,
+            resource_type="image", 
+            type="private",
+            sign_url=True,
+            expires_at=expires_at,
+            secure=True,
+        )
+        return url
+    
+    @staticmethod
     def extract_public_id(cloudinary_url: str) -> str:
         parsed = urlparse(cloudinary_url)
         path = parsed.path  

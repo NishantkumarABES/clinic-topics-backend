@@ -86,6 +86,8 @@ class BookUploadSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Price cannot be negative.")
         return value
 
+class BookDownloadResponseSerializer(serializers.Serializer):
+    download_url = serializers.URLField()
 
 class BookReviewSerializer(serializers.ModelSerializer):
     REVIEW_STATUS_CHOICES = (
