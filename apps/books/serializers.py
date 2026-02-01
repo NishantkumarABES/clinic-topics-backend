@@ -88,6 +88,12 @@ class BookUploadSerializer(serializers.ModelSerializer):
 
 
 class BookReviewSerializer(serializers.ModelSerializer):
+    REVIEW_STATUS_CHOICES = (
+        (Status.APPROVED, "Approved"),
+        (Status.REJECTED, "Rejected"),
+    )
+    status = serializers.ChoiceField(choices=REVIEW_STATUS_CHOICES)
+
     class Meta:
         model = Book
         fields = ("status", "is_editor_curated")
@@ -115,3 +121,13 @@ class PaginatedBookListResponseSerializer(serializers.Serializer):
     next = serializers.URLField(allow_null=True)
     previous = serializers.URLField(allow_null=True)
     results = BookListSerializer(many=True)
+
+class StandardResponseSerializer(serializers.Serializer):
+    """Standard response wrapper for simple responses."""
+    detail = serializers.CharField(help_text="Response message")
+    data = serializers.JSONField(allow_null=True, required=False, help_text="Response data")
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "BooksStandardResponseSerializer"
+

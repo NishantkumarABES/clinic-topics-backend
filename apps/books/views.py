@@ -11,10 +11,11 @@ from django.db import models
 from apps.books.models import Book, BookPurchase
 from apps.books.serializers import (
     BookListSerializer, BookUploadSerializer, BookDetailSerializer, BookReviewSerializer, PaginatedBookListResponseSerializer,
-    CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer
+    CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer
 )
 from apps.books.constants import Status
 from core.permissions import IsDoctor, IsAdmin
+from core.api_responses import BAD_REQUEST_400, UNAUTHORIZE_401
 from external.razorpay.service import razorpay_service
 
 
@@ -326,7 +327,7 @@ class PendingBookListView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
     pagination_class = BookPagination
 
-    @swagger_auto_schema(auto_schema=None)
+    # @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         queryset = Book.objects.filter(status=Status.PENDING).order_by("-created_at")
 
@@ -344,7 +345,14 @@ class PendingBookListView(APIView):
 class BookReviewView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
 
-    @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(
+        request_body=BookReviewSerializer,
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def patch(self, request, pk):
         book = get_object_or_404(
             Book, id=pk, status=Status.PENDING
@@ -353,7 +361,12 @@ class BookReviewView(APIView):
         serializer = BookReviewSerializer(
             book, data=request.data, partial=True
         )
-        serializer.is_valid(raise_exception=True)
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response(
+                {"detail": str(e), "data": None, "success": False}
+            )
         serializer.save()
 
         return Response(

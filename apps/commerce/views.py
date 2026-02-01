@@ -1475,7 +1475,7 @@ class RetryPaymentView(APIView):
 class CancelOrderView(APIView):
     permission_classes = [IsAuthenticated]
 
-    swagger_auto_schema(
+    @swagger_auto_schema(
         request_body=CancelOrderSerializer,
         responses={200: StandardResponseSerializer()},
         tags=["Commerce - Orders"],
