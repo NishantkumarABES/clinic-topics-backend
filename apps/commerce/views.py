@@ -742,7 +742,7 @@ class AdminCouponListCreateView(APIView):
     @swagger_auto_schema(responses={200: CouponSerializer(many=True)}, auto_schema=None)
     def get(self, request):
         search_term = request.query_params.get("search", None)
-        status = request.query_params.get("status", None)
+        status = request.query_params.get("is_active", None)
         coupon_type = request.query_params.get("coupon_type", None)
         coupons = Coupon.objects.all().order_by("-created_at")
         
@@ -752,9 +752,9 @@ class AdminCouponListCreateView(APIView):
                 Q(description__icontains=search_term)
             )
         if status:
-            coupons = coupons.filter(is_active=(status=='active'))
+            coupons = coupons.filter(is_active=(status == "true"))
         if coupon_type:
-            coupons = coupons.filter(coupon_type=coupon_type)
+            coupons = coupons.filter(discount_type=coupon_type)
 
         
         serializer = CouponSerializer(coupons, many=True)
