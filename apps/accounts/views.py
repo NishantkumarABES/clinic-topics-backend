@@ -679,12 +679,12 @@ class AdminUserListView(APIView):
             )
 
         if status_filter:
-            if status_filter not in ["active", "inactive"]:
+            if status_filter not in ["active", "inactive", "created", "deleted"]:
                 return Response(
-                    {"detail": "Invalid status. Must be 'active' or 'inactive'", "success": False},
+                    {"detail": "Invalid status. Must be 'active', 'inactive', 'created', or 'deleted'", "success": False},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            users = users.filter(is_active=(status_filter == "active"))
+            users = users.filter(state=status_filter)
 
         users = users.order_by(ordering_column_map.get(ordering, ordering))
 
