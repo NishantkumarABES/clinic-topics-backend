@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     "cloudinary",
     "django.contrib.staticfiles",
     "corsheaders",
+    "storages",
     # third-party
     "rest_framework",
     "rest_framework.authtoken",
@@ -181,7 +182,6 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 STATIC_URL = "/static/"
 # For production (collectstatic)
 STATIC_ROOT = BASE_DIR / "staticfiles"
-MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
 AUTH_USER_MODEL = "accounts.User"
