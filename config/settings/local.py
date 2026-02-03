@@ -11,7 +11,7 @@ DATABASES = {
         "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
-
+MEDIA_URL = "/media/"
 
 STORAGES = {
     # Default → Images

@@ -10,7 +10,7 @@ DATABASES["default"] = dj_database_url.parse(
     os.getenv('DATABASE_URL'),
     conn_max_age=600,
 )
-
+MEDIA_URL = "/media/"
 STORAGES = {
     # Default → Images
     "default": {
