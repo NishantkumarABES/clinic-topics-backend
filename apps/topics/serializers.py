@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.utils.timezone import now
 from apps.topics.models import Topic
-from external.cloudinary.utils import CloudinaryService
+from apps.topics.services import TopicImageService
 
 class TopicListSerializer(serializers.ModelSerializer):
     class Meta:
@@ -70,37 +70,37 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
         return None
 
 class AdminTopicWriteSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(required=False, write_only=True)
+    selected_temp_image = serializers.URLField(
+        write_only=True,
+        required=False
+    )
 
     class Meta:
         model = Topic
         fields = [
             "title",
             "description",
-            "image",          # uploaded file
+            "selected_temp_image",
             "source_url",
             "publishing_time",
         ]
 
     def create(self, validated_data):
         request = self.context.get("request")
-        uploaded_image = validated_data.pop("image", None)
+        temp_image = validated_data.pop("selected_temp_image", None)
 
-        # attach author
         if request and request.user.is_authenticated:
             validated_data["author"] = request.user
-        topic = Topic.objects.create(**validated_data)
-        if uploaded_image:
-            result = CloudinaryService.upload_image(
-                content=uploaded_image,
-                folder="topics",
-                public_id=f"topic_{topic.id}"
-            )
 
-            topic.image = result["secure_url"]
+        topic = Topic.objects.create(**validated_data)
+
+        if temp_image:
+            final_url = TopicImageService.promote_image(temp_image)
+            topic.image = final_url
             topic.save(update_fields=["image"])
 
         return topic
+
 
 class ArticleExtractionSerializer(serializers.Serializer):
     url = serializers.URLField()

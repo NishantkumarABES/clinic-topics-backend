@@ -194,12 +194,7 @@ class RegisterView(APIView):
             data=data,
             context={"is_admin_request": is_admin_request}
         )
-        if not serializer.is_valid():
-            field, errors = next(iter(serializer.errors.items()))
-            first_error = f"{field}: {errors[0]}".replace("non_field_errors:", "").strip()
-            return Response(
-                {"detail": first_error, "data": None, "success": False}
-            )
+        serializer.is_valid(raise_exception=True)
         try:
             user = serializer.save()
         except Exception as e:
@@ -239,12 +234,7 @@ class EmailLoginView(APIView):
     )
     def post(self, request):
         serializer = EmailLoginSerializer(data=request.data)
-        if not serializer.is_valid():
-            field, errors = next(iter(serializer.errors.items()))
-            first_error = f"{field}: {errors[0]}".replace("non_field_errors:", "").strip()
-            return Response(
-                {"detail": first_error, "data": None, "success": False}
-            )
+        serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
         if not user:
             return Response(
@@ -363,13 +353,7 @@ class PhoneLoginView(APIView):
     )
     def post(self, request):
         serializer = PhoneOTPVerifySerializer(data=request.data)
-        if not serializer.is_valid():
-            field, errors = next(iter(serializer.errors.items()))
-            first_error = f"{field}: {errors[0]}".replace("non_field_errors:", "").strip()
-            return Response(
-                {"detail": first_error, "data": None, "success": False}
-            )
-
+        serializer.is_valid(raise_exception=True)
         phone = serializer.validated_data["phone"]
         phone_number = serializer.validated_data["phone_number"]
         otp = serializer.validated_data["otp"]

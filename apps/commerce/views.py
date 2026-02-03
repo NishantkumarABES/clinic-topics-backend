@@ -190,43 +190,40 @@ class ApplyCouponView(APIView):
     )
     def post(self, request):
         serializer = ApplyCouponSerializer(data=request.data)
-        try:
-            serializer.is_valid(raise_exception=True)
-        except Exception as e:
-            return Response({"detail": str(e), "data": None, "success": False})
-
-        code = serializer.validated_data["code"]
-        try:
-            coupon = Coupon.objects.get(code__iexact=code)
-        except Coupon.DoesNotExist:
-            return Response({"detail": "Invalid coupon", "data": None, "success": False})
+        serializer.is_valid(raise_exception=True)
+        coupon = serializer.validated_data["coupon"]
 
         # Get cart
         cart, _ = Cart.objects.get_or_create(user=request.user)
 
         # Calculate cart total
-        total = Decimal("0.00")
-        for item in cart.items.filter(saved_for_later=False):
-            total += item.get_total_price()
+        total = sum(
+            item.get_total_price()
+            for item in cart.items.filter(saved_for_later=False)
+        ).quantize(Decimal("0.01"))
 
-        total = round(total, 2)
-
-        # Use model validation
+        # Validate coupon against cart total
         if not coupon.is_valid(cart_total=total):
             return Response(
-                {"detail": "Coupon is not valid for this cart", "data": None, "success": False},
-                status=400
+                {
+                    "detail": "Coupon is not valid for this cart",
+                    "data": None,
+                    "success": False,
+                },
+                status=400,
             )
 
-        # Attach coupon to cart
         cart.coupon = coupon
         cart.save(update_fields=["coupon"])
 
-        return Response({
-            "detail": "Coupon applied successfully",
-            "data": None,
-            "success": True
-        })
+        return Response(
+            {
+                "detail": "Coupon applied successfully",
+                "data": None,
+                "success": True,
+            },
+            status=200,
+        )
 
 class RemoveCouponView(APIView):
     permission_classes = [IsAuthenticated]
@@ -389,11 +386,8 @@ class AddressListCreateView(APIView):
             data=request.data,
             context={"request": request}
         )
-        try: 
-            serializer.is_valid(raise_exception=True)
-        except Exception as e:
-            return Response({"detail": str(e), "data": None, "success": False})
-
+        
+        serializer.is_valid(raise_exception=True)
         try:
             with transaction.atomic():
                 if serializer.validated_data.get("is_default") is True:

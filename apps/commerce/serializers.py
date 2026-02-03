@@ -122,16 +122,22 @@ class CouponSerializer(serializers.ModelSerializer):
 class ApplyCouponSerializer(serializers.Serializer):
     code = serializers.CharField()
 
-    def validate_code(self, value):
+    def validate(self, attrs):
+        code = attrs.get("code")
+
         try:
-            coupon = Coupon.objects.get(code__iexact=value)
+            coupon = Coupon.objects.get(code__iexact=code)
         except Coupon.DoesNotExist:
-            raise serializers.ValidationError("Invalid coupon code")
+            raise serializers.ValidationError({"code": "Invalid coupon code"})
 
         if not coupon.is_valid():
-            raise serializers.ValidationError("Coupon is expired or inactive")
+            raise serializers.ValidationError(
+                {"code": "Coupon is expired or inactive"}
+            )
 
-        return value
+        # Attach coupon so view doesn't query again
+        attrs["coupon"] = coupon
+        return attrs
 
 class CartItemSerializer(serializers.ModelSerializer):
     product_id = serializers.UUIDField(source="product.id", read_only=True)

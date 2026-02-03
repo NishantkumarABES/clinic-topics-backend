@@ -15,7 +15,11 @@ class Topic(TimeStampedUUIDModel):
         blank=True
     )
 
-    image = models.URLField(null=True)
+    image = models.ImageField(
+        upload_to="topics/",
+        null=True,
+        blank=True
+    )
     source_url = models.URLField(blank=True, null=True)
     video_url = models.URLField(blank=True, null=True)
     publishing_time = models.DateTimeField()
@@ -27,7 +31,6 @@ class Topic(TimeStampedUUIDModel):
 
     def __str__(self):
         return self.title
-
 
 class TopicTranscription(TimeStampedUUIDModel):
     """Stores transcription data and AI-generated summary for video topics"""
