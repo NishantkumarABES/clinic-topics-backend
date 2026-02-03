@@ -182,7 +182,7 @@ class RegisterView(APIView):
         )
         if not serializer.is_valid():
             field, errors = next(iter(serializer.errors.items()))
-            first_error = f"{field}: {errors[0]}"
+            first_error = f"{field}: {errors[0]}".replace("non_field_errors:", "").strip()
             return Response(
                 {"detail": first_error, "data": None, "success": False}
             )

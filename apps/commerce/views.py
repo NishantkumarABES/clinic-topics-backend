@@ -1063,7 +1063,6 @@ class CreatePaymentOrderView(APIView):
         user = request.user
         address_id = serializer.validated_data["address_id"]
 
-        # Get user's cart
         try:
             cart = Cart.objects.get(user=user)
         except Cart.DoesNotExist:
@@ -1072,7 +1071,6 @@ class CreatePaymentOrderView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Get cart items (not saved for later)
         cart_items = cart.items.filter(saved_for_later=False)
         if not cart_items.exists():
             return Response(
@@ -1080,56 +1078,59 @@ class CreatePaymentOrderView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Calculate total amount
-        total_amount = Decimal("0.00")
+        # Pre-calc item totals (no DB locking yet)
         order_items_data = []
+        subtotal = Decimal("0.00")
 
         for cart_item in cart_items:
             product = cart_item.product
 
-            # Check stock availability
             if product.stock_quantity < cart_item.quantity:
                 return Response(
                     {"success": False, "detail": f"{product.name} is out of stock"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Calculate final price with discount and tax
             unit_price = product.get_unit_final_price()
             item_total = unit_price * cart_item.quantity
-            total_amount += item_total
+            subtotal += item_total
+
             order_items_data.append({
                 "product": product,
                 "quantity": cart_item.quantity,
-                "price_at_purchase": unit_price
+                "price_at_purchase": unit_price,
             })
 
-        # Apply coupon discount if any
-        applied_coupon = None
-        if cart.coupon:
-            coupon = Coupon.objects.select_for_update().get(id=cart.coupon.id)
-            if not coupon.is_valid(cart_total=total_amount):
-                return Response(
-                    {"success": False, "detail": "Coupon no longer valid"},
-                    status=400
-                )
-            if coupon.discount_type == "percentage":
-                discount = total_amount * (coupon.discount_value / Decimal("100"))
-            else:
-                discount = coupon.discount_value
-
-            if coupon.max_discount_amount:
-                discount = min(discount, coupon.max_discount_amount)
-
-            total_amount = total_amount - discount
-
-        total_amount = round(total_amount, 2)
-
         with transaction.atomic():
-            # Get address
+            # Lock cart row to prevent parallel checkout
+            cart = Cart.objects.select_for_update().get(id=cart.id)
+
+            total_amount = subtotal
+
+            # Lock and validate coupon (FIXED)
+            if cart.coupon:
+                coupon = Coupon.objects.select_for_update().get(id=cart.coupon.id)
+
+                if not coupon.is_valid(cart_total=total_amount):
+                    return Response(
+                        {"success": False, "detail": "Coupon no longer valid"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                if coupon.discount_type == "percentage":
+                    discount = total_amount * (coupon.discount_value / Decimal("100"))
+                else:
+                    discount = coupon.discount_value
+
+                if coupon.max_discount_amount:
+                    discount = min(discount, coupon.max_discount_amount)
+
+                total_amount -= discount
+
+            total_amount = round(total_amount, 2)
+
             address = Address.objects.get(id=address_id)
 
-            # Create Order
             order = Order.objects.create(
                 user=user,
                 address=address,
@@ -1137,59 +1138,59 @@ class CreatePaymentOrderView(APIView):
                 total_amount=total_amount,
                 payment_method="razorpay",
                 payment_reference="",
-                coupon=cart.coupon
+                coupon=cart.coupon,
             )
 
-            # Create OrderItems
-            for item_data in order_items_data:
+            for item in order_items_data:
                 OrderItem.objects.create(
                     order=order,
-                    product=item_data["product"],
-                    quantity=item_data["quantity"],
-                    price_at_purchase=item_data["price_at_purchase"]
+                    product=item["product"],
+                    quantity=item["quantity"],
+                    price_at_purchase=item["price_at_purchase"],
                 )
 
-            # Create Razorpay Order
-            # Razorpay expects amount in paise (smallest currency unit)
             amount_in_paise = int(total_amount * 100)
 
-            try:
-                razorpay_order = razorpay_service.create_order(
-                    amount=amount_in_paise,
-                    currency="INR",
-                    receipt=str(order.id),
-                    notes={"order_id": str(order.id), "user_id": str(user.id)}
-                )
-            except Exception as e:
-                # Rollback will happen automatically due to transaction.atomic()
-                raise e
+            razorpay_order = razorpay_service.create_order(
+                amount=amount_in_paise,
+                currency="INR",
+                receipt=str(order.id),
+                notes={
+                    "order_id": str(order.id),
+                    "user_id": str(user.id),
+                },
+            )
 
-            # Create Payment record
-            payment = Payment.objects.create(
+            Payment.objects.create(
                 order=order,
                 razorpay_order_id=razorpay_order["id"],
                 amount=total_amount,
                 currency="INR",
-                status=PaymentStatus.CREATED
+                status=PaymentStatus.CREATED,
             )
+
+            # Clear coupon after use
             cart.coupon = None
             cart.save(update_fields=["coupon"])
 
-        return Response({
-            "detail": "Payment order created",
-            "data": {
-                "order_id": str(order.id),
-                "razorpay_order_id": razorpay_order["id"],
-                "amount": amount_in_paise,
-                "currency": "INR",
-                "key_id": settings.RAZORPAY_KEY_ID,
-                "prefill": {
-                    "name": user.full_name,
-                    "email": user.email,
-                }
+        return Response(
+            {
+                "success": True,
+                "detail": "Payment order created",
+                "data": {
+                    "order_id": str(order.id),
+                    "razorpay_order_id": razorpay_order["id"],
+                    "amount": amount_in_paise,
+                    "currency": "INR",
+                    "key_id": settings.RAZORPAY_KEY_ID,
+                    "prefill": {
+                        "name": user.full_name,
+                        "email": user.email,
+                    },
+                },
             },
-            "success": True
-        }, status=status.HTTP_201_CREATED)
+            status=status.HTTP_201_CREATED,
+        )
 
 class VerifyPaymentView(APIView):
     """Verify Razorpay payment signature and complete the order."""
