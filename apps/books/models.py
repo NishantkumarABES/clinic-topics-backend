@@ -4,7 +4,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.books.constants import BookType, CopyrightStatus, AccessLevel, Status
 from apps.accounts.models import User
 from core.models import TimeStampedUUIDModel
-from external.cloudinary.storage import PrivateCloudinaryStorage
+# from external.cloudinary.storage import PrivateCloudinaryStorage
 
 
 class Collection(models.Model):
@@ -49,7 +49,7 @@ class Book(TimeStampedUUIDModel):
     # File
     file = models.FileField(
         upload_to="books/files/",
-        storage=PrivateCloudinaryStorage()
+        # storage=PrivateCloudinaryStorage()
     )
 
     # Legal & access
