@@ -51,7 +51,14 @@ class EmailOTPRequestView(APIView):
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data["email"]
-        otp = send_email_otp(email)
+        try:
+            otp = send_email_otp(email)
+        except Exception as e:
+            return Response({
+                "detail": str(e),
+                "data": None,
+                "success": False
+            })
         response = {
             "detail": "OTP sent to email",
             "data": None,
@@ -111,7 +118,14 @@ class PhoneOTPRequestView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS
             )
 
-        otp = send_phone_otp(phone)
+        try:
+            otp = send_phone_otp(phone)
+        except Exception as e:
+            return Response({
+                "detail": str(e),
+                "data": None,
+                "success": False
+            })
 
         response = {"detail": "OTP sent", "data": None, "success": True}
 
@@ -182,7 +196,7 @@ class RegisterView(APIView):
         )
         if not serializer.is_valid():
             field, errors = next(iter(serializer.errors.items()))
-            first_error = f"{field}: {errors[0]}"
+            first_error = f"{field}: {errors[0]}".replace("non_field_errors:", "").strip()
             return Response(
                 {"detail": first_error, "data": None, "success": False}
             )
@@ -679,12 +693,12 @@ class AdminUserListView(APIView):
             )
 
         if status_filter:
-            if status_filter not in ["active", "inactive"]:
+            if status_filter not in ["active", "inactive", "created", "deleted"]:
                 return Response(
-                    {"detail": "Invalid status. Must be 'active' or 'inactive'", "success": False},
+                    {"detail": "Invalid status. Must be 'active', 'inactive', 'created', or 'deleted'", "success": False},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-            users = users.filter(is_active=(status_filter == "active"))
+            users = users.filter(state=status_filter)
 
         users = users.order_by(ordering_column_map.get(ordering, ordering))
 

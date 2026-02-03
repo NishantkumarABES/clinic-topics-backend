@@ -32,6 +32,7 @@ class ReportTemplate(TimeStampedUUIDModel):
     address = models.TextField()
 
     # Contact details
+    country_code = models.CharField(max_length=5, default="+91")
     phone_number = models.CharField(max_length=20)
     website = models.URLField(max_length=255, null=True, blank=True)
     email = models.EmailField(max_length=255)

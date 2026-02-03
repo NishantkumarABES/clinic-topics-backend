@@ -31,7 +31,7 @@ from apps.second_opinion.serializers import (
 )
 from apps.second_opinion.constants import SecondOpinionPaymentStatus
 from apps.accounts.models import User
-from apps.accounts.constants import UserRole
+from apps.accounts.constants import UserRole, UserState
 from external.razorpay.service import razorpay_service
 
 
@@ -383,7 +383,7 @@ class AvailableDoctorsListView(APIView):
     )
     def get(self, request):
         doctors = User.objects.filter(
-            role=UserRole.DOCTOR, is_active=True
+            role=UserRole.DOCTOR, state = UserState.ACTIVE
         ).select_related(
             "doctor_profile"
         ).annotate(

@@ -103,6 +103,7 @@ class AdminDashboardPendingActionAPIView(APIView):
 class TopSellingProductsAPIView(APIView):
     permission_classes = [IsAdmin]
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         completed_items = OrderItem.objects.filter(
             order__status=OrderStatus.PAID   # or COMPLETED
@@ -142,7 +143,7 @@ class TopSellingProductsAPIView(APIView):
 class RevenueAnalyticsAPIView(APIView):
     permission_classes = [IsAdmin]
 
-    # @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         qs = (
             Order.objects
@@ -171,7 +172,7 @@ class RevenueAnalyticsAPIView(APIView):
 class OrderStatusAnalyticsAPIView(APIView):
     permission_classes = [IsAdmin]
 
-    # @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         # Aggregate counts per status
         qs = (

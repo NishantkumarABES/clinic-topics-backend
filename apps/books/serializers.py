@@ -37,12 +37,32 @@ class BookListSerializer(serializers.ModelSerializer):
         )
 
 class BookDetailSerializer(BookListSerializer):
-    file = serializers.FileField(read_only=True)
+    is_paid = serializers.SerializerMethodField()
 
     class Meta(BookListSerializer.Meta):
-        fields = BookListSerializer.Meta.fields + ("file",)
+        fields = BookListSerializer.Meta.fields + ("is_paid",)
+
+    def get_is_paid(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        # Free book
+        if obj.price == 0:
+            return True
+
+        return obj.purchases.filter(
+            user=request.user,
+            is_paid=True
+        ).exists()
 
 class BookUploadSerializer(serializers.ModelSerializer):
+    price = serializers.IntegerField(
+        min_value=0,
+        required=False,
+        default=0,
+    )
+
     class Meta:
         model = Book
         fields = (
@@ -58,22 +78,24 @@ class BookUploadSerializer(serializers.ModelSerializer):
             "file",
             "copyright_status",
             "access_level",
+            "price",
         )
 
-    def validate_publication_year(self, value):
-        if value < 1900:
-            raise serializers.ValidationError("Publication year must be >= 1900.")
+    def validate_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Price cannot be negative.")
         return value
 
-    def create(self, validated_data):
-        user = self.context["request"].user
-        return Book.objects.create(
-            uploaded_by=user,
-            status=Status.PENDING,
-            **validated_data
-        )
+class BookDownloadResponseSerializer(serializers.Serializer):
+    download_url = serializers.URLField()
 
 class BookReviewSerializer(serializers.ModelSerializer):
+    REVIEW_STATUS_CHOICES = (
+        (Status.APPROVED, "Approved"),
+        (Status.REJECTED, "Rejected"),
+    )
+    status = serializers.ChoiceField(choices=REVIEW_STATUS_CHOICES)
+
     class Meta:
         model = Book
         fields = ("status", "is_editor_curated")
@@ -84,4 +106,30 @@ class BookReviewSerializer(serializers.ModelSerializer):
                 "Status can only be approved or rejected."
             )
         return value
+
+class CreateBookPurchaseSerializer(serializers.Serializer):
+    book_id = serializers.UUIDField()
+
+class VerifyBookPurchaseSerializer(serializers.Serializer):
+    razorpay_order_id = serializers.CharField()
+    razorpay_payment_id = serializers.CharField()
+    razorpay_signature = serializers.CharField()
+
+
+########### Response Serializers ####################
+
+class PaginatedBookListResponseSerializer(serializers.Serializer):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = BookListSerializer(many=True)
+
+class StandardResponseSerializer(serializers.Serializer):
+    """Standard response wrapper for simple responses."""
+    detail = serializers.CharField(help_text="Response message")
+    data = serializers.JSONField(allow_null=True, required=False, help_text="Response data")
+    success = serializers.BooleanField(help_text="Success status")
+
+    class Meta:
+        ref_name = "BooksStandardResponseSerializer"
 
