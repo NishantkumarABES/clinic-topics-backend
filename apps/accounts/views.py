@@ -51,7 +51,14 @@ class EmailOTPRequestView(APIView):
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data["email"]
-        otp = send_email_otp(email)
+        try:
+            otp = send_email_otp(email)
+        except Exception as e:
+            return Response({
+                "detail": str(e),
+                "data": None,
+                "success": False
+            })
         response = {
             "detail": "OTP sent to email",
             "data": None,
@@ -111,7 +118,14 @@ class PhoneOTPRequestView(APIView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS
             )
 
-        otp = send_phone_otp(phone)
+        try:
+            otp = send_phone_otp(phone)
+        except Exception as e:
+            return Response({
+                "detail": str(e),
+                "data": None,
+                "success": False
+            })
 
         response = {"detail": "OTP sent", "data": None, "success": True}
 

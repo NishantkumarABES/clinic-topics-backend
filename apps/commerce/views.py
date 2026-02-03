@@ -193,13 +193,13 @@ class ApplyCouponView(APIView):
         try:
             serializer.is_valid(raise_exception=True)
         except Exception as e:
-            return Response({"detail": str(e), "data": None, "success": False}, status=400)
+            return Response({"detail": str(e), "data": None, "success": False})
 
         code = serializer.validated_data["code"]
         try:
             coupon = Coupon.objects.get(code__iexact=code)
         except Coupon.DoesNotExist:
-            return Response({"detail": "Invalid coupon", "data": None, "success": False}, status=400)
+            return Response({"detail": "Invalid coupon", "data": None, "success": False})
 
         # Get cart
         cart, _ = Cart.objects.get_or_create(user=request.user)

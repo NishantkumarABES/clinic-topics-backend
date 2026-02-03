@@ -38,6 +38,7 @@ class ReportTemplateSerializer(serializers.ModelSerializer):
             "doctor_signature",
             "clinic_name",
             "address",
+            "country_code",
             "phone_number",
             "website",
             "email",
