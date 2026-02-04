@@ -6,6 +6,7 @@ from fake_useragent import UserAgent
 from nltk.tokenize import sent_tokenize
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import UploadedFile
 from sklearn.feature_extraction.text import TfidfVectorizer
 from apps.topics.models import Topic, TopicTranscription
 from external.sonix.service import sonix_client, SonixAPIError
@@ -37,7 +38,6 @@ Article:
 
 TEMP_DIR = "temp/topics/"
 class TopicImageService:
-
     @staticmethod
     def download_temp_images(image_links: list[str]) -> list[str]:
         saved_paths = []
@@ -56,40 +56,40 @@ class TopicImageService:
                 file_name = f"{TEMP_DIR}{uuid.uuid4()}.jpg"
 
                 path = default_storage.save(
-                    file_name,
-                    ContentFile(response.content)
+                    file_name, ContentFile(response.content)
                 )
 
                 saved_paths.append(default_storage.url(path))
 
             except Exception:
                 continue
-
+        print("SAVED PATHS", saved_paths)
         return saved_paths
-
 
     @staticmethod
     def promote_image(temp_url: str) -> str:
-        """
-        Moves temp image → permanent topic folder.
-        """
-
-        temp_path = temp_url.split("/media/")[-1]
+        temp_path = temp_url.split("/v1/")[-1]
 
         with default_storage.open(temp_path, "rb") as f:
             new_path = default_storage.save(
-                f"topics/{uuid.uuid4()}.jpg",
-                f
+                f"topics/{uuid.uuid4()}.jpg", f
             )
-
+        
         default_storage.delete(temp_path)
-
+        # RETURN PATH — NOT URL
         return default_storage.url(new_path)
-
-
+    
+    @staticmethod
+    def upload_image(file: UploadedFile) -> str:
+        if not file: return None
+        # Preserve extension safely
+        ext = file.name.split(".")[-1].lower()
+        file_name = f"topics/{uuid.uuid4()}.{ext}"
+        saved_path = default_storage.save(file_name, file)
+        return saved_path
+   
     @staticmethod
     def delete_images(urls: list[str]):
-
         for url in urls:
             try:
                 path = url.split("/media/")[-1]
@@ -126,33 +126,6 @@ def process_article(url: str):
     article_title = extract_article_title(article_html)
     all_image_links = [img.get("src") for img in soup.find_all("img")]
     return article_text, article_title, all_image_links
-
-def download_images(image_links: list[str]) -> list[str]:
-    uploaded_image_urls: list[str] = []
-
-    for link in image_links:
-        if not link: continue
-        try:
-            if link.startswith("//"):
-                link = "https:" + link
-
-            response = requests.get(
-                link, timeout=15,
-                headers={"User-Agent": "Mozilla/5.0"},
-            )
-            response.raise_for_status()
-
-            upload_result = cloudinary.upload_image(
-                response.content,
-                folder="media/topics/",
-                public_id=f"article_{uuid.uuid4()}",
-            )
-            uploaded_image_urls.append(upload_result["secure_url"])
-
-        except Exception as exc:
-            pass
-
-    return uploaded_image_urls
 
 def summarizer(text: str, word_limit: int = 300) -> str:
     prompt = SUMMARIZATION_PROMPT.format(text=text, word_limit=word_limit)

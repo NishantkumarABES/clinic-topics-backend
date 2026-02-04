@@ -199,7 +199,7 @@ class CleanupUnwantedImages(APIView):
         failed = []
 
         for url in image_urls:
-            path = url.split("/media/")[-1]
+            path = url.split("/v1/")[-1]
             default_storage.delete(path)
             deleted.append(path)
 
