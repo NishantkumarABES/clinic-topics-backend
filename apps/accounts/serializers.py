@@ -460,6 +460,23 @@ class UserUpdateSerializer(serializers.ModelSerializer):
 
         return instance
 
+class IdentityCheckSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=False)
+    country_code = serializers.CharField(required=False, default="+91")
+
+    def validate(self, data):
+        if not data.get("email") and not data.get("phone"):
+            raise ValidationError("Email or phone is required")
+
+        if data.get("phone"):
+            data["phone"] = normalize_phone(
+                data["phone"],
+                data.get("country_code", "+91")
+            )
+
+        return data
+
 
 #########################   Response Serializers    #########################
 

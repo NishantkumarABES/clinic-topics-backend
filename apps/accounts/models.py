@@ -115,6 +115,18 @@ class User(AbstractBaseUser, PermissionsMixin, TimeStampedUUIDModel):
             models.Index(fields=["email", "state"]),
             models.Index(fields=["phone", "state"]),
         ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["email"],
+                condition=~Q(state=UserState.DELETED),
+                name="unique_active_email"
+            ),
+            models.UniqueConstraint(
+                fields=["phone"],
+                condition=~Q(state=UserState.DELETED),
+                name="unique_active_phone"
+            ),
+        ]
 
 class UserDevice(TimeStampedUUIDModel):
     user = models.ForeignKey(

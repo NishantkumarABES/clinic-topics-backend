@@ -1,7 +1,6 @@
 import os, sys
 from dotenv import load_dotenv, find_dotenv 
 load_dotenv(find_dotenv(".env", raise_error_if_not_found=True), override=True)
-
 SETTINGS_MODULE = os.getenv('DJANGO_SETTINGS_MODULE', 'config.settings.dev')
 
 def main():
