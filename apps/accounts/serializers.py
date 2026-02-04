@@ -524,10 +524,10 @@ class ChangePasswordSerializer(serializers.Serializer):
         user = self.context["request"].user
         
         if not user.check_password(data["old_password"]):
-            raise ValidationError({"old_password": "Old password is incorrect"})
+            raise ValidationError("Old password is incorrect")
         
         if data["old_password"] == data["new_password"]:
-            raise ValidationError({"new_password": "New password cannot be same as old password"})
+            raise ValidationError("New password cannot be same as old password")
         
         return data
 

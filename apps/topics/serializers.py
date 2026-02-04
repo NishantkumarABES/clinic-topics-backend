@@ -1,9 +1,11 @@
 from rest_framework import serializers
 from django.utils.timezone import now
 from apps.topics.models import Topic
-from external.cloudinary.utils import CloudinaryService
+from apps.topics.services import TopicImageService
+from django.core.files.uploadedfile import UploadedFile
 
 class TopicListSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
     class Meta:
         model = Topic
         fields = [
@@ -14,11 +16,13 @@ class TopicListSerializer(serializers.ModelSerializer):
             "publish_status",
             "image"
         ]
+    def get_image(self, obj):
+        return obj.image
 
 class TopicDetailSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(source="author.full_name", read_only=True)
     author_eamil_id = serializers.UUIDField(source="author.email", read_only=True)
-
+    image = serializers.SerializerMethodField()
     class Meta:
         model = Topic
         fields = [
@@ -32,6 +36,8 @@ class TopicDetailSerializer(serializers.ModelSerializer):
             "author_eamil_id",
             "publishing_time",
         ]
+    def get_image(self, obj):
+        return obj.image
 
 class AdminTopicReadSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(
@@ -43,6 +49,8 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
         read_only=True
     )
     transcription = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    
 
     class Meta:
         model = Topic
@@ -63,6 +71,9 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = fields
     
+    def get_image(self, obj):
+        return obj.image
+    
     def get_transcription(self, obj):
         if hasattr(obj, 'transcription'):
             from apps.topics.serializers import TopicTranscriptionSerializer
@@ -70,37 +81,47 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
         return None
 
 class AdminTopicWriteSerializer(serializers.ModelSerializer):
-    image = serializers.ImageField(required=False, write_only=True)
+    image_url = serializers.URLField(required=False, allow_null=True)
+    image_file = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Topic
         fields = [
             "title",
             "description",
-            "image",          # uploaded file
+            "image_url",
+            "image_file",
             "source_url",
             "publishing_time",
         ]
 
+    def validate(self, attrs):
+        if attrs.get("image_url") and attrs.get("image_file"):
+            raise serializers.ValidationError(
+                "Provide either image_url OR image_file — not both."
+            )
+        return attrs
+
     def create(self, validated_data):
         request = self.context.get("request")
-        uploaded_image = validated_data.pop("image", None)
 
-        # attach author
         if request and request.user.is_authenticated:
             validated_data["author"] = request.user
-        topic = Topic.objects.create(**validated_data)
-        if uploaded_image:
-            result = CloudinaryService.upload_image(
-                content=uploaded_image,
-                folder="topics",
-                public_id=f"topic_{topic.id}"
-            )
+        
+        image_url = validated_data.get("image_url")
+        if image_url:
+            promoted_url = TopicImageService.promote_image(image_url)
+            validated_data["image_url"] = promoted_url
+        
+        return Topic.objects.create(**validated_data)
 
-            topic.image = result["secure_url"]
-            topic.save(update_fields=["image"])
+    def update(self, instance, validated_data):
 
-        return topic
+        # If new file → delete old file
+        if validated_data.get("image_file") and instance.image_file:
+            instance.image_file.delete(save=False)
+
+        return super().update(instance, validated_data)
 
 class ArticleExtractionSerializer(serializers.Serializer):
     url = serializers.URLField()

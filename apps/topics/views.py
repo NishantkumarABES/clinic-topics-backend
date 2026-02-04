@@ -6,6 +6,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.utils.timezone import now
+from django.core.files.storage import default_storage
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
@@ -17,9 +18,6 @@ from apps.topics.serializers import (
 )
 from apps.notifications.services import create_admin_notification
 from core.permissions import IsAdmin, IsDoctor
-from external.cloudinary.utils import CloudinaryService
-cloudinary = CloudinaryService()
-
 
 
 class TopicListView(generics.ListAPIView):
@@ -201,14 +199,10 @@ class CleanupUnwantedImages(APIView):
         failed = []
 
         for url in image_urls:
-            try:
-                result = CloudinaryService.destroy_image(url=url)
-                if result.get("result") == "ok": deleted.append(url)
-                else: failed.append({"url": url, "reason": result.get("result")})
-            except Exception as exc:
-                failed.append(
-                    {"url": url, "reason": str(exc)}
-                )
+            path = url.split("/v1/")[-1]
+            default_storage.delete(path)
+            deleted.append(path)
+
         return Response(
             {
                 "detail": "Cleanup completed",

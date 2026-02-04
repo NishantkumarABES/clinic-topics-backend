@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from apps.accounts.models import User
 from core.models import TimeStampedUUIDModel
+from django.core.exceptions import ValidationError
 
 class Topic(TimeStampedUUIDModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -15,19 +16,35 @@ class Topic(TimeStampedUUIDModel):
         blank=True
     )
 
-    image = models.URLField(null=True)
+    image_url = models.URLField(blank=True, null=True)
+    image_file = models.ImageField(
+        upload_to='topics/images/', blank=True, null=True
+    )
     source_url = models.URLField(blank=True, null=True)
     video_url = models.URLField(blank=True, null=True)
     publishing_time = models.DateTimeField()
     publish_status = models.BooleanField(default=False)
 
+    @property
+    def image(self):
+        if self.image_file:
+            try:
+                return self.image_file.url
+            except Exception:
+                return None
+        return self.image_url
+
+
     class Meta:
         db_table = "topics"
         ordering = ["-publishing_time"]
+    
+    def clean(self):
+        if self.image_url and self.image_file:
+            raise ValidationError("Only one of image_url or image_file can be set.")
 
     def __str__(self):
         return self.title
-
 
 class TopicTranscription(TimeStampedUUIDModel):
     """Stores transcription data and AI-generated summary for video topics"""

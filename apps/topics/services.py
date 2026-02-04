@@ -4,6 +4,9 @@ from google import genai
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from nltk.tokenize import sent_tokenize
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+from django.core.files.uploadedfile import UploadedFile
 from sklearn.feature_extraction.text import TfidfVectorizer
 from apps.topics.models import Topic, TopicTranscription
 from external.sonix.service import sonix_client, SonixAPIError
@@ -21,10 +24,6 @@ except LookupError:
 
 
 
-
-from external.cloudinary.utils import CloudinaryService
-cloudinary = CloudinaryService()
-
 ua = UserAgent()
 client = genai.Client()
 SUMMARIZATION_PROMPT = """
@@ -35,6 +34,68 @@ Avoid repetition and filler.
 Article:
 {text}
 """
+
+
+TEMP_DIR = "temp/topics/"
+class TopicImageService:
+    @staticmethod
+    def download_temp_images(image_links: list[str]) -> list[str]:
+        saved_paths = []
+
+        for link in image_links:
+            if not link:
+                continue
+
+            if link.startswith("//"):
+                link = "https:" + link
+
+            try:
+                response = requests.get(link, timeout=15)
+                response.raise_for_status()
+
+                file_name = f"{TEMP_DIR}{uuid.uuid4()}.jpg"
+
+                path = default_storage.save(
+                    file_name, ContentFile(response.content)
+                )
+
+                saved_paths.append(default_storage.url(path))
+
+            except Exception:
+                continue
+        print("SAVED PATHS", saved_paths)
+        return saved_paths
+
+    @staticmethod
+    def promote_image(temp_url: str) -> str:
+        temp_path = temp_url.split("/v1/")[-1]
+
+        with default_storage.open(temp_path, "rb") as f:
+            new_path = default_storage.save(
+                f"topics/{uuid.uuid4()}.jpg", f
+            )
+        
+        default_storage.delete(temp_path)
+        # RETURN PATH — NOT URL
+        return default_storage.url(new_path)
+    
+    @staticmethod
+    def upload_image(file: UploadedFile) -> str:
+        if not file: return None
+        # Preserve extension safely
+        ext = file.name.split(".")[-1].lower()
+        file_name = f"topics/{uuid.uuid4()}.{ext}"
+        saved_path = default_storage.save(file_name, file)
+        return saved_path
+   
+    @staticmethod
+    def delete_images(urls: list[str]):
+        for url in urls:
+            try:
+                path = url.split("/media/")[-1]
+                default_storage.delete(path)
+            except Exception:
+                pass
 
 def get_html_from_url(url: str) -> str:
     resp = requests.get(
@@ -66,33 +127,6 @@ def process_article(url: str):
     all_image_links = [img.get("src") for img in soup.find_all("img")]
     return article_text, article_title, all_image_links
 
-def download_images(image_links: list[str]) -> list[str]:
-    uploaded_image_urls: list[str] = []
-
-    for link in image_links:
-        if not link: continue
-        try:
-            if link.startswith("//"):
-                link = "https:" + link
-
-            response = requests.get(
-                link, timeout=15,
-                headers={"User-Agent": "Mozilla/5.0"},
-            )
-            response.raise_for_status()
-
-            upload_result = cloudinary.upload_image(
-                response.content,
-                folder="media/topics/",
-                public_id=f"article_{uuid.uuid4()}",
-            )
-            uploaded_image_urls.append(upload_result["secure_url"])
-
-        except Exception as exc:
-            pass
-
-    return uploaded_image_urls
-
 def summarizer(text: str, word_limit: int = 300) -> str:
     prompt = SUMMARIZATION_PROMPT.format(text=text, word_limit=word_limit)
     response = client.models.generate_content(
@@ -122,11 +156,9 @@ def summarize_tfidf(text, word_limit=300):
 
 def inshort_generator(url: str) -> str:
     article_text, article_title, image_links = process_article(url)
-    image_paths = download_images(image_links)
+    image_paths = TopicImageService.download_temp_images(image_links)
     summary = summarize_tfidf(article_text)
     return summary, article_title, image_paths
-
-
 
 
 # ---------------------------------------------------------------------
@@ -141,13 +173,11 @@ def _dummy_sonix_create(topic: Topic):
         "status": "processing"
     }
 
-
 def _dummy_sonix_status(sonix_media_id: str):
     """Simulate Sonix status progression"""
     # Randomly move to completed to simulate async processing
     status = random.choice(["processing", "completed"])
     return {"status": status}
-
 
 def _dummy_sonix_transcript(sonix_media_id: str):
     """Return a fixed dummy transcript"""
@@ -324,3 +354,6 @@ def get_transcription_data(topic_id: str) -> dict:
         'created_at': transcription.created_at,
         'updated_at': transcription.updated_at,
     }
+
+
+
