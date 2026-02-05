@@ -154,6 +154,7 @@ def verify_apple_token(authorization_code):
     )
 
     identity_token = token_response.get("id_token")
+    access_token = token_response.get("access_token")
 
     if not identity_token:
         raise AuthenticationFailed("Apple did not return identity token")
@@ -203,7 +204,8 @@ def verify_apple_token(authorization_code):
             public_key,
             algorithms=["RS256"],
             audience=os.getenv("APPLE_CLIENT_ID"),
-            issuer="https://appleid.apple.com"
+            issuer="https://appleid.apple.com",
+            access_token=access_token  # Required for at_hash claim verification
         )
     except ExpiredSignatureError:
         raise AuthenticationFailed("Apple identity token has expired")
