@@ -10,8 +10,6 @@ django_asgi_app = get_asgi_application()
 from channels.routing import ProtocolTypeRouter, URLRouter
 from apps.video_calls.urls import websocket_urlpatterns
 from core.websocket_auth import JWTAuthMiddleware
-
-
 # Django ASGI app
 
 # Protocol router

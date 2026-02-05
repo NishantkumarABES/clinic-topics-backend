@@ -20,7 +20,7 @@ from apps.accounts.serializers import (
     UserListSerializer, UserUpdateSerializer, LoginResponseSerializer, RegisterResponseSerializer, ChangePasswordSerializer,
     AdminChangePasswordSerializer, UserDeviceRegisterSerializer, StandardResponseSerializer, OTPResponseSerializer,
     UserMeResponseSerializer, LogoutRequestSerializer, CommonSuccessResponseSerializer, CommonErrorResponseSerializer,
-    TokenRefreshRequestSerializer
+    TokenRefreshRequestSerializer, IdentityCheckSerializer
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
@@ -617,6 +617,53 @@ class UserMeView(APIView):
         return Response({
             "detail": "User profile retrieved successfully",
             "data": serializer.data,
+            "success": True
+        })
+
+class IdentityCheckView(APIView):
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_description="Check if email or phone already registered",
+        request_body=IdentityCheckSerializer,
+        responses={200: StandardResponseSerializer},
+    )
+    def post(self, request):
+        serializer = IdentityCheckSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data.get("email")
+        phone = serializer.validated_data.get("phone")
+
+        qs = User.objects.exclude(state=UserState.DELETED)
+
+        email_exists = qs.filter(email=email).exists() if email else False
+        phone_exists = qs.filter(phone=phone).exists() if phone else False
+
+        if email_exists or phone_exists:
+
+            if email_exists and phone_exists:
+                msg = "Account already exists with this email and phone"
+            elif email_exists:
+                msg = "Account already exists with this email"
+            else:
+                msg = "Account already exists with this phone"
+
+            return Response({
+                "detail": msg,
+                "data": {
+                    "email_exists": email_exists,
+                    "phone_exists": phone_exists
+                },
+                "success": False
+            }, status=status.HTTP_200_OK)
+
+        return Response({
+            "detail": "Identity available",
+            "data": {
+                "email_exists": False,
+                "phone_exists": False
+            },
             "success": True
         })
 

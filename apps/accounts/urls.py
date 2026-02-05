@@ -3,7 +3,7 @@ from apps.accounts.views import (
     LogoutView, PhoneOTPRequestView, PhoneOTPVerifyView, PasswordResetRequestView, PasswordResetConfirmView, DeactivateAccountView, 
     ReactivateAccountView, DeleteAccountView, EmailOTPRequestView, EmailOTPVerifyView, RegisterView, UserMeView, AdminUserListView, 
     EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView, AdminAllUserListView, ChangePasswordView, AdminChangePasswordView,
-    RegisterDeviceView, CustomTokenRefreshView
+    RegisterDeviceView, CustomTokenRefreshView, IdentityCheckView
 )
 
 
@@ -13,6 +13,7 @@ urlpatterns = [
     path("phone/request-otp/", PhoneOTPRequestView.as_view()),
     path("phone/verify-otp/", PhoneOTPVerifyView.as_view()),
 
+    path("identity-check/", IdentityCheckView.as_view(), name="identity-check"),
     path("register/<str:role>/", RegisterView.as_view(), name="register"),
     path("register/device/", RegisterDeviceView.as_view(), name="register-device"),
 

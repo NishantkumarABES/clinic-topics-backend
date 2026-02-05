@@ -176,6 +176,7 @@ SWAGGER_SETTINGS = {
 ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
+    "admin-staging-api.clinictopics.com"
 ]
 
 BASE_DIR = Path(__file__).resolve().parents[2]
