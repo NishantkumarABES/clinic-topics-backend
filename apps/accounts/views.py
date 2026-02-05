@@ -9,6 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.utils import timezone
 from django.conf import settings
+from django.db import transaction
 from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -27,7 +28,7 @@ from apps.accounts.services import (
     get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, mark_user_login
 )
 from apps.accounts.social_providers import social_provider_verification
-from apps.accounts.models import User, UserDevice
+from apps.accounts.models import User, UserDevice, AuthProvider
 from apps.accounts.constants import UserState, UserRole
 from core.permissions import IsAdmin
 from core.api_responses import *
@@ -592,11 +593,17 @@ class DeleteAccountView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        user.state = UserState.DELETED
-        user.save(update_fields=["state"])
+        with transaction.atomic():
+            # 🔥 Remove social links FIRST
+            AuthProvider.objects.filter(user=user).delete()
+            # Optional but recommended:
+            UserDevice.objects.filter(user=user).delete()
+            # Soft delete user
+            user.state = UserState.DELETED
+            user.is_active = False
+            user.save(update_fields=["state", "is_active"])
 
         # anonymize_user(user)
-
         return Response(
             {"detail": "Account deleted permanently", "data": None, "success": True},
             status=status.HTTP_200_OK
