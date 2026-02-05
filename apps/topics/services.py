@@ -58,12 +58,13 @@ class TopicImageService:
                 path = default_storage.save(
                     file_name, ContentFile(response.content)
                 )
-
-                saved_paths.append(default_storage.url(path))
+                if settings.DEBUG:
+                    saved_paths.append(default_storage.url(path))
+                else: saved_paths.append(path)
 
             except Exception:
                 continue
-        print("SAVED PATHS", saved_paths)
+        # print("SAVED PATHS", saved_paths)
         return saved_paths
 
     @staticmethod
@@ -76,7 +77,8 @@ class TopicImageService:
             new_path = default_storage.save(
                 f"topics/{uuid.uuid4()}.jpg", f
             )
-        
+        print("PROMOTED IMAGE", new_path)
+        print("DELETING TEMP IMAGE", temp_path)
         default_storage.delete(temp_path)
         # RETURN PATH — NOT URL
         return default_storage.url(new_path)
