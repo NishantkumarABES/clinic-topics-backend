@@ -1,3 +1,4 @@
+from urllib.parse import urlparse
 from rest_framework import generics, permissions, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -159,7 +160,11 @@ class ExtractArticleDataView(generics.CreateAPIView):
         url = serializer.validated_data["url"]
 
         try:
-            summary, title, image_paths = inshort_generator(url)
+            summary, title, image_keys = inshort_generator(url)
+            image_urls = [
+                default_storage.url(k)
+                for k in image_keys
+            ]
             return Response(
                 {
                     "detail": "Article data extracted successfully",
@@ -203,7 +208,7 @@ class CleanupUnwantedImages(APIView):
         for url in image_urls:
             if settings.DEBUG:
                 path = url.split("/v1/")[-1]
-            else: path = url
+            else: path = urlparse(url).path.lstrip("/")
             default_storage.delete(path)
             deleted.append(path)
 

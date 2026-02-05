@@ -1,5 +1,6 @@
-import requests, uuid, nltk, random
 import numpy as np
+import requests, uuid, nltk, random
+from urllib.parse import urlparse
 from google import genai
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
@@ -40,8 +41,7 @@ TEMP_DIR = "temp/topics/"
 class TopicImageService:
     @staticmethod
     def download_temp_images(image_links: list[str]) -> list[str]:
-        saved_paths = []
-
+        saved_keys = []
         for link in image_links:
             if not link:
                 continue
@@ -53,26 +53,33 @@ class TopicImageService:
                 response = requests.get(link, timeout=15)
                 response.raise_for_status()
 
-                file_name = f"{TEMP_DIR}{uuid.uuid4()}.jpg"
+                key = f"{TEMP_DIR}{uuid.uuid4()}.jpg"
 
-                path = default_storage.save(
-                    file_name, ContentFile(response.content)
+                default_storage.save(
+                    key,
+                    ContentFile(response.content)
                 )
-                saved_paths.append(default_storage.url(path))
+                saved_keys.append(key)
+
             except Exception:
                 continue
-        # print("SAVED PATHS", saved_paths)
-        return saved_paths
+
+        return saved_keys
+    
+    @staticmethod
+    def _url_to_key(url: str) -> str:
+        parsed = urlparse(url)
+        return parsed.path.lstrip("/")
 
     @staticmethod
     def promote_image(temp_url: str) -> str:
         if settings.DEBUG:
             temp_path = temp_url.split("/v1/")[-1]
-        else: temp_path = temp_url
+        else: temp_path = TopicImageService._url_to_key(temp_url)
 
         with default_storage.open(temp_path, "rb") as f:
             new_path = default_storage.save(
-                f"topics/{uuid.uuid4()}.jpg", f
+                f"topics/images/{uuid.uuid4()}.jpg", f
             )
         print("PROMOTED IMAGE", new_path)
         print("DELETING TEMP IMAGE", temp_path)
