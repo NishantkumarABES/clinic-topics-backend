@@ -58,10 +58,7 @@ class TopicImageService:
                 path = default_storage.save(
                     file_name, ContentFile(response.content)
                 )
-                if settings.DEBUG:
-                    saved_paths.append(default_storage.url(path))
-                else: saved_paths.append(path)
-
+                saved_paths.append(default_storage.url(path))
             except Exception:
                 continue
         # print("SAVED PATHS", saved_paths)
