@@ -312,7 +312,7 @@ class SocialLoginView(APIView):
         if not user:
             return Response(
                 {
-                    "detail": "Registration required",
+                    "detail": "User with this social account does not exist",
                     "data": {"registration_required": True},
                     "success": False
                 },

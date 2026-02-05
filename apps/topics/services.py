@@ -10,7 +10,7 @@ from django.core.files.uploadedfile import UploadedFile
 from sklearn.feature_extraction.text import TfidfVectorizer
 from apps.topics.models import Topic, TopicTranscription
 from external.sonix.service import sonix_client, SonixAPIError
-from django.conf import settings
+from config import settings
 
 
 try:
@@ -68,7 +68,9 @@ class TopicImageService:
 
     @staticmethod
     def promote_image(temp_url: str) -> str:
-        temp_path = temp_url.split("/v1/")[-1]
+        if settings.DEBUG:
+            temp_path = temp_url.split("/v1/")[-1]
+        else: temp_path = temp_url
 
         with default_storage.open(temp_path, "rb") as f:
             new_path = default_storage.save(
