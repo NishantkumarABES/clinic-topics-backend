@@ -27,12 +27,18 @@ class Topic(TimeStampedUUIDModel):
 
     @property
     def image(self):
+        from django.core.files.storage import default_storage
         if self.image_file:
             try:
                 return self.image_file.url
             except Exception:
                 return None
-        return self.image_url
+        # If image_url is a path (not a full URL), generate a fresh signed URL
+        if self.image_url:
+            if not self.image_url.startswith('http'):
+                return default_storage.url(self.image_url)
+            return self.image_url
+        return None
 
 
     class Meta:
