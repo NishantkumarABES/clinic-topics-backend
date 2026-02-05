@@ -1,8 +1,8 @@
-import os, requests, time
+import os, requests, time, json
 from django.core.cache import cache
 from rest_framework.exceptions import AuthenticationFailed
-from jwt.algorithms import RSAAlgorithm
-from jose import jwt
+from jose import jwt, jwk
+from jose.exceptions import JWTError, JWTClaimsError, ExpiredSignatureError
 
 
 class SocialUser:
@@ -112,26 +112,39 @@ def exchange_apple_code_for_token(code):
 
 # -------- APPLE --------
 def get_apple_public_keys():
-    # Try cache first
-    keys = cache.get(APPLE_JWKS_CACHE_KEY)
-    if keys:
-        return keys
+    # Try cache first (with graceful fallback if Redis is unavailable)
+    try:
+        keys = cache.get(APPLE_JWKS_CACHE_KEY)
+        if keys:
+            return keys
+    except Exception:
+        # Cache unavailable (e.g., Redis not running), continue without cache
+        pass
 
-    # Fetch from Apple if not cached
+    # Fetch from Apple if not cached or cache unavailable
     try:
         response = requests.get(APPLE_PUBLIC_KEY_URL, timeout=5)
         if response.status_code != 200:
             raise AuthenticationFailed("Unable to fetch Apple public keys")
 
         keys = response.json()
-        cache.set(APPLE_JWKS_CACHE_KEY, keys, APPLE_JWKS_TTL)
+        
+        # Try to cache the keys (ignore errors if cache is unavailable)
+        try:
+            cache.set(APPLE_JWKS_CACHE_KEY, keys, APPLE_JWKS_TTL)
+        except Exception:
+            pass  # Cache unavailable, continue without caching
+            
         return keys
 
     except requests.RequestException:
-        # If Apple is down but cache exists, use stale cache
-        cached = cache.get(APPLE_JWKS_CACHE_KEY)
-        if cached:
-            return cached
+        # If Apple is down, try to get from cache as fallback
+        try:
+            cached = cache.get(APPLE_JWKS_CACHE_KEY)
+            if cached:
+                return cached
+        except Exception:
+            pass  # Cache unavailable
         raise AuthenticationFailed("Apple public key service unreachable")
 
 def verify_apple_token(authorization_code):
@@ -145,28 +158,59 @@ def verify_apple_token(authorization_code):
     if not identity_token:
         raise AuthenticationFailed("Apple did not return identity token")
 
-    # reuse your existing JWKS verification
+    # Get Apple's public keys (JWKS)
     apple_keys = get_apple_public_keys()
 
-    header = jwt.get_unverified_header(identity_token)
-    kid = header["kid"]
+    # Get the key ID from the token header
+    try:
+        header = jwt.get_unverified_header(identity_token)
+    except JWTError as e:
+        raise AuthenticationFailed(f"Invalid Apple identity token format: {str(e)}")
 
-    public_key = None
-    for key in apple_keys["keys"]:
-        if key["kid"] == kid:
-            public_key = RSAAlgorithm.from_jwk(key)
+    kid = header.get("kid")
+    if not kid:
+        raise AuthenticationFailed("Apple identity token missing key ID")
+
+    # Find the matching public key
+    public_key_data = None
+    for key in apple_keys.get("keys", []):
+        if key.get("kid") == kid:
+            public_key_data = key
             break
 
-    if not public_key:
-        raise AuthenticationFailed("Apple public key not found")
+    if not public_key_data:
+        # Key not found, try refreshing the cache
+        cache.delete(APPLE_JWKS_CACHE_KEY)
+        apple_keys = get_apple_public_keys()
+        for key in apple_keys.get("keys", []):
+            if key.get("kid") == kid:
+                public_key_data = key
+                break
 
-    claims = jwt.decode(
-        identity_token,
-        public_key,
-        algorithms=["RS256"],
-        audience=os.getenv("APPLE_CLIENT_ID"),
-        issuer="https://appleid.apple.com"
-    )
+    if not public_key_data:
+        raise AuthenticationFailed("Apple public key not found for token")
+
+    # Construct the RSA public key using python-jose
+    try:
+        public_key = jwk.construct(public_key_data, algorithm="RS256")
+    except Exception as e:
+        raise AuthenticationFailed(f"Failed to construct Apple public key: {str(e)}")
+
+    # Decode and verify the token
+    try:
+        claims = jwt.decode(
+            identity_token,
+            public_key,
+            algorithms=["RS256"],
+            audience=os.getenv("APPLE_CLIENT_ID"),
+            issuer="https://appleid.apple.com"
+        )
+    except ExpiredSignatureError:
+        raise AuthenticationFailed("Apple identity token has expired")
+    except JWTClaimsError as e:
+        raise AuthenticationFailed(f"Apple token claims validation failed: {str(e)}")
+    except JWTError as e:
+        raise AuthenticationFailed(f"Apple token verification failed: {str(e)}")
 
     return SocialUser(
         provider="apple",
@@ -182,8 +226,7 @@ social_provider_verification = {
 }
 
 
-if __name__ == "__main__":
-    verify_apple_token("neyJraWQiOiJhVmVIRmFXeEFaIiwiYWxnIjoiUlMyNTYifQ.eyJpc3MiOiJodHRwczovL2FwcGxlaWQuYXBwbGUuY29tIiwiYXVkIjoib3JnLnJlYWN0anMubmF0aXZlLmV4YW1wbGUuQ2xpbmljVG9waWNzIiwiZXhwIjoxNzcwMzA5ODYyLCJpYXQiOjE3NzAyMjM0NjIsInN1YiI6IjAwMTQwMS44ZjYwODdkNWZlZTU0N2I5OTM0YWJkN2U0YzU3NjA0Mi4wNTA4IiwiY19oYXNoIjoiX2t6eG9MREYta2VCaDZvcS16RTNCQSIsImVtYWlsIjoiYWxvay5zaW5naEBxc3N0ZWNobm9zb2Z0LmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdXRoX3RpbWUiOjE3NzAyMjM0NjIsIm5vbmNlX3N1cHBvcnRlZCI6dHJ1ZX0.Wp_D6FygBicPli2mW71qkvjqsDvSEsMVgIQ7lBvnR0ECLytWMmOMkS0yRZdqOjilYTSYSGBoesM-sO6p9lCD-evaUkvbQdy2zg97zzahDztOrMXCgFemp59yZMfmAakQyAPrDRHiNsZDzarczJhtd239LZvnjDigIS6K8XviK2jw0Ld7Yarb_ApWDq5cvkh12s0CDCXB-aTjW8QO6r3p27VFGsld9ncWQGoIjNEAOYoPD88ufgXEN38vO6aeT7DMwAydiZUrcHv70eXhNzqAe_9ZO_-6u0yhc94TTo8AgQL8cgP2mXU3Okcnd-w3nnaWMtWo-giry-2c4PkgKTf0Tg\r\n--0P5bATcQx3IqjJRRW1FMYXPvB7u4thNMgK9jZ7g6Lv.vZgoUgUGp2JdWYD688IoHmgyArK")
+
 
 
 

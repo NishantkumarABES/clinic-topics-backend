@@ -468,13 +468,6 @@ class IdentityCheckSerializer(serializers.Serializer):
     def validate(self, data):
         if not data.get("email") and not data.get("phone"):
             raise ValidationError("Email or phone is required")
-
-        if data.get("phone"):
-            data["phone"] = normalize_phone(
-                data["phone"],
-                data.get("country_code", "+91")
-            )
-
         return data
 
 
