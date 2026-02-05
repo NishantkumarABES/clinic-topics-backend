@@ -171,7 +171,7 @@ class ExtractArticleDataView(generics.CreateAPIView):
                     "data": {
                         "title": title,
                         "summary": summary,
-                        "images": image_paths,
+                        "images": image_urls,
                     },
                     "success": True
                 },
