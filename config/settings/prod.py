@@ -24,12 +24,13 @@ AWS_S3_SIGNATURE_VERSION = "s3v4"
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None   # recommended by django-storages
 AWS_QUERYSTRING_AUTH = True  # private files via signed URLs
-AWS_S3_CUSTOM_DOMAIN = f"{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com"
+# Don't set AWS_S3_CUSTOM_DOMAIN when using querystring_auth=True
+# Custom domain bypasses signed URL generation, causing 403 errors
 AWS_S3_OBJECT_PARAMETERS = {
     "CacheControl": "max-age=86400",
 }
 
-MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
+MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/"
 
 STORAGES = {
     "default": {
