@@ -84,8 +84,8 @@ class TopicImageService:
         print("PROMOTED IMAGE", new_path)
         print("DELETING TEMP IMAGE", temp_path)
         default_storage.delete(temp_path)
-        # RETURN PATH — NOT URL
-        return default_storage.url(new_path)
+        # RETURN PATH — NOT URL (URL is generated dynamically when displaying)
+        return new_path
     
     @staticmethod
     def upload_image(file: UploadedFile) -> str:
