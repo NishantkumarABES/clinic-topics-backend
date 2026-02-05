@@ -194,6 +194,7 @@ class RegisterSerializer(serializers.Serializer):
 class PhoneOTPRequestSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
     country_code = serializers.CharField(max_length=5, required=False, default="+91")
+    create_account = serializers.BooleanField(required=False, default=False)
 
     def validate_phone(self, value):
         if not value.isdigit():

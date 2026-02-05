@@ -59,26 +59,30 @@ class ProfileMeView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        if not ctx["instance"]:
-            user = request.user
-            profile_data = {
-                "full_name": user.full_name,
-                "email": user.email,
-                "phone": user.phone,
-                "country_code": user.country_code,
-                "date_of_birth": user.date_of_birth,
-                "gender": user.gender,
-                **ctx["serializer"](ctx["instance"]).data
-            }
-            return Response({
-                "detail": "Profile retrieved successfully",
-                "data": profile_data,
-                "success": True
-            })
-
+        user = request.user
+        serializer_data = ctx["serializer"](ctx["instance"]).data if ctx["instance"] else {}
+        
+        # Build profile data with user fields first, then overlay profile-specific fields
+        profile_data = {
+            "full_name": user.full_name,
+            "email": user.email,
+            "phone": user.phone,
+            "country_code": user.country_code,
+            "date_of_birth": user.date_of_birth,
+            "gender": user.gender,
+        }
+        
+        # Add profile-specific fields (excluding user fields that are already set)
+        for key, value in serializer_data.items():
+            if key not in ["full_name", "email", "phone", "country_code", "date_of_birth", "gender"]:
+                profile_data[key] = value
+            elif key in ["date_of_birth", "gender"] and value:
+                # Only override if serializer has a non-empty value
+                profile_data[key] = value
+        
         return Response({
             "detail": "Profile retrieved successfully",
-            "data": ctx["serializer"](ctx["instance"]).data,
+            "data": profile_data,
             "success": True
         })
 
