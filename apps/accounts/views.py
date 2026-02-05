@@ -112,15 +112,27 @@ class PhoneOTPRequestView(APIView):
         serializer.is_valid(raise_exception=True)
 
         phone = serializer.validated_data["phone"]
+        phone_number = serializer.validated_data["phone_number"]
 
-        if not can_resend_otp(phone):
+        if User.objects.filter(
+            phone=phone, state=UserState.DELETED
+        ).exists():
+            return Response(
+                {
+                    "detail": "User with this phone number does not exist",
+                    "data": None,
+                    "success": False
+                }
+            )
+
+        if not can_resend_otp(phone=phone_number):
             return Response(
                 {"detail": "Please wait before requesting another OTP", "data": None, "success": False},
                 status=status.HTTP_429_TOO_MANY_REQUESTS
             )
 
         try:
-            otp = send_phone_otp(phone)
+            otp = send_phone_otp(phone=phone_number)
         except Exception as e:
             return Response({
                 "detail": str(e),
@@ -300,7 +312,7 @@ class SocialLoginView(APIView):
         if not user:
             return Response(
                 {
-                    "detail": "Registration required",
+                    "detail": "User with this social account does not exist",
                     "data": {"registration_required": True},
                     "success": False
                 },

@@ -1,5 +1,4 @@
 from django.db import transaction
-from django.contrib.auth import authenticate
 from django.contrib.auth.password_validation import validate_password
 from django.utils import timezone
 from rest_framework import serializers
@@ -202,7 +201,7 @@ class PhoneOTPRequestSerializer(serializers.Serializer):
         return value
 
     def validate(self, data):
-        data["phone"] = normalize_phone(
+        data["phone_number"] = normalize_phone(
             data["phone"],
             data.get("country_code", "+91")
         )
@@ -278,7 +277,7 @@ class EmailLoginSerializer(serializers.Serializer):
             raise ValidationError("Invalid email or password")
  
         if not user.can_authenticate():
-            raise ValidationError("User account is inactive")
+            raise ValidationError("User with this email does not exist")
             
         # If admin-created doctor logging in first time → activate
         if user.by_admin and not user.is_active:

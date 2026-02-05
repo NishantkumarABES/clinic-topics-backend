@@ -18,6 +18,8 @@ from apps.topics.serializers import (
 )
 from apps.notifications.services import create_admin_notification
 from core.permissions import IsAdmin, IsDoctor
+from config import settings
+
 
 
 class TopicListView(generics.ListAPIView):
@@ -199,7 +201,9 @@ class CleanupUnwantedImages(APIView):
         failed = []
 
         for url in image_urls:
-            path = url.split("/v1/")[-1]
+            if settings.DEBUG:
+                path = url.split("/v1/")[-1]
+            else: path = url
             default_storage.delete(path)
             deleted.append(path)
 
