@@ -16,7 +16,7 @@ class Topic(TimeStampedUUIDModel):
         blank=True
     )
 
-    image_url = models.URLField(blank=True, null=True)
+    image_url = models.URLField(max_length=2000, blank=True, null=True)
     image_file = models.ImageField(
         upload_to='topics/images/', blank=True, null=True
     )
