@@ -85,10 +85,10 @@ class DoctorProfile(TimeStampedUUIDModel):
             self.specialization,
             self.years_of_experience is not None,
             self.license_number,
-            self.license_document,
+            # self.license_document,
             self.consultation_fee is not None,
             self.premium_online_fee is not None,
-            self.website_url is not None,
+            # self.website_url is not None,
         ])
 
 
