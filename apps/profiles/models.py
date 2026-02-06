@@ -39,7 +39,7 @@ class DoctorProfile(TimeStampedUUIDModel):
     medical_council = models.CharField(max_length=255, null=True, blank=True)
     registration_numbers = models.JSONField(null=True, blank=True)
     license_issue_year = models.PositiveIntegerField(null=True, blank=True)
-    license_document = models.FileField(upload_to="licenses/")
+    license_document = models.FileField(upload_to="profiles/doctor/licenses/")
 
     # ---------- Practice Information ----------
     clinic_name = models.CharField(max_length=255, null=True, blank=True)
@@ -85,10 +85,10 @@ class DoctorProfile(TimeStampedUUIDModel):
             self.specialization,
             self.years_of_experience is not None,
             self.license_number,
-            self.license_document,
+            # self.license_document,
             self.consultation_fee is not None,
             self.premium_online_fee is not None,
-            self.website_url is not None,
+            # self.website_url is not None,
         ])
 
 

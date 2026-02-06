@@ -261,7 +261,7 @@ class DoctorTopicCreateAPIView(APIView):
         topic = serializer.save()
         create_admin_notification(
             title="Topic Upload Request",
-            message="Dr. {doctor_full_name} has submitted a new topic for approval.",
+            message=f"Dr. {doctor_full_name} has submitted a new topic for approval.",
         ) 
         return Response(
             {

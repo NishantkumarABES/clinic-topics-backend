@@ -1,7 +1,7 @@
 from config.settings.base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 DEFAULT_FROM_EMAIL = "nishant543099@gmail.com"
 DATABASES = {
     "default": {
