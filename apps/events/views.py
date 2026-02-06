@@ -12,7 +12,7 @@ from apps.events.serializers import (
 )
 from core.api_responses import NOT_FOUND_404
 from core.permissions import IsAdmin, IsDoctor
-
+from apps.accounts.constants import UserRole
 
 
 
@@ -104,7 +104,7 @@ class EventListCreateAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         user_role = request.user.role
-        if user_role not in [IsAdmin.ROLE]:
+        if user_role not in [UserRole.ADMIN]:
             return Response(
                 {"detail": "You do not have permission to perform this action", "data": None, "success": False},
                 status=status.HTTP_403_FORBIDDEN
