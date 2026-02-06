@@ -1,9 +1,7 @@
-import os
 from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
-from django.http import FileResponse
 from drf_yasg.utils import swagger_auto_schema
 
 from apps.second_opinion.models import SecondOpinionDoctorRequest
@@ -243,20 +241,20 @@ class GenerateSecondOpinionReportView(APIView):
             "doctor_signature_url": template.doctor_signature.url if template.doctor_signature else "",
         }
 
-        # ---- Step 8: Generate PDF ----
+        # ---- Step 8: Generate PDF and get URL ----
         try:
-            pdf_path = ReportPDFService.generate_pdf(template_data)
+            pdf_url = ReportPDFService.generate_pdf(template_data)
         except Exception as e:
             return Response(
                 {"detail": str(e), "data": None, "success": False},
             )
         
-        # ---- Step 9: Return file ----
-        response = FileResponse(
-            open(pdf_path, "rb"),
-            content_type="application/pdf"
+        # ---- Step 9: Return PDF URL ----
+        return Response(
+            {
+                "detail": "Report generated successfully.",
+                "data": {"pdf_url": pdf_url},
+                "success": True,
+            },
+            status=status.HTTP_200_OK
         )
-        response["Content-Disposition"] = (
-            f'inline; filename="{os.path.basename(pdf_path)}"'
-        )
-        return response
