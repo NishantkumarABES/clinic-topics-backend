@@ -24,14 +24,16 @@ class BookListSerializer(serializers.ModelSerializer):
             "edition",
             "publication_year",
             "isbn",
-            "specialty",
+            "speciality",
             "book_type",
             "description",
             "rating",
             "views",
             "downloads",
             "status",
+            "rejection_reason",
             "is_editor_curated",
+            "price",
             "collections",
             "created_at",
         )
@@ -72,7 +74,7 @@ class BookUploadSerializer(serializers.ModelSerializer):
             "edition",
             "publication_year",
             "isbn",
-            "specialty",
+            "speciality",
             "book_type",
             "description",
             "file",
@@ -94,18 +96,32 @@ class BookReviewSerializer(serializers.ModelSerializer):
         (Status.APPROVED, "Approved"),
         (Status.REJECTED, "Rejected"),
     )
+
     status = serializers.ChoiceField(choices=REVIEW_STATUS_CHOICES)
+    rejection_reason = serializers.CharField(
+        required=False,
+        allow_blank=True
+    )
 
     class Meta:
         model = Book
-        fields = ("status", "is_editor_curated")
+        fields = ("status", "is_editor_curated", "rejection_reason")
 
-    def validate_status(self, value):
-        if value not in [Status.APPROVED, Status.REJECTED]:
+    def validate(self, attrs):
+        status_value = attrs.get("status")
+        reason = attrs.get("rejection_reason")
+
+        # ✅ Require reason when rejecting
+        if status_value == Status.REJECTED and not reason:
             raise serializers.ValidationError(
-                "Status can only be approved or rejected."
+                "Rejection reason is required when rejecting a book."
             )
-        return value
+
+        # ✅ Clear reason if approved
+        if status_value == Status.APPROVED:
+            attrs["rejection_reason"] = None
+
+        return attrs
 
 class CreateBookPurchaseSerializer(serializers.Serializer):
     book_id = serializers.UUIDField()

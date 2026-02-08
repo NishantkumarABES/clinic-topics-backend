@@ -19,8 +19,7 @@ from apps.topics.serializers import (
 )
 from apps.notifications.services import create_admin_notification
 from core.permissions import IsAdmin, IsDoctor
-from config import settings
-
+from apps.topics.services import TopicImageService
 
 
 class TopicListView(generics.ListAPIView):
@@ -147,7 +146,6 @@ class ExtractArticleDataView(generics.CreateAPIView):
     serializer_class = ArticleExtractionSerializer
     permission_classes = [IsAuthenticated, IsAdmin]
     swagger_schema = None
-    
     @swagger_auto_schema(
         auto_schema=None,
         request_body=ArticleExtractionSerializer,
@@ -171,7 +169,7 @@ class ExtractArticleDataView(generics.CreateAPIView):
                     "data": {
                         "title": title,
                         "summary": summary,
-                        "images": image_urls,
+                        "images": image_urls
                     },
                     "success": True
                 },
@@ -206,11 +204,12 @@ class CleanupUnwantedImages(APIView):
         failed = []
 
         for url in image_urls:
-            if settings.DEBUG:
-                path = url.split("/v1/")[-1]
-            else: path = urlparse(url).path.lstrip("/")
-            default_storage.delete(path)
-            deleted.append(path)
+            try:
+                object_key = TopicImageService.extract_image_path(url)
+                default_storage.delete(object_key)
+                deleted.append(url)
+            except Exception as exc:
+                failed.append(url)
 
         return Response(
             {

@@ -4,7 +4,6 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from apps.books.constants import BookType, CopyrightStatus, AccessLevel, Status
 from apps.accounts.models import User
 from core.models import TimeStampedUUIDModel
-# from external.cloudinary.storage import PrivateCloudinaryStorage
 
 
 class Collection(models.Model):
@@ -36,7 +35,7 @@ class Book(TimeStampedUUIDModel):
 
     isbn = models.CharField(max_length=20, blank=True, db_index=True)
 
-    specialty = models.CharField(max_length=100, null=True, blank=True)
+    speciality = models.CharField(max_length=100, null=True, blank=True)
 
     book_type = models.CharField(
         max_length=20,
@@ -49,7 +48,6 @@ class Book(TimeStampedUUIDModel):
     # File
     file = models.FileField(
         upload_to="books/files/",
-        # storage=PrivateCloudinaryStorage()
     )
 
     # Legal & access
@@ -94,7 +92,11 @@ class Book(TimeStampedUUIDModel):
         default=0,
         help_text="Price in paise. 0 means free."
     )
-
+    rejection_reason = models.TextField(
+        blank=True,
+        null=True,
+        help_text="Reason provided by admin when rejecting the book."
+    )
 
     class Meta:
         ordering = ["-created_at"]
