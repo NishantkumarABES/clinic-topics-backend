@@ -2,7 +2,6 @@ from config.settings.base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
-DEFAULT_FROM_EMAIL = "nishant543099@gmail.com"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -26,24 +25,12 @@ AWS_DEFAULT_ACL = None   # recommended by django-storages
 AWS_QUERYSTRING_AUTH = True  # private files via signed URLs
 # Don't set AWS_S3_CUSTOM_DOMAIN when using querystring_auth=True
 # Custom domain bypasses signed URL generation, causing 403 errors
-AWS_S3_OBJECT_PARAMETERS = {
-    "CacheControl": "max-age=86400",
-}
-
+AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/"
 
 STORAGES = {
     "default": {
         "BACKEND": "storages.backends.s3.S3Storage",
-        "OPTIONS": {
-            "querystring_auth": True,
-        },
-    },
-    "public": {
-        "BACKEND": "storages.backends.s3.S3Storage",
-        "OPTIONS": {
-            "querystring_auth": False,
-        },
     },
     "staticfiles": {
         "BACKEND": "whitenoise.storage.CompressedStaticFilesStorage",

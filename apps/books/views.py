@@ -7,6 +7,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.shortcuts import get_object_or_404
 from django.db import models, transaction
+from django.core.files.storage import default_storage
 
 from apps.books.models import Book, BookPurchase
 from apps.books.serializers import (
@@ -17,7 +18,6 @@ from apps.books.constants import Status
 from core.permissions import IsDoctor, IsAdmin
 from core.api_responses import BAD_REQUEST_400, UNAUTHORIZE_401
 from external.razorpay.service import razorpay_service
-from external.cloudinary.utils import CloudinaryService
 
 
 # -------------------------
@@ -137,6 +137,14 @@ class BookDetailView(APIView):
 class CreateBookPurchaseView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @swagger_auto_schema(
+        request_body=CreateBookPurchaseSerializer,
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def post(self, request):
         serializer = CreateBookPurchaseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -192,6 +200,14 @@ class CreateBookPurchaseView(APIView):
 class VerifyBookPurchaseView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
+    @swagger_auto_schema(
+        request_body=VerifyBookPurchaseSerializer,
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+        },
+    )
     def post(self, request):
         serializer = VerifyBookPurchaseSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -268,18 +284,73 @@ class MyBooksView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsDoctor]
     pagination_class = BookPagination
 
+    @swagger_auto_schema(
+        responses={
+            200: PaginatedBookListResponseSerializer,
+        },
+        operation_description="Retrieve a paginated list of books uploaded by the doctor. Supports search, filtering and sorting.",
+        manual_parameters=[
+            openapi.Parameter(
+                name="status",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                description="Filter by book status"
+            ),
+            openapi.Parameter(
+                name="search",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                description="Search in title, authors or ISBN (partial match)"
+            ),
+            openapi.Parameter(
+                name="specialty",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                description="Filter by specialty"
+            ),
+            openapi.Parameter(
+                name="book_type",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                description="Filter by book type"
+            ),
+            openapi.Parameter(
+                name="ordering",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False, 
+                description='Ordering field(s), e.g. "-created_at", "title", etc. Default: "-created_at"',
+                default="-created_at"
+            ),
+        ],
+    )
     def get(self, request):
         queryset = Book.objects.filter(uploaded_by=request.user)
-
         status_filter = request.query_params.get("status")
+        search = request.query_params.get("search")
+        specialty = request.query_params.get("specialty")
+        book_type = request.query_params.get("book_type")
+        ordering = request.query_params.get("ordering", "-created_at")
         if status_filter:
             queryset = queryset.filter(status=status_filter)
-
+        if search:
+            queryset = queryset.filter(
+                models.Q(title__icontains=search) |
+                models.Q(authors__icontains=search) |
+                models.Q(isbn__icontains=search)
+            )
+        if specialty:
+            queryset = queryset.filter(specialty=specialty)
+        if book_type:
+            queryset = queryset.filter(book_type=book_type)
+        queryset = queryset.order_by(ordering)
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
-
         serializer = BookListSerializer(page, many=True)
-
         response = paginator.get_paginated_response(serializer.data).data
         return Response(
             {
@@ -322,10 +393,8 @@ class BookDownloadView(APIView):
             )
 
             public_id = book.file.name
-            cloudinary_service = CloudinaryService()
-            download_url = cloudinary_service.generate_signed_pdf_url(
-                public_id=public_id, expires_in_seconds=1500,
-            )
+            print("Public ID:", public_id)
+            download_url = default_storage.url(public_id)
 
         serializer = BookDownloadResponseSerializer(
             {"download_url": download_url}

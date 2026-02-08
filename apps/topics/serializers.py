@@ -2,7 +2,6 @@ from rest_framework import serializers
 from django.utils.timezone import now
 from apps.topics.models import Topic
 from apps.topics.services import TopicImageService
-from django.core.files.uploadedfile import UploadedFile
 
 class TopicListSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -110,7 +109,7 @@ class AdminTopicWriteSerializer(serializers.ModelSerializer):
         
         image_url = validated_data.get("image_url")
         if image_url:
-            promoted_url = TopicImageService.promote_image(image_url)
+            promoted_url = TopicImageService.promote_image_to_topic(image_url)
             validated_data["image_url"] = promoted_url
         
         return Topic.objects.create(**validated_data)

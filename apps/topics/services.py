@@ -1,13 +1,13 @@
+import os
 import numpy as np
 import requests, uuid, nltk, random
-from urllib.parse import urlparse
+from urllib.parse import urlparse, unquote
 from google import genai
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from nltk.tokenize import sent_tokenize
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
-from django.core.files.uploadedfile import UploadedFile
 from sklearn.feature_extraction.text import TfidfVectorizer
 from apps.topics.models import Topic, TopicTranscription
 from external.sonix.service import sonix_client, SonixAPIError
@@ -23,7 +23,14 @@ try:
 except LookupError:
     nltk.download("punkt_tab")
 
-
+ext_mapping = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/jpg": "jpg",
+    "image/webp": "webp",
+    "image/gif": "gif",
+    "image/svg+xml": "svg",
+}
 
 ua = UserAgent()
 client = genai.Client()
@@ -37,73 +44,49 @@ Article:
 """
 
 
-TEMP_DIR = "temp/topics/"
 class TopicImageService:
     @staticmethod
-    def download_temp_images(image_links: list[str]) -> list[str]:
-        saved_keys = []
-        for link in image_links:
-            if not link:
-                continue
-
-            if link.startswith("//"):
-                link = "https:" + link
-
+    def download_images_to_temp(image_urls: list[str]) -> list[str]:
+        results = []
+        for image_url in image_urls:
+            if not image_url: continue
+            if image_url.startswith("//"): image_url = "https:" + image_url
             try:
-                response = requests.get(link, timeout=15)
-                response.raise_for_status()
-
-                key = f"{TEMP_DIR}{uuid.uuid4()}.jpg"
-
-                default_storage.save(
-                    key,
-                    ContentFile(response.content)
-                )
-                saved_keys.append(key)
-
-            except Exception:
-                continue
-
-        return saved_keys
+                resp = requests.get(image_url, timeout=20, headers={"User-Agent": ua.random})
+                resp.raise_for_status()
+                content_type = resp.headers.get("Content-Type", "").lower()
+                ext = ext_mapping.get(content_type, "jpg")
+                key = f"temp/topics/{uuid.uuid4()}.{ext}"
+                file_path = default_storage.save(key, ContentFile(resp.content))
+                results.append(file_path)
+            except Exception as e:
+                print(f"Image download failed: {image_url} -> {e}")
+        return results
     
     @staticmethod
-    def _url_to_key(url: str) -> str:
-        parsed = urlparse(url)
-        return parsed.path.lstrip("/")
-
-    @staticmethod
-    def promote_image(temp_url: str) -> str:
-        if settings.DEBUG:
-            temp_path = temp_url.split("/v1/")[-1]
-        else: temp_path = TopicImageService._url_to_key(temp_url)
-
-        with default_storage.open(temp_path, "rb") as f:
-            new_path = default_storage.save(
-                f"topics/images/{uuid.uuid4()}.jpg", f
-            )
-        print("PROMOTED IMAGE", new_path)
-        print("DELETING TEMP IMAGE", temp_path)
-        default_storage.delete(temp_path)
-        # RETURN PATH — NOT URL (URL is generated dynamically when displaying)
-        return new_path
+    def extract_image_path(image_url: str) -> str:
+        if not image_url:
+            raise ValueError("URL cannot be empty")
+        # Remove leading slash
+        path = urlparse(image_url).path.lstrip("/")
+        # Decode URL-encoded characters (%20 etc.)
+        key = unquote(path)
+        return key
+        
     
     @staticmethod
-    def upload_image(file: UploadedFile) -> str:
-        if not file: return None
-        # Preserve extension safely
-        ext = file.name.split(".")[-1].lower()
-        file_name = f"topics/{uuid.uuid4()}.{ext}"
-        saved_path = default_storage.save(file_name, file)
-        return saved_path
-   
-    @staticmethod
-    def delete_images(urls: list[str]):
-        for url in urls:
-            try:
-                path = url.split("/media/")[-1]
-                default_storage.delete(path)
-            except Exception:
-                pass
+    def promote_image_to_topic(image_url: str) -> str:
+        image_key = TopicImageService.extract_image_path(image_url)
+        print(f"Promoting image from temp: {image_key}")
+        if not default_storage.exists(image_key):
+            raise FileNotFoundError(f"Temp image not found: {image_key}")
+        file_name = os.path.basename(image_key)
+        new_key = f"topics/images/{file_name}"
+        with default_storage.open(image_key, "rb") as f:
+            content = f.read()
+            default_storage.save(new_key, ContentFile(content))
+        default_storage.delete(image_key)
+        return new_key
 
 def get_html_from_url(url: str) -> str:
     resp = requests.get(
@@ -164,9 +147,10 @@ def summarize_tfidf(text, word_limit=300):
 
 def inshort_generator(url: str) -> str:
     article_text, article_title, image_links = process_article(url)
-    image_paths = TopicImageService.download_temp_images(image_links)
+    temp_image_urls = TopicImageService.download_images_to_temp(image_links)
     summary = summarize_tfidf(article_text)
-    return summary, article_title, image_paths
+    return summary, article_title, temp_image_urls
+
 
 
 # ---------------------------------------------------------------------
@@ -232,11 +216,11 @@ def start_transcription(topic_id: str) -> dict:
             result = _dummy_sonix_create(topic)
         else:
             result = None
-            # result = sonix_client.create_transcription_from_url(
-            #     media_url=topic.video_url,
-            #     language="en",
-            #     name=topic.title
-            # )
+            result = sonix_client.create_transcription_from_url(
+                media_url=topic.video_url,
+                language="en",
+                name=topic.title
+            )
         
         # Create transcription record
         transcription = TopicTranscription.objects.create(
