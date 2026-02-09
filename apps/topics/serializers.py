@@ -173,6 +173,7 @@ class TopicFeedItemSerializer(serializers.ModelSerializer):
             "publishing_time",
             "publish_status",
             "image",
+            "source_url",
             "video_url",
         ]
 
