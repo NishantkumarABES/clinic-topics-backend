@@ -39,3 +39,18 @@ class NotificationResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
     data = serializers.JSONField(allow_null=True)
     success = serializers.BooleanField()
+
+
+################ Response Serializers ################
+
+class paginatedNotificationResponseSerializer(serializers.Serializer):
+    unread_count = serializers.IntegerField()
+    count = serializers.IntegerField()
+    next = serializers.CharField(allow_null=True)
+    previous = serializers.CharField(allow_null=True)
+    results = NotificationSerializer(many=True)
+
+class NotificationListResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = paginatedNotificationResponseSerializer()
+    success = serializers.BooleanField()

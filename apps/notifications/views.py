@@ -6,7 +6,9 @@ from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
 
 from apps.notifications.models import Notification
-from apps.notifications.serializers import NotificationSerializer, MarkNotificationReadSerializer
+from apps.notifications.serializers import (
+    NotificationSerializer, MarkNotificationReadSerializer, NotificationListResponseSerializer
+)
 
 class AdminNotificationSummary(APIView):
     permission_classes = [IsAuthenticated]
@@ -73,6 +75,9 @@ class UserNotificationListView(APIView):
     permission_classes = [IsAuthenticated]
     pagination_class = UserNotificationPagination
 
+    @swagger_auto_schema(
+        responses={200: NotificationListResponseSerializer()}
+    )
     def get(self, request):
 
         queryset = Notification.objects.filter(
@@ -100,8 +105,11 @@ class UserNotificationListView(APIView):
 class MarkNotificationReadView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        request_body=MarkNotificationReadSerializer,
+        responses={200: NotificationListResponseSerializer()}
+    )
     def post(self, request):
-
         serializer = MarkNotificationReadSerializer(
             data=request.data,
             context={"request": request}
@@ -119,6 +127,9 @@ class MarkNotificationReadView(APIView):
 class MarkAllNotificationsReadView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        responses={200: NotificationListResponseSerializer()}
+    )
     def post(self, request):
 
         Notification.objects.filter(
