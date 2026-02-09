@@ -2,7 +2,7 @@ import uuid
 from django.db import models
 from django.utils import timezone
 from apps.accounts.models import User
-
+from core.models import TimeStampedUUIDModel
 
 class Notification(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -23,9 +23,13 @@ class Notification(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["recipient", "-created_at"]),
+        ]
 
     def mark_read(self):
         if not self.is_read:
             self.is_read = True
             self.read_at = timezone.now()
             self.save(update_fields=["is_read", "read_at"])
+

@@ -124,9 +124,14 @@ def create_admin_notification(title: str, message: str, data: dict = None):
     )
     return "Notification created successfully"
 
-
-
-
+def create_user_notification(recipient, title: str, message: str, data: dict = None):
+    notification = Notification.objects.create(
+        recipient=recipient,
+        title=title,
+        message=message,
+        data=data or {}
+    )
+    return notification
 
 
 
