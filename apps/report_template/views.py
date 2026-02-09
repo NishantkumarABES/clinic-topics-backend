@@ -39,7 +39,7 @@ class ReportTemplateView(APIView):
             return Response(
                 {
                     "detail": "Report template not created yet.",
-                    "data": None,
+                    "data": {"template": None},
                     "success": False,
                 },
             )

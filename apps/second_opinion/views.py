@@ -32,6 +32,7 @@ from apps.second_opinion.serializers import (
 from apps.second_opinion.constants import SecondOpinionPaymentStatus
 from apps.accounts.models import User
 from apps.accounts.constants import UserRole, UserState
+from apps.report_template.models import ReportTemplate
 from apps.notifications.services import create_user_notification
 from external.razorpay.service import razorpay_service
 
@@ -507,10 +508,17 @@ class DoctorSecondOpinionDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        is_template_filled = ReportTemplate.objects.filter(
+            doctor=request.user
+        ).exists()
+
         serializer = DoctorSecondOpinionDetailSerializer(doctor_request)
         return Response({
             "detail": "Request retrieved successfully",
-            "data": serializer.data,
+            "data": {
+                **serializer.data,
+                "is_report_template_filled": is_template_filled
+            },
             "success": True
         })
 
