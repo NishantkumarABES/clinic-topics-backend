@@ -1,7 +1,7 @@
 from django.urls import path
 from apps.books.views import (
     BookListView, BookDetailView, BookDownloadView, PendingBookListView, BookReviewView, MyBooksView, BookUploadView,
-    CreateBookPurchaseView, VerifyBookPurchaseView
+    CreateBookPurchaseView, VerifyBookPurchaseView, MyBookDetailView
 )
 
 urlpatterns = [
@@ -19,7 +19,9 @@ urlpatterns = [
     # Doctor APIs
     # -------------------------
     path("my/", MyBooksView.as_view(), name="my-books"),
+    path("my/<uuid:pk>/", MyBookDetailView.as_view(), name="my-book-detail"),
     path("upload/", BookUploadView.as_view(), name="book-upload"),
+
 
     # -------------------------
     # Admin APIs
