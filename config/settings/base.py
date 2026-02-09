@@ -70,6 +70,7 @@ INSTALLED_APPS = [
     # MY REPOSITE's APP
     "apps.books.app.BooksConfig",
     "apps.jobs.app.JobsConfig",
+    "apps.articles.app.ArticlesConfig",
 
     "core.app.CoreConfig",
 ]

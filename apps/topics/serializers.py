@@ -11,6 +11,8 @@ class TopicListSerializer(serializers.ModelSerializer):
             "id",
             "title",
             "description",
+            "source_url",
+            "video_url",
             "publishing_time",
             "publish_status",
             "image"
