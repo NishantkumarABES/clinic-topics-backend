@@ -359,6 +359,29 @@ class MyBooksView(APIView):
             }
         )
 
+class MyBookDetailView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsDoctor]
+
+    @swagger_auto_schema(
+        responses={
+            200: BookDetailSerializer,
+        },
+    )
+    def get(self, request, pk):
+        book = get_object_or_404(
+            Book, id=pk, uploaded_by=request.user
+        )
+
+        serializer = BookDetailSerializer(
+            book, context={"request": request}
+        )
+
+        return Response({
+            "detail": "Book details fetched",
+            "data": serializer.data,
+            "success": True,
+        })
+
 class BookDownloadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
