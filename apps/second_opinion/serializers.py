@@ -8,6 +8,7 @@ from apps.second_opinion.constants import SecondOpinionStatus, SecondOpinionPaym
 from apps.accounts.models import User
 from apps.accounts.constants import UserRole
 from apps.profiles.models import DoctorRating
+from apps.notifications.services import create_user_notification
 
 
 # ===================== Input Serializers =====================
@@ -133,7 +134,7 @@ class CreateSecondOpinionRequestSerializer(serializers.Serializer):
         )
 
         # Create doctor requests
-        SecondOpinionDoctorRequest.objects.bulk_create([
+        doctor_requests = SecondOpinionDoctorRequest.objects.bulk_create([
             SecondOpinionDoctorRequest(
                 second_opinion_request=second_opinion_request,
                 doctor=doctor,
@@ -141,6 +142,17 @@ class CreateSecondOpinionRequestSerializer(serializers.Serializer):
             )
             for doctor in doctors
         ])
+        for dr in doctor_requests:
+            create_user_notification(
+                recipient=dr.doctor,
+                title="New Second Opinion Request",
+                message=f"You have received a new second opinion request from {patient.full_name}.",
+                data={
+                    "type": "SECOND_OPINION_REQUEST",
+                    "request_id": str(second_opinion_request.id),
+                    "doctor_request_id": str(dr.id)
+                }
+            )
 
         # Save uploaded documents
         for i, doc in enumerate(documents):
@@ -363,7 +375,7 @@ class PatientBasicInfoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ["id", "full_name", "email"]
+        fields = ["id", "full_name", "email", "phone", "date_of_birth", "gender"]
 
 class DoctorSecondOpinionListSerializer(serializers.ModelSerializer):
     """List serializer for doctors to see incoming requests."""

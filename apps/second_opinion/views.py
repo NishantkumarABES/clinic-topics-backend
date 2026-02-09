@@ -32,6 +32,7 @@ from apps.second_opinion.serializers import (
 from apps.second_opinion.constants import SecondOpinionPaymentStatus
 from apps.accounts.models import User
 from apps.accounts.constants import UserRole, UserState
+from apps.notifications.services import create_user_notification
 from external.razorpay.service import razorpay_service
 
 
@@ -554,6 +555,16 @@ class DoctorStartReviewView(APIView):
 
         serializer.save()
         doctor_request.second_opinion_request.status = SecondOpinionStatus.IN_REVIEW
+        patient = doctor_request.second_opinion_request.patient
+        create_user_notification(
+            recipient=patient,
+            title="Doctor Started Reviewing Your Case",
+            message=f"Dr. {doctor_request.doctor.full_name} has started reviewing your second opinion request.",
+            data={
+                "type": "SECOND_OPINION_IN_REVIEW",
+                "doctor_request_id": str(doctor_request.id)
+            }
+        )
         doctor_request.second_opinion_request.save(update_fields=["status"])
         return Response({
             "detail": "Request marked as in-review",
@@ -619,15 +630,19 @@ class DoctorSubmitResponseView(APIView):
             data=request.data,
             context={"doctor_request": doctor_request}
         )
-        try:
-            serializer.is_valid(raise_exception=True)
-        except Exception as e:
-            return Response({
-                "detail": str(e), "data": None, "success": False
-            })
-
+        
+        serializer.is_valid(raise_exception=True)
         serializer.save()
-
+        patient = doctor_request.second_opinion_request.patient
+        create_user_notification(
+            recipient=patient,
+            title="Your Second Opinion is Ready",
+            message=f"Dr. {doctor_request.doctor.full_name} has submitted your medical opinion.",
+            data={
+                "type": "SECOND_OPINION_COMPLETED",
+                "doctor_request_id": str(doctor_request.id)
+            }
+        )
         req = doctor_request.second_opinion_request
 
         if req.completed_count == req.doctors_count:

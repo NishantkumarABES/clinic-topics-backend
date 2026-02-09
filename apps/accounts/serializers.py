@@ -264,7 +264,7 @@ class EmailLoginSerializer(serializers.Serializer):
     )
 
     def validate(self, data):
-        email = data["email"]
+        email = data["email"].lower()
         password = data["password"]
 
         # Fetch user by email

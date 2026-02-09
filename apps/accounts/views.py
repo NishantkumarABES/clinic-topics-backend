@@ -116,7 +116,7 @@ class PhoneOTPRequestView(APIView):
         create_account = serializer.validated_data["create_account"]
 
         if not create_account and User.objects.filter(
-            phone=phone, state=UserState.DELETED
+            phone=phone_number, state=UserState.DELETED
         ).exists():
             return Response(
                 {

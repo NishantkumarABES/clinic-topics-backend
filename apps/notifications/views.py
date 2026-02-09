@@ -6,7 +6,7 @@ from drf_yasg.utils import swagger_auto_schema
 from django.utils import timezone
 
 from apps.notifications.models import Notification
-from apps.notifications.serializers import NotificationSerializer
+from apps.notifications.serializers import NotificationSerializer, MarkNotificationReadSerializer
 
 class AdminNotificationSummary(APIView):
     permission_classes = [IsAuthenticated]
@@ -62,3 +62,75 @@ class AdminNotificationList(APIView):
         page = paginator.paginate_queryset(queryset, request)
         serializer = self.serializer_class(page, many=True)
         return paginator.get_paginated_response(serializer.data)
+
+
+class UserNotificationPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 50
+
+class UserNotificationListView(APIView):
+    permission_classes = [IsAuthenticated]
+    pagination_class = UserNotificationPagination
+
+    def get(self, request):
+
+        queryset = Notification.objects.filter(
+            recipient=request.user
+        )
+
+        unread_count = queryset.filter(is_read=False).count()
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        serializer = NotificationSerializer(page, many=True)
+
+        paginated_data = paginator.get_paginated_response(serializer.data).data
+
+        return Response({
+            "detail": "Notifications retrieved successfully",
+            "data": {
+                "unread_count": unread_count,
+                **paginated_data
+            },
+            "success": True
+        })
+
+class MarkNotificationReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+
+        serializer = MarkNotificationReadSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "detail": "Notification marked as read",
+            "data": None,
+            "success": True
+        })
+
+class MarkAllNotificationsReadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+
+        Notification.objects.filter(
+            recipient=request.user,
+            is_read=False
+        ).update(
+            is_read=True,
+            read_at=timezone.now()
+        )
+
+        return Response({
+            "detail": "All notifications marked as read",
+            "data": None,
+            "success": True
+        })
