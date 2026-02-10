@@ -174,19 +174,22 @@ def summarize_openai(text, charater_limit=500):
         text=text, charater_limit=charater_limit
     )
     openai_llm = ChatOpenAI(
-        model=os.environ.get("gpt-4.1-mini-2025-04-14"),
+        model="gpt-4.1-mini-2025-04-14",
         api_key=os.environ.get("OPENAI_API_KEY"),  
         temperature=0.1, max_tokens=2048,
         max_retries=2, timeout=600
     )
     response = openai_llm.invoke(prompt).content
-    print(response)
     return response.strip()
 
 def inshort_generator(url: str) -> str:
     article_text, article_title, image_links = process_article(url)
     temp_image_urls = TopicImageService.download_images_to_temp(image_links)
-    summary = summarize_openai(article_text)
+    try:
+        summary = summarize_openai(article_text)
+    except Exception as e:
+        print(e)
+        summary = summarize_tfidf(article_text)
     return summary, article_title, temp_image_urls
 
 
