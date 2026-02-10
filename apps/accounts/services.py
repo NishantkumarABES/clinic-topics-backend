@@ -63,7 +63,7 @@ def activate_user_if_eligible(user):
 def generate_otp():
     return f"{random.randint(1000, 9999)}"
 
-def send_phone_otp(phone: str) -> dict:
+def send_phone_otp(phone: str, forgot_password=False) -> dict:
     otp = generate_otp()
     expires_at = timezone.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
     print(phone, otp, expires_at)
@@ -79,8 +79,11 @@ def send_phone_otp(phone: str) -> dict:
         if not all([api_key, sid, tid]):
             raise ValueError("Missing SMS environment variables")
 
-        msg = f"{otp} is your ClinicTopics verification code. Thanks, Team Promedica Health Communication Pvt. Ltd."
-
+        if forgot_password:
+            msg = f"{otp} is your ClinicTopics password reset code. Thanks, Team Promedica Health Communication Pvt. Ltd."
+        else:
+            msg = f"{otp} is your ClinicTopics verification code. Thanks, Team Promedica Health Communication Pvt. Ltd."
+        print("OTP Message:", msg)
         url = (
             "https://smsapi.edumarcsms.com/api/v1/sendsms?"
             f"apikey={api_key}&senderId={sid}&message={msg}&number=[{phone}]&templateId={tid}"
@@ -127,16 +130,17 @@ def verify_phone_otp(phone: str, otp: str) -> PhoneOTP:
         otp_obj.marks_as_used()
         return otp_obj
 
-def send_email_otp(email, full_name=None):
+def send_email_otp(email, full_name=None, forget_password=False):
     otp = generate_otp()
     EmailOTP.objects.create(
-        email=email,
-        otp=otp,
+        email=email, otp=otp,
         expires_at=timezone.now() + timedelta(minutes=5)
     )
     subject = "Your Verification Code"
     text_body = f"Your verification code is {otp}. It expires in 5 minutes."
-    html_body = otp_email_html(full_name, otp)
+    if forget_password:
+        html_body = password_reset_html(full_name, otp)
+    else: html_body = otp_email_html(full_name, otp)
     EmailClient().send_email(
         recipient=email,
         subject=subject,

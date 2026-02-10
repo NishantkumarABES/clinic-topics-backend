@@ -7,7 +7,7 @@ from rest_framework.exceptions import ValidationError
 from apps.accounts.services import normalize_phone
 from apps.accounts.models import User, PasswordResetToken, EmailOTP, AuthProvider, UserDevice
 from apps.accounts.constants import UserState, UserRole, UserState, DeviceType
-from apps.accounts.services import send_doctor_invitation_email, assert_identity_available
+from apps.accounts.services import send_doctor_invitation_email, assert_identity_available, verify_phone_otp
 from apps.accounts.social_providers import social_provider_verification
 from apps.profiles.models import DoctorProfile
 
@@ -470,6 +470,84 @@ class IdentityCheckSerializer(serializers.Serializer):
             raise ValidationError("Email or phone is required")
         return data
 
+class ForgotPasswordRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=False)
+    country_code = serializers.CharField(required=False, default="+91")
+
+    def validate(self, data):
+        if not data.get("email") and not data.get("phone"):
+            raise ValidationError("Email or phone is required")
+
+        if data.get("phone"):
+            data["phone_number"] = normalize_phone(
+                data["phone"],
+                data.get("country_code", "+91")
+            )
+
+        return data
+
+class ForgotPasswordVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=False)
+    country_code = serializers.CharField(required=False, default="+91")
+    otp = serializers.CharField(max_length=6)
+
+    def validate(self, data):
+        if not data.get("email") and not data.get("phone"):
+            raise ValidationError("Email or phone is required")
+
+        if data.get("email"):
+            try:
+                otp_obj = EmailOTP.objects.filter(
+                    email=data["email"],
+                    is_used=False
+                ).latest("created_at")
+            except EmailOTP.DoesNotExist:
+                raise ValidationError("Invalid OTP")
+
+            if otp_obj.attempts >= otp_obj.MAX_ATTEMPTS:
+                raise ValidationError("OTP locked")
+
+            if not otp_obj.is_valid():
+                raise ValidationError("OTP expired")
+
+            if otp_obj.otp != data["otp"]:
+                otp_obj.register_failure()
+                raise ValidationError("Invalid OTP")
+
+            data["otp_obj"] = otp_obj
+
+        else:
+            phone_number = normalize_phone(
+                data["phone"],
+                data.get("country_code", "+91")
+            )
+
+            otp_obj = verify_phone_otp(
+                phone=phone_number,
+                otp=data["otp"]
+            )
+
+            data["otp_obj"] = otp_obj
+            data["phone_number"] = phone_number
+
+        return data
+
+class ForgotPasswordSetSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=False)
+    phone = serializers.CharField(required=False)
+    country_code = serializers.CharField(required=False, default="+91")
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+
+    def validate(self, data):
+        if not data.get("email") and not data.get("phone"):
+            raise ValidationError("Email or phone is required")
+        return data
 
 #########################   Response Serializers    #########################
 
