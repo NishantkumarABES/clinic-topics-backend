@@ -382,6 +382,30 @@ class MyBookDetailView(APIView):
             "success": True,
         })
 
+class MyBookDownloadView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsDoctor]
+    @swagger_auto_schema(
+        responses={200: BookDownloadResponseSerializer},
+        operation_description="Generate a secure download URL for the doctor's own book."
+    )
+    def post(self, request, pk):
+        book = get_object_or_404(
+            Book, id=pk,
+            uploaded_by=request.user
+        )
+        public_id = book.file.name
+        download_url = default_storage.url(public_id)
+        serializer = BookDownloadResponseSerializer(
+            {"download_url": download_url}
+        )
+        return Response(
+            {
+                "detail": "Download URL generated",
+                "data": serializer.data,
+                "success": True,
+            }
+        )
+
 class BookDownloadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 

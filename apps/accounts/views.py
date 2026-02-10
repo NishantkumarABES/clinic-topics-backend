@@ -11,8 +11,8 @@ from django.utils import timezone
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
-from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from drf_spectacular.utils import extend_schema
 
 from apps.accounts.serializers import (
@@ -21,11 +21,12 @@ from apps.accounts.serializers import (
     UserListSerializer, UserUpdateSerializer, LoginResponseSerializer, RegisterResponseSerializer, ChangePasswordSerializer,
     AdminChangePasswordSerializer, UserDeviceRegisterSerializer, StandardResponseSerializer, OTPResponseSerializer,
     UserMeResponseSerializer, LogoutRequestSerializer, CommonSuccessResponseSerializer, CommonErrorResponseSerializer,
-    TokenRefreshRequestSerializer, IdentityCheckSerializer
+    TokenRefreshRequestSerializer, IdentityCheckSerializer, ForgotPasswordRequestSerializer, ForgotPasswordVerifySerializer, 
+    ForgotPasswordSetSerializer
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
-    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, mark_user_login
+    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, mark_user_login, normalize_phone
 )
 from apps.accounts.social_providers import social_provider_verification
 from apps.accounts.models import User, UserDevice, AuthProvider
@@ -684,6 +685,124 @@ class IdentityCheckView(APIView):
                 "email_exists": False,
                 "phone_exists": False
             },
+            "success": True
+        })
+
+class ForgotPasswordRequestView(APIView):
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_description="Request OTP for forgot password (via email or phone)",
+        request_body=ForgotPasswordRequestSerializer,
+        responses={
+            200: OTPResponseSerializer,
+            400: BAD_REQUEST_400,
+            429: TOO_MANY_REQUESTS_429,
+        },
+    )
+    def post(self, request):
+        serializer = ForgotPasswordRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data.get("email")
+        phone = serializer.validated_data.get("phone")
+        phone_number = serializer.validated_data.get("phone_number")
+
+        user = None
+        otp = None
+
+        if email:
+            user = User.objects.filter(
+                email=email
+            ).exclude(state=UserState.DELETED).first()
+
+            if user:
+                otp = send_email_otp(
+                    email=email,
+                    full_name=user.full_name,
+                    forget_password=True
+                )
+
+        elif phone:
+            user = User.objects.filter(
+                phone=phone
+            ).exclude(state=UserState.DELETED).first()
+
+            if user and can_resend_otp(phone):
+                otp = send_phone_otp(
+                    phone_number,
+                    forgot_password=False
+                )
+
+        response = {
+            "detail": "If the account exists, an OTP has been sent.",
+            "data": None,
+            "success": True
+        }
+
+        if settings.DEBUG and user and otp:
+            response["data"] = {"testing_otp": otp}
+
+        return Response(response)
+
+class ForgotPasswordVerifyView(APIView):
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_description="Verify OTP for forgot password",
+        request_body=ForgotPasswordVerifySerializer,
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+        },
+    )
+    def post(self, request):
+        serializer = ForgotPasswordVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        otp_obj = serializer.validated_data["otp_obj"]
+        otp_obj.mark_as_used() if hasattr(otp_obj, "mark_as_used") else None
+
+        return Response({
+            "detail": "OTP verified successfully",
+            "data": None,
+            "success": True
+        })
+
+class ForgotPasswordSetNewPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_description="Set new password for forgot password",
+        request_body=ForgotPasswordSetSerializer,
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+        },
+    )
+    @transaction.atomic
+    def post(self, request):
+        serializer = ForgotPasswordSetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data.get("email")
+        phone = serializer.validated_data.get("phone")
+        new_password = serializer.validated_data["new_password"]
+
+        if email:
+            user = get_object_or_404(User, email=email)
+        else:
+            phone_number = normalize_phone(
+                phone, serializer.validated_data.get("country_code", "+91")
+            )
+            user = get_object_or_404(User, phone=phone)
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+
+        return Response({
+            "detail": "Password reset successful",
+            "data": None,
             "success": True
         })
 

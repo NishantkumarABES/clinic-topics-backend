@@ -45,51 +45,86 @@ def otp_email_html(full_name: str | None, otp: str) -> str:
 """
 
 
-def password_reset_html(full_name: str | None, reset_link: str) -> str:
+def password_reset_html(full_name: str | None, otp: str) -> str:
     name = full_name or "User"
+
     return f"""
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Password Reset</title>
+  <title>Password Reset OTP</title>
 </head>
-<body style="margin:0;padding:0;background:#f5f5f5;font-family:Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0">
+
+<body style="margin:0;padding:0;background-color:#f4f6f8;font-family:Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="padding:40px 0;">
     <tr>
-      <td align="center" style="padding:40px 0;">
-        <table width="600" style="background:#ffffff;border-radius:8px;padding:30px;box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+      <td align="center">
+
+        <table width="600" cellpadding="0" cellspacing="0"
+               style="background:#ffffff;border-radius:10px;
+                      padding:40px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">
+
           <tr>
-            <td style="text-align:center;">
-              <h2 style="color:#222;">Reset Your Password</h2>
-              <p style="font-size:16px;color:#555;">
-                Hello {name},<br><br>
-                Click the button below to reset your password:
+            <td align="center">
+
+              <h2 style="margin-bottom:10px;color:#1a1a1a;">
+                Password Reset Request
+              </h2>
+
+              <p style="font-size:16px;color:#444;line-height:1.6;">
+                Hello <strong>{name}</strong>,
+                <br><br>
+                We received a request to reset your password.
+                Use the One-Time Password (OTP) below to continue:
               </p>
-              <div style="margin:30px 0;">
-                <a href="{reset_link}"
-                   style="background:#0B5ED7;color:#fff;text-decoration:none;
-                          padding:12px 24px;border-radius:5px;
-                          font-size:16px;display:inline-block;">
-                  Reset Password
-                </a>
+
+              <!-- OTP BOX -->
+              <div style="
+                  margin:30px 0;
+                  font-size:34px;
+                  letter-spacing:8px;
+                  font-weight:bold;
+                  color:#0B5ED7;
+                  background:#f1f6ff;
+                  padding:18px 28px;
+                  border-radius:8px;
+                  display:inline-block;">
+                  {otp}
               </div>
-              <p style="font-size:14px;color:#777;">
-                This link expires in 15 minutes.<br>
-                If you didn’t request a password reset, ignore this email.
+
+              <p style="font-size:15px;color:#555;">
+                This OTP is valid for <strong>5 minutes</strong>.
               </p>
-              <p style="font-size:13px;color:#aaa;margin-top:30px;">
-                {date.today().year} © ClinicTopics
+
+              <p style="font-size:14px;color:#777;margin-top:25px;">
+                If you did not request this password reset,
+                please ignore this email — your account is still secure.
               </p>
+
+              <hr style="margin:35px 0;border:none;border-top:1px solid #eee;">
+
+              <p style="font-size:13px;color:#999;">
+                For security reasons, never share this OTP with anyone.
+                ClinicTopics will never ask for your OTP.
+              </p>
+
+              <p style="font-size:12px;color:#bbb;margin-top:30px;">
+                © {date.today().year} ClinicTopics. All rights reserved.
+              </p>
+
             </td>
           </tr>
+
         </table>
+
       </td>
     </tr>
   </table>
 </body>
 </html>
 """
+
 
 
 def doctor_invitation_html(full_name: str, email: str, temp_password: str) -> str:

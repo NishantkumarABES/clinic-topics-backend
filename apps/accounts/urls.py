@@ -3,7 +3,7 @@ from apps.accounts.views import (
     LogoutView, PhoneOTPRequestView, PhoneOTPVerifyView, PasswordResetRequestView, PasswordResetConfirmView, DeactivateAccountView, 
     ReactivateAccountView, DeleteAccountView, EmailOTPRequestView, EmailOTPVerifyView, RegisterView, UserMeView, AdminUserListView, 
     EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView, AdminAllUserListView, ChangePasswordView, AdminChangePasswordView,
-    RegisterDeviceView, CustomTokenRefreshView, IdentityCheckView
+    RegisterDeviceView, CustomTokenRefreshView, IdentityCheckView, ForgotPasswordRequestView, ForgotPasswordVerifyView, ForgotPasswordSetNewPasswordView
 )
 
 
@@ -32,6 +32,9 @@ urlpatterns = [
     path("reactivate/", ReactivateAccountView.as_view()),
     path("delete/", DeleteAccountView.as_view()),
     path("change-password/", ChangePasswordView.as_view(), name="change-password"),
+    path("forgot-password/", ForgotPasswordRequestView.as_view(), name="forgot-password"),
+    path("forgot-password/verify/", ForgotPasswordVerifyView.as_view(), name="forgot-password-verify"),
+    path("forgot-password/set/", ForgotPasswordSetNewPasswordView.as_view(), name="forgot-password-set"),
 
     path("token/refresh/", CustomTokenRefreshView.as_view()),
 
