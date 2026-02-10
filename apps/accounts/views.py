@@ -26,7 +26,7 @@ from apps.accounts.serializers import (
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
-    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, mark_user_login, normalize_phone
+    get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, mark_user_login
 )
 from apps.accounts.social_providers import social_provider_verification
 from apps.accounts.models import User, UserDevice, AuthProvider
@@ -722,17 +722,26 @@ class ForgotPasswordRequestView(APIView):
                     full_name=user.full_name,
                     forget_password=True
                 )
+            else:
+                return Response(
+                    {"detail": "User with this email does not exist", "data": None, "success": False},
+                )
 
         elif phone:
             user = User.objects.filter(
                 phone=phone
             ).exclude(state=UserState.DELETED).first()
 
-            if user and can_resend_otp(phone):
+            if user:
                 otp = send_phone_otp(
                     phone_number,
                     forgot_password=False
                 )
+            else:
+                return Response(
+                    {"detail": "User with this phone does not exist", "data": None, "success": False},
+                )
+
 
         response = {
             "detail": "If the account exists, an OTP has been sent.",
@@ -788,11 +797,23 @@ class ForgotPasswordSetNewPasswordView(APIView):
         email = serializer.validated_data.get("email")
         phone = serializer.validated_data.get("phone")
         new_password = serializer.validated_data["new_password"]
-        queryset = User.objects.exclude(state=UserState.DELETED)
         if email:
-            user = get_object_or_404(queryset, email=email)
+            user = User.objects.filter(
+                email=email
+            ).exclude(
+                state=UserState.DELETED
+            ).first()
         else:
-            user = get_object_or_404(queryset, phone=phone)
+            user = User.objects.filter(
+                phone=phone
+            ).exclude(
+                state=UserState.DELETED
+            ).first()
+
+        if not user:
+            return Response(
+                {"detail": "User with this email or phone does not exist", "data": None, "success": False},
+            )
 
         user.set_password(new_password)
         user.save(update_fields=["password"])
