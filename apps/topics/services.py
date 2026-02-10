@@ -1,6 +1,7 @@
-import os
 import numpy as np
-import requests, uuid, nltk, random
+import os, requests, uuid, nltk, random
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import PromptTemplate
 from urllib.parse import urlparse, unquote
 from google import genai
 from bs4 import BeautifulSoup
@@ -35,13 +36,18 @@ ext_mapping = {
 ua = UserAgent()
 client = genai.Client()
 SUMMARIZATION_PROMPT = """
-Summarize the following article in approximately {word_limit} words.
+Summarize the following article in approximately {charater_limit} characters.
 Focus on key ideas, arguments, and conclusions.
 Avoid repetition and filler.
 
 Article:
 {text}
 """
+SUMMARIZATION_PROMPT_TEMPLATE = PromptTemplate(
+    input_variables=["text", "charater_limit"],
+    template=SUMMARIZATION_PROMPT,
+)
+
 
 
 class TopicImageService:
@@ -118,37 +124,69 @@ def process_article(url: str):
     all_image_links = [img.get("src") for img in soup.find_all("img")]
     return article_text, article_title, all_image_links
 
-def summarizer(text: str, word_limit: int = 300) -> str:
-    prompt = SUMMARIZATION_PROMPT.format(text=text, word_limit=word_limit)
+def summarizer(text: str, charater_limit: int = 500) -> str:
+    prompt = SUMMARIZATION_PROMPT.format(text=text, charater_limit=charater_limit)
     response = client.models.generate_content(
         model="gemini-2.5-flash", contents=prompt
     )
     return response.text.strip()
 
-def summarize_tfidf(text, word_limit=300):
+def summarize_tfidf(text: str, character_limit: int = 500) -> str:
+    if not text or character_limit <= 0:
+        return ""
+
     sentences = sent_tokenize(text)
+
+    # Edge case: if text is already short enough
+    if len(text) <= character_limit:
+        return text
+
     vectorizer = TfidfVectorizer(stop_words="english")
     tfidf = vectorizer.fit_transform(sentences)
 
+    # Score sentences by TF-IDF weight
     scores = tfidf.sum(axis=1).A1
-    ranked_sentences = np.argsort(scores)[::-1]
-    summary = []
-    count = 0
-    for idx in ranked_sentences:
-        words = sentences[idx].split()
-        if count + len(words) > word_limit:
-            continue
-        summary.append(sentences[idx])
-        count += len(words)
+    ranked_indices = np.argsort(scores)[::-1]
 
-        if count >= word_limit:
+    selected_sentences = []
+    current_length = 0
+
+    for idx in ranked_indices:
+        sentence = sentences[idx]
+        sentence_length = len(sentence) + 1  # +1 for space when joined
+
+        if current_length + sentence_length > character_limit:
+            continue
+
+        selected_sentences.append((idx, sentence))
+        current_length += sentence_length
+
+        if current_length >= character_limit:
             break
-    return " ".join(summary)
+
+    # Restore original order for readability
+    selected_sentences.sort(key=lambda x: x[0])
+    summary = " ".join(sentence for _, sentence in selected_sentences)
+    return summary.strip()
+
+def summarize_openai(text, charater_limit=500):
+    prompt = SUMMARIZATION_PROMPT_TEMPLATE.format(
+        text=text, charater_limit=charater_limit
+    )
+    openai_llm = ChatOpenAI(
+        model=os.environ.get("gpt-4.1-mini-2025-04-14"),
+        api_key=os.environ.get("OPENAI_API_KEY"),  
+        temperature=0.1, max_tokens=2048,
+        max_retries=2, timeout=600
+    )
+    response = openai_llm.invoke(prompt).content
+    print(response)
+    return response.strip()
 
 def inshort_generator(url: str) -> str:
     article_text, article_title, image_links = process_article(url)
     temp_image_urls = TopicImageService.download_images_to_temp(image_links)
-    summary = summarize_tfidf(article_text)
+    summary = summarize_openai(article_text)
     return summary, article_title, temp_image_urls
 
 
