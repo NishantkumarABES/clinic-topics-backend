@@ -788,14 +788,11 @@ class ForgotPasswordSetNewPasswordView(APIView):
         email = serializer.validated_data.get("email")
         phone = serializer.validated_data.get("phone")
         new_password = serializer.validated_data["new_password"]
-
+        queryset = User.objects.exclude(state=UserState.DELETED)
         if email:
-            user = get_object_or_404(User, email=email)
+            user = get_object_or_404(queryset, email=email)
         else:
-            phone_number = normalize_phone(
-                phone, serializer.validated_data.get("country_code", "+91")
-            )
-            user = get_object_or_404(User, phone=phone)
+            user = get_object_or_404(queryset, phone=phone)
 
         user.set_password(new_password)
         user.save(update_fields=["password"])
