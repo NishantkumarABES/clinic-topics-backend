@@ -2,6 +2,7 @@ from django.db import models
 
 class Status(models.TextChoices):
     PENDING = "pending", "Pending Review"
+    INREVIEW = "in_review", "Under Review"
     APPROVED = "approved", "Approved"
     REJECTED = "rejected", "Rejected"
 
