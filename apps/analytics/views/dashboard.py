@@ -1,8 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.utils.timezone import now, localtime
+from django.utils.timezone import now
 from django.db.models import Sum, F, DecimalField, ExpressionWrapper, Count, Value
-from django.db.models.functions import Coalesce, TruncWeek
+from django.db.models.functions import Coalesce, TruncDate
 
 from drf_yasg.utils import swagger_auto_schema
 from datetime import timedelta
@@ -145,26 +145,26 @@ class RevenueAnalyticsAPIView(APIView):
 
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
+
         qs = (
             Order.objects
             .filter(status=OrderStatus.PAID)
-            .annotate(week=TruncWeek("created_at"))
-            .values("week")
+            .annotate(date=TruncDate("created_at"))  # ✅ group by DB date (UTC)
+            .values("date")
             .annotate(
                 revenue=Sum("total_amount"),
                 orders=Count("id")
             )
-            .order_by("week")
+            .order_by("date")
         )
 
         response = []
+
         for row in qs:
-            week_date = localtime(row["week"]).date()
-            date_str = week_date.strftime("%b %d").replace(" 0", " ")
             response.append({
-                "date": date_str,  # e.g. Jan 1
-                "revenue": float(row["revenue"]),
-                "orders": int(row["orders"])
+                "date": row["date"].strftime("%b %d").replace(" 0", " "),
+                "revenue": float(row["revenue"] or 0),
+                "orders": int(row["orders"] or 0),
             })
 
         return Response(response)
