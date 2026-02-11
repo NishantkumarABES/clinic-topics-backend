@@ -130,6 +130,9 @@ class IDIWriteSerializer(serializers.ModelSerializer):
 
         return instance
 
+class ExtractIDIRequestSerializer(serializers.Serializer):
+    paragraph = serializers.CharField()
+
 
 #########################   Response Serializers    #########################
 

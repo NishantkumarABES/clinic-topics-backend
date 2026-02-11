@@ -9,9 +9,11 @@ from drf_yasg.utils import swagger_auto_schema
 from apps.IDI.models import IDI
 from apps.IDI.serializers import (
     IDIReadSerializer, IDIWriteSerializer, AdminIDIListPagination,
-    IDIDataResponseSerializer, IDIListDataSerializer
+    IDIDataResponseSerializer, IDIListDataSerializer, ExtractIDIRequestSerializer
 )
 from core.api_responses import NOT_FOUND_404
+from apps.IDI.services import IDIExtractionService
+
 
 
 class AdminIDIListCreateAPIView(APIView):
@@ -154,6 +156,71 @@ class IDIDetailAPIView(APIView):
             {
                 "detail": "IDI retrieved successfully",
                 "data": serializer.data,
+                "success": True
+            },
+            status=status.HTTP_200_OK
+        )
+
+class AdminIDIExtractAPIView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="Extract structured IDI from paragraph",
+        request_body=ExtractIDIRequestSerializer,
+        responses={200: IDIDataResponseSerializer}
+    )
+    def post(self, request):
+        serializer = ExtractIDIRequestSerializer(data=request.data)
+
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {"detail": str(first_error), "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        paragraph = serializer.validated_data["paragraph"]
+        # extracted_data = IDIExtractionService.extract(paragraph)
+
+        # 🔥 MOCK DATA — Replace later with LLM extraction
+        mock_data = {
+            "drug_name_generic": "Metformin",
+            "drug_class": "Biguanide",
+            "therapeutic_category": "Antidiabetic",
+            "brands_in_india": "Glycomet, Obimet",
+            "strengths_available": "250mg, 500mg, 850mg, 1000mg",
+            "formulations_routes": "Oral tablets",
+            "core_clinical_role": "First-line therapy for Type 2 Diabetes",
+            "preferred_clinical_scenarios": "Overweight patients with insulin resistance",
+            "where_benefit_limited": "Severe renal impairment",
+            "usual_adult_dose": "500mg twice daily",
+            "timing_relative_to_meals": "Take with meals",
+            "review_duration_plan": "Review after 3 months",
+            "common_adverse_effects": "GI upset, nausea, diarrhea",
+            "serious_but_uncommon_risks": "Lactic acidosis",
+            "long_term_therapy_cautions": "Monitor B12 levels",
+            "guidelines": "ADA recommends as first-line agent",
+            "landmark_trials": "UKPDS trial",
+            "status": "draft",
+            "key_interactions": [
+                {
+                    "interaction_title": "Alcohol",
+                    "clinical_impact": "Increases risk of lactic acidosis",
+                    "what_to_do": "Avoid excessive alcohol"
+                }
+            ],
+            "practical_prescribing_pearls": [
+                {
+                    "pearl_title": "Start low",
+                    "pearl_content": "Begin with low dose to reduce GI effects"
+                }
+            ],
+        }
+
+        return Response(
+            {
+                "detail": "IDI extracted successfully (mock)",
+                "data": mock_data,
                 "success": True
             },
             status=status.HTTP_200_OK
