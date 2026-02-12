@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.books.models import Book, Collection
+from apps.books.models import Book, Collection, BookRating
 from apps.books.constants import Status
 
 
@@ -154,6 +154,25 @@ class BookUpdateSerializer(serializers.ModelSerializer):
         if value < 0:
             raise serializers.ValidationError("Price cannot be negative.")
         return value
+
+class BookRatingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookRating
+        fields = ("rating", "comment")
+
+    def create(self, validated_data):
+        user = self.context["request"].user
+        book = self.context["book"]
+
+        rating_obj, created = BookRating.objects.update_or_create(
+            user=user,
+            book=book,
+            defaults=validated_data
+        )
+
+        book.update_rating()
+
+        return rating_obj
 
 ########### Response Serializers ####################
 
