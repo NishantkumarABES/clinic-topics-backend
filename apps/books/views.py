@@ -7,10 +7,10 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.shortcuts import get_object_or_404
 from django.db import models, transaction
-from django.db.models import Q
 from django.core.files.storage import default_storage
+from django.db.models import Q
 
-from apps.books.models import Book, BookPurchase, BookRating
+from apps.books.models import Book, BookPurchase
 from apps.books.serializers import (
     BookListSerializer, BookUploadSerializer, BookDetailSerializer, BookReviewSerializer, PaginatedBookListResponseSerializer,
     CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer,
@@ -682,6 +682,7 @@ class BookReviewView(APIView):
             400: BAD_REQUEST_400,
             401: UNAUTHORIZE_401,
         },
+        auto_schema=None
     )
     def patch(self, request, pk):
         book = get_object_or_404(
@@ -710,7 +711,8 @@ class MoveBookToReviewView(APIView):
 
     @swagger_auto_schema(
         responses={200: StandardResponseSerializer},
-        operation_description="Move book from pending to in_review."
+        operation_description="Move book from pending to in_review.",
+        auto_schema=None
     )
     def patch(self, request, pk):
 
