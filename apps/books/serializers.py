@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from apps.books.models import Book, Collection, BookRating
 from apps.books.constants import Status
+from apps.accounts.constants import UserRole
 
 
 class CollectionSerializer(serializers.ModelSerializer):
@@ -43,15 +44,11 @@ class BookListSerializer(serializers.ModelSerializer):
         )
 
     def __init__(self, *args, **kwargs):
-        """
-        Remove file_url if the requester is NOT an admin.
-        """
         super().__init__(*args, **kwargs)
-
         request = self.context.get("request")
-        if not request or not request.user.is_staff:
-            self.fields.pop("file_url", None)
-            self.fields.pop("is_deleted", None)
+        if request and request.user.role == UserRole.ADMIN: return
+        self.fields.pop("file_url", None)
+        self.fields.pop("is_deleted", None)
 
     def get_file_url(self, obj):
         if obj.file:
