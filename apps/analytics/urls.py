@@ -10,6 +10,9 @@ from apps.analytics.views.topics import TopicsAnalyticsView
 from apps.analytics.views.events import EventsAnalyticsView
 from apps.analytics.views.advisory import AdvisoryAnalyticsView
 
+from apps.analytics.views.my_reposit.books import BooksAnalyticsView
+
+
 urlpatterns = [
     path("admin/dashboard/metrics/", AdminDashboardMetricsAPIView.as_view()),
     path("admin/dashboard/pending-actions/", AdminDashboardPendingActionAPIView.as_view()),
@@ -23,4 +26,6 @@ urlpatterns = [
     path("admin/topics/metrics/", TopicsAnalyticsView.as_view()),
     path("admin/events/metrics/", EventsAnalyticsView.as_view()),
     path("admin/advisory/metrics/", AdvisoryAnalyticsView.as_view()),
+
+    path("admin/books/metrics/", BooksAnalyticsView.as_view()),
 ]
