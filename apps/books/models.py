@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Avg
 from django.core.validators import MinValueValidator, MaxValueValidator
 
 from apps.books.constants import BookType, CopyrightStatus, AccessLevel, Status
@@ -76,6 +77,8 @@ class Book(TimeStampedUUIDModel):
         default=0,
         validators=[MinValueValidator(0), MaxValueValidator(5)]
     )
+    rating_count = models.PositiveIntegerField(default=0)
+
     views = models.PositiveIntegerField(default=0)
     downloads = models.PositiveIntegerField(default=0)
 
@@ -97,7 +100,18 @@ class Book(TimeStampedUUIDModel):
         null=True,
         help_text="Reason provided by admin when rejecting the book."
     )
+    is_deleted = models.BooleanField(default=False)
 
+    def update_rating(self):
+        qs = self.ratings.aggregate(
+            avg=Avg("rating"),
+            count=models.Count("id")
+        )
+
+        self.rating = round(qs["avg"] or 0, 1)
+        self.rating_count = qs["count"]
+        self.save(update_fields=["rating", "rating_count"])
+        
     class Meta:
         ordering = ["-created_at"]
         indexes = [
@@ -133,3 +147,31 @@ class BookPurchase(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.user} → {self.book} ({'PAID' if self.is_paid else 'PENDING'})"
+
+class BookRating(TimeStampedUUIDModel):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="book_ratings"
+    )
+    book = models.ForeignKey(
+        Book,
+        on_delete=models.CASCADE,
+        related_name="ratings"
+    )
+
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)]
+    )
+
+    comment = models.TextField(blank=True)
+
+    class Meta:
+        unique_together = ("user", "book")
+        indexes = [
+            models.Index(fields=["book"]),
+            models.Index(fields=["user"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} → {self.book} ({self.rating})"

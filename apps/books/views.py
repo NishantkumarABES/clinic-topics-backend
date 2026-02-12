@@ -7,13 +7,14 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.shortcuts import get_object_or_404
 from django.db import models, transaction
+from django.db.models import Q
 from django.core.files.storage import default_storage
 
-from apps.books.models import Book, BookPurchase
+from apps.books.models import Book, BookPurchase, BookRating
 from apps.books.serializers import (
     BookListSerializer, BookUploadSerializer, BookDetailSerializer, BookReviewSerializer, PaginatedBookListResponseSerializer,
     CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer,
-    BookUpdateSerializer
+    BookUpdateSerializer, BookRatingSerializer
 )
 from apps.books.constants import Status
 from core.permissions import IsDoctor, IsAdmin
@@ -74,7 +75,9 @@ class BookListView(APIView):
         ],
     )
     def get(self, request):
-        queryset = Book.objects.filter(status=Status.APPROVED)
+        queryset = Book.objects.filter(
+            status=Status.APPROVED, is_deleted=False
+        )
 
         search = request.query_params.get("search")
         specialty = request.query_params.get("specialty")
@@ -118,8 +121,11 @@ class BookDetailView(APIView):
     )
     def get(self, request, pk):
         book = get_object_or_404(
-            Book, id=pk, status=Status.APPROVED
+            Book, id=pk,
+            status=Status.APPROVED,
+            is_deleted=False
         )
+
 
         book.views = models.F("views") + 1
         book.save(update_fields=["views"])
@@ -241,6 +247,126 @@ class VerifyBookPurchaseView(APIView):
             {"detail": "Payment successful", "success": True}
         )
 
+class BookRatingView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=BookRatingSerializer,
+        responses={200: StandardResponseSerializer},
+        operation_description="Rate a book from 1–5 with optional comment."
+    )
+    def post(self, request, pk):
+
+        book = get_object_or_404(
+            Book, id=pk,
+            status=Status.APPROVED,
+            is_deleted=False
+        )
+
+        serializer = BookRatingSerializer(
+            data=request.data,
+            context={
+                "request": request,
+                "book": book
+            }
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "detail": "Rating submitted successfully",
+            "success": True,
+        })
+
+class BookDownloadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(
+        responses={200: BookDownloadResponseSerializer},
+        operation_description="Generate a secure download URL and record the download."
+    )
+    def post(self, request, pk):
+
+        # Fetch without filtering first — we must inspect deletion state
+        book = get_object_or_404(Book, id=pk)
+
+        # -------------------------------------------------
+        # DELETION ACCESS CONTROL
+        # -------------------------------------------------
+        if book.is_deleted:
+            has_access = BookPurchase.objects.filter(
+                user=request.user,
+                book=book,
+                is_paid=True
+            ).exists()
+
+            if not has_access:
+                return Response(
+                    {
+                        "detail": "This book is no longer available.",
+                        "success": False
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+        # -------------------------------------------------
+        # APPROVAL GUARD
+        # Prevent downloading pending/rejected books
+        # BUT allow purchasers if it was deleted AFTER purchase
+        # -------------------------------------------------
+        if book.status != Status.APPROVED and not book.is_deleted:
+            return Response(
+                {
+                    "detail": "Book is not available for download.",
+                    "success": False
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        # -------------------------------------------------
+        # PAYMENT ACCESS CONTROL
+        # -------------------------------------------------
+        if book.price > 0:
+            has_access = BookPurchase.objects.filter(
+                user=request.user,
+                book=book,
+                is_paid=True
+            ).exists()
+
+            if not has_access:
+                return Response(
+                    {
+                        "detail": "Purchase required",
+                        "success": False
+                    },
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+        # -------------------------------------------------
+        # ATOMIC DOWNLOAD UPDATE
+        # -------------------------------------------------
+        with transaction.atomic():
+
+            Book.objects.filter(pk=book.pk).update(
+                downloads=models.F("downloads") + 1
+            )
+
+            public_id = book.file.name
+            download_url = default_storage.url(public_id)
+
+        serializer = BookDownloadResponseSerializer(
+            {"download_url": download_url}
+        )
+
+        return Response(
+            {
+                "detail": "Download URL generated",
+                "data": serializer.data,
+                "success": True,
+            }
+        )
+
 
 # -------------------------
 # Doctor Users APIs
@@ -330,7 +456,9 @@ class MyBooksView(APIView):
         ],
     )
     def get(self, request):
-        queryset = Book.objects.filter(uploaded_by=request.user)
+        queryset = Book.objects.filter(
+            uploaded_by=request.user, is_deleted=False
+        )
         status_filter = request.query_params.get("status")
         search = request.query_params.get("search")
         specialty = request.query_params.get("specialty")
@@ -407,55 +535,6 @@ class MyBookDownloadView(APIView):
             }
         )
 
-class BookDownloadView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    @swagger_auto_schema(
-        responses={200: BookDownloadResponseSerializer},
-        operation_description="Generate a secure download URL and record the download."
-    )
-    def post(self, request, pk):
-        book = get_object_or_404(
-            Book, id=pk,
-            status=Status.APPROVED
-        )
-
-        # --- Access Control ---
-        if book.price > 0:
-            has_access = BookPurchase.objects.filter(
-                user=request.user,
-                book=book,
-                is_paid=True
-            ).exists()
-
-            if not has_access:
-                return Response(
-                    {"detail": "Purchase required", "success": False},
-                    status=status.HTTP_403_FORBIDDEN
-                )
-
-        # --- Atomic update + URL generation ---
-        with transaction.atomic():
-            Book.objects.filter(pk=book.pk).update(
-                downloads=models.F("downloads") + 1
-            )
-
-            public_id = book.file.name
-            print("Public ID:", public_id)
-            download_url = default_storage.url(public_id)
-
-        serializer = BookDownloadResponseSerializer(
-            {"download_url": download_url}
-        )
-
-        return Response(
-            {
-                "detail": "Download URL generated",
-                "data": serializer.data,
-                "success": True,
-            }
-        )
-
 class MyBookUpdateView(APIView):
     """
     Doctor can update their uploaded book ONLY while it is pending.
@@ -508,6 +587,39 @@ class MyBookUpdateView(APIView):
                 "success": True,
             }
         )
+
+class MyBookDeleteView(APIView):
+    """
+    Soft delete a book.
+    Purchasers retain access.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsDoctor]
+
+    @swagger_auto_schema(
+        responses={200: StandardResponseSerializer},
+        operation_description="Soft delete a book. Purchased users retain access."
+    )
+    def delete(self, request, pk):
+
+        book = get_object_or_404(
+            Book,
+            id=pk,
+            uploaded_by=request.user
+        )
+
+        if book.is_deleted:
+            return Response(
+                {"detail": "Book already deleted.", "success": False},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        book.is_deleted = True
+        book.save(update_fields=["is_deleted"])
+
+        return Response({
+            "detail": "Book deleted successfully.",
+            "success": True,
+        })
 
 # -------------------------
 # Admin APIs
@@ -581,12 +693,8 @@ class BookReviewView(APIView):
         serializer = BookReviewSerializer(
             book, data=request.data, partial=True
         )
-        try:
-            serializer.is_valid(raise_exception=True)
-        except Exception as e:
-            return Response(
-                {"detail": str(e), "data": None, "success": False}
-            )
+        
+        serializer.is_valid(raise_exception=True)
         serializer.save()
 
         return Response(
