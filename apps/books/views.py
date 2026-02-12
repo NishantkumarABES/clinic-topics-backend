@@ -3,8 +3,8 @@ from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.pagination import PageNumberPagination
-from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 from django.shortcuts import get_object_or_404
 from django.db import models, transaction
 from django.core.files.storage import default_storage
@@ -51,11 +51,11 @@ class BookListView(APIView):
                 description="Search in title, authors or ISBN (partial match)"
             ),
             openapi.Parameter(
-                name="specialty",
+                name="speciality",
                 type=openapi.TYPE_STRING,
                 in_=openapi.IN_QUERY,
                 required=False,
-                description="Filter by specialty"
+                description="Filter by speciality"
             ),
             openapi.Parameter(
                 name="book_type",
@@ -80,7 +80,7 @@ class BookListView(APIView):
         )
 
         search = request.query_params.get("search")
-        specialty = request.query_params.get("specialty")
+        speciality = request.query_params.get("speciality")
         book_type = request.query_params.get("book_type")
         ordering = request.query_params.get("ordering", "-created_at")
 
@@ -91,8 +91,8 @@ class BookListView(APIView):
                 models.Q(isbn__icontains=search)
             )
 
-        if specialty:
-            queryset = queryset.filter(specialty=specialty)
+        if speciality:
+            queryset = queryset.filter(speciality=speciality)
 
         if book_type:
             queryset = queryset.filter(book_type=book_type)
@@ -463,11 +463,11 @@ class MyBooksView(APIView):
                 description="Search in title, authors or ISBN (partial match)"
             ),
             openapi.Parameter(
-                name="specialty",
+                name="speciality",
                 type=openapi.TYPE_STRING,
                 in_=openapi.IN_QUERY,
                 required=False,
-                description="Filter by specialty"
+                description="Filter by speciality"
             ),
             openapi.Parameter(
                 name="book_type",
@@ -492,7 +492,7 @@ class MyBooksView(APIView):
         )
         status_filter = request.query_params.get("status")
         search = request.query_params.get("search")
-        specialty = request.query_params.get("specialty")
+        speciality = request.query_params.get("speciality")
         book_type = request.query_params.get("book_type")
         ordering = request.query_params.get("ordering", "-created_at")
         if status_filter:
@@ -503,8 +503,8 @@ class MyBooksView(APIView):
                 models.Q(authors__icontains=search) |
                 models.Q(isbn__icontains=search)
             )
-        if specialty:
-            queryset = queryset.filter(specialty=specialty)
+        if speciality:
+            queryset = queryset.filter(speciality=speciality)
         if book_type:
             queryset = queryset.filter(book_type=book_type)
         queryset = queryset.order_by(ordering)
@@ -666,7 +666,7 @@ class AdminBookListView(APIView):
 
         # ---- Filters ----
         search = request.GET.get("search")
-        specialty = request.GET.get("specialty")
+        speciality = request.GET.get("speciality")
         book_type = request.GET.get("book_type")
         status = request.GET.get("status")
         ordering = request.GET.get("ordering")
@@ -679,8 +679,8 @@ class AdminBookListView(APIView):
                 Q(isbn__icontains=search)
             )
 
-        if specialty:
-            queryset = queryset.filter(speciality__iexact=specialty)
+        if speciality:
+            queryset = queryset.filter(speciality__iexact=speciality)
 
         if book_type:
             queryset = queryset.filter(book_type=book_type)
@@ -748,9 +748,7 @@ class MoveBookToReviewView(APIView):
     def patch(self, request, pk):
 
         book = get_object_or_404(
-            Book,
-            id=pk,
-            status=Status.PENDING
+            Book, id=pk, status=Status.PENDING
         )
 
         book.status = Status.INREVIEW
