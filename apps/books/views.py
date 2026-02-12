@@ -12,7 +12,8 @@ from django.core.files.storage import default_storage
 from apps.books.models import Book, BookPurchase
 from apps.books.serializers import (
     BookListSerializer, BookUploadSerializer, BookDetailSerializer, BookReviewSerializer, PaginatedBookListResponseSerializer,
-    CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer
+    CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer,
+    BookUpdateSerializer
 )
 from apps.books.constants import Status
 from core.permissions import IsDoctor, IsAdmin
@@ -455,28 +456,109 @@ class BookDownloadView(APIView):
             }
         )
 
+class MyBookUpdateView(APIView):
+    """
+    Doctor can update their uploaded book ONLY while it is pending.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsDoctor]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        request_body=BookUpdateSerializer,
+        responses={200: StandardResponseSerializer},
+        operation_description="Update uploaded book (allowed only when status is pending)."
+    )
+    def patch(self, request, pk):
+
+        book = get_object_or_404(
+            Book,
+            id=pk,
+            uploaded_by=request.user
+        )
+
+        # 🔐 Guard condition
+        if book.status != Status.PENDING:
+            return Response(
+                {
+                    "detail": "Book cannot be edited once it enters review.",
+                    "success": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = BookUpdateSerializer(
+            book,
+            data=request.data,
+            partial=True
+        )
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response(
+                {"detail": str(e), "data": None, "success": False}
+            )
+
+        serializer.save()
+
+        return Response(
+            {
+                "detail": "Book updated successfully.",
+                "data": None,
+                "success": True,
+            }
+        )
 
 # -------------------------
 # Admin APIs
 # -------------------------
-class PendingBookListView(APIView):
+
+class AdminBookListView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
     pagination_class = BookPagination
 
-    # @swagger_auto_schema(auto_schema=None)
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
-        queryset = Book.objects.filter(status=Status.PENDING).order_by("-created_at")
+        queryset = Book.objects.select_related("uploaded_by").all()
 
+        # ---- Filters ----
+        search = request.GET.get("search")
+        specialty = request.GET.get("specialty")
+        book_type = request.GET.get("book_type")
+        status = request.GET.get("status")
+        ordering = request.GET.get("ordering")
+
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) |
+                Q(authors__icontains=search) |
+                Q(publisher__icontains=search) |
+                Q(isbn__icontains=search)
+            )
+
+        if specialty:
+            queryset = queryset.filter(speciality__iexact=specialty)
+
+        if book_type:
+            queryset = queryset.filter(book_type=book_type)
+
+        if status:
+            queryset = queryset.filter(status=status)
+
+        if ordering:
+            queryset = queryset.order_by(ordering)
+
+        # ---- Pagination ----
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
 
         serializer = BookListSerializer(page, many=True)
 
-        response = paginator.get_paginated_response(serializer.data).data
-        response["detail"] = "Pending books fetched"
-        response["success"] = True
+        paginated_response = paginator.get_paginated_response(serializer.data)
+        paginated_response.data["detail"] = "All books fetched"
+        paginated_response.data["success"] = True
 
-        return Response(response)
+        return paginated_response
 
 class BookReviewView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsAdmin]
@@ -491,7 +573,9 @@ class BookReviewView(APIView):
     )
     def patch(self, request, pk):
         book = get_object_or_404(
-            Book, id=pk, status=Status.PENDING
+            Book,
+            id=pk,
+            status__in=[Status.PENDING, Status.INREVIEW]
         )
 
         serializer = BookReviewSerializer(
@@ -513,3 +597,27 @@ class BookReviewView(APIView):
             }
         )
 
+class MoveBookToReviewView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(
+        responses={200: StandardResponseSerializer},
+        operation_description="Move book from pending to in_review."
+    )
+    def patch(self, request, pk):
+
+        book = get_object_or_404(
+            Book,
+            id=pk,
+            status=Status.PENDING
+        )
+
+        book.status = Status.INREVIEW
+        book.save(update_fields=["status"])
+
+        return Response(
+            {
+                "detail": "Book moved to in-review.",
+                "success": True,
+            }
+        )

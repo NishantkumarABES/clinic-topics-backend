@@ -131,6 +131,29 @@ class VerifyBookPurchaseSerializer(serializers.Serializer):
     razorpay_payment_id = serializers.CharField()
     razorpay_signature = serializers.CharField()
 
+class BookUpdateSerializer(serializers.ModelSerializer):
+    price = serializers.IntegerField(
+        min_value=0,
+        required=False,
+    )
+
+    class Meta:
+        model = Book
+        exclude = (
+            "uploaded_by",
+            "status",
+            "rating",
+            "views",
+            "downloads",
+            "rejection_reason",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate_price(self, value):
+        if value < 0:
+            raise serializers.ValidationError("Price cannot be negative.")
+        return value
 
 ########### Response Serializers ####################
 
