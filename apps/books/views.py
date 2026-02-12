@@ -697,8 +697,7 @@ class AdminBookListView(APIView):
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
 
-        serializer = BookListSerializer(page, many=True)
-
+        serializer = BookListSerializer(page, many=True, context={"request": request})
         paginated_response = paginator.get_paginated_response(serializer.data)
         paginated_response.data["detail"] = "All books fetched"
         paginated_response.data["success"] = True
