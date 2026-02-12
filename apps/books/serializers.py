@@ -3,7 +3,6 @@ from apps.books.models import Book, Collection, BookRating
 from apps.books.constants import Status
 
 
-
 class CollectionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Collection
@@ -12,6 +11,8 @@ class CollectionSerializer(serializers.ModelSerializer):
 class BookListSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.StringRelatedField()
     collections = CollectionSerializer(many=True, read_only=True)
+    file_url = serializers.SerializerMethodField()
+    is_deleted = serializers.BooleanField(read_only=True)
 
     class Meta:
         model = Book
@@ -28,6 +29,7 @@ class BookListSerializer(serializers.ModelSerializer):
             "book_type",
             "description",
             "rating",
+            "rating_count",
             "views",
             "downloads",
             "status",
@@ -35,8 +37,26 @@ class BookListSerializer(serializers.ModelSerializer):
             "is_editor_curated",
             "price",
             "collections",
+            "file_url",   # dynamically removed for non-admins
+            "is_deleted", # dynamically removed for non-admins
             "created_at",
         )
+
+    def __init__(self, *args, **kwargs):
+        """
+        Remove file_url if the requester is NOT an admin.
+        """
+        super().__init__(*args, **kwargs)
+
+        request = self.context.get("request")
+        if not request or not request.user.is_staff:
+            self.fields.pop("file_url", None)
+            self.fields.pop("is_deleted", None)
+
+    def get_file_url(self, obj):
+        if obj.file:
+            return obj.file.url
+        return None
 
 class BookDetailSerializer(BookListSerializer):
     is_paid = serializers.SerializerMethodField()
@@ -151,8 +171,7 @@ class VerifyBookPurchaseSerializer(serializers.Serializer):
 
 class BookUpdateSerializer(serializers.ModelSerializer):
     price = serializers.IntegerField(
-        min_value=0,
-        required=False,
+        min_value=0, required=False,
     )
 
     class Meta:

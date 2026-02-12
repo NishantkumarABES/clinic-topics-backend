@@ -581,34 +581,36 @@ class MyBookUpdateView(APIView):
     def patch(self, request, pk):
 
         book = get_object_or_404(
-            Book,
-            id=pk,
+            Book, id=pk,
             uploaded_by=request.user
         )
 
         # 🔐 Guard condition
-        if book.status != Status.PENDING:
+        if book.status == Status.INREVIEW:
             return Response(
                 {
-                    "detail": "Book cannot be edited once it enters review.",
+                    "detail": "Book cannot be edited once it enters review state.",
+                    "success": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        
+        if book.is_deleted:
+            return Response(
+                {
+                    "detail": "Deleted books cannot be edited.",
                     "success": False,
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         serializer = BookUpdateSerializer(
-            book,
-            data=request.data,
+            book, data=request.data,
             partial=True
         )
 
-        try:
-            serializer.is_valid(raise_exception=True)
-        except Exception as e:
-            return Response(
-                {"detail": str(e), "data": None, "success": False}
-            )
-
+        
+        serializer.is_valid(raise_exception=True)
         serializer.save()
 
         return Response(
@@ -757,6 +759,49 @@ class MoveBookToReviewView(APIView):
         return Response(
             {
                 "detail": "Book moved to in-review.",
+                "success": True,
+            }
+        )
+
+class AdminBookUpdateView(APIView):
+    """
+    Admin can update ANY book metadata.
+    Unlike doctors, admin is NOT restricted by book status.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        request_body=BookUpdateSerializer,
+        responses={200: StandardResponseSerializer},
+        operation_description="Admin update book details.",
+        auto_schema=None
+    )
+    def patch(self, request, pk):
+
+        book = get_object_or_404(Book, id=pk)
+        if book.is_deleted:
+            return Response(
+                {
+                    "detail": "Deleted books cannot be edited.",
+                    "success": False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        serializer = BookUpdateSerializer(
+            book, data=request.data,
+            partial=True
+        )
+
+        
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(
+            {
+                "detail": "Book updated successfully by admin.",
+                "data": serializer.data,
                 "success": True,
             }
         )
