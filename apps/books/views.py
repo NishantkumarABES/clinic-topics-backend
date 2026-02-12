@@ -14,7 +14,7 @@ from apps.books.models import Book, BookPurchase
 from apps.books.serializers import (
     BookListSerializer, BookUploadSerializer, BookDetailSerializer, BookReviewSerializer, PaginatedBookListResponseSerializer,
     CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer,
-    BookUpdateSerializer, BookRatingSerializer
+    BookUpdateSerializer, BookRatingSerializer, BookRatingListSerializer
 )
 from apps.books.constants import Status
 from core.permissions import IsDoctor, IsAdmin
@@ -278,6 +278,37 @@ class BookRatingView(APIView):
             "detail": "Rating submitted successfully",
             "success": True,
         })
+
+class BookRatingListView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = BookPagination
+
+    @swagger_auto_schema(
+        responses={200: StandardResponseSerializer},
+        operation_description="Get all ratings for a particular book (paginated)."
+    )
+    def get(self, request, pk):
+
+        book = get_object_or_404(
+            Book,
+            id=pk,
+            status=Status.APPROVED,
+            is_deleted=False
+        )
+
+        queryset = book.ratings.select_related("user").order_by("-created_at")
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = BookRatingListSerializer(page, many=True)
+        paginated_response = paginator.get_paginated_response(serializer.data)
+        return Response(
+            {
+                "detail": "Book ratings fetched successfully",
+                "data": paginated_response.data,
+                "success": True,
+            }
+        )
 
 class BookDownloadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
