@@ -15,7 +15,7 @@ class ArticlesAnalyticsView(APIView):
         draft_articles = Article.objects.filter(status=Status.DRAFT).count()
         published_articles = Article.objects.filter(status=Status.PUBLISHED).count()
         rejected_articles = Article.objects.filter(status=Status.REJECTED).count()
-        in_review_articles = Article.objects.filter(status=Status.INREVIEW).count()
+        in_review_articles = Article.objects.filter(status=Status.REVIEW).count()
         data = {
             "total_articles": total_articles,
             "draft_articles": draft_articles,

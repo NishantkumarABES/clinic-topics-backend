@@ -433,7 +433,8 @@ class AdminArticleListView(APIView):
     pagination_class = ArticlePagination
 
     @swagger_auto_schema(
-        responses={200: PaginatedArticlesListResponseSerializer()}
+        responses={200: PaginatedArticlesListResponseSerializer()},
+        auto_schema=None
     )
     def get(self, request):
 
@@ -488,7 +489,8 @@ class ArticleReviewView(APIView):
 
     @swagger_auto_schema(
         responses={200: ArticleDetailSerializer()},
-        request_body=ArticleReviewSerializer()
+        request_body=ArticleReviewSerializer(),
+        auto_schema=None
     )
     def patch(self, request, id):
 
@@ -515,7 +517,8 @@ class AdminMoveToReviewView(APIView):
 
     @swagger_auto_schema(
         responses={200: ArticleDetailSerializer()},
-        operation_description="Admin moves draft article to review state."
+        operation_description="Admin moves draft article to review state.",
+        auto_schema=None
     )
     def patch(self, request, id):
 
@@ -539,7 +542,8 @@ class AdminArticleUpdateView(APIView):
     @swagger_auto_schema(
         request_body=ArticleUpdateSerializer(),
         responses={200: ArticleDetailSerializer()},
-        operation_description="Admin can update any non-deleted article."
+        operation_description="Admin can update any non-deleted article.",
+        auto_schema=None
     )
     def patch(self, request, id):
 
