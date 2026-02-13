@@ -14,7 +14,7 @@ from apps.books.models import Book, BookPurchase
 from apps.books.serializers import (
     BookListSerializer, BookUploadSerializer, BookDetailSerializer, BookReviewSerializer, PaginatedBookListResponseSerializer,
     CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer,
-    BookUpdateSerializer, BookRatingSerializer, BookRatingListSerializer
+    BookUpdateSerializer, BookRatingSerializer, BookRatingListSerializer, AdminBookCreateSerializer
 )
 from apps.books.constants import Status
 from core.permissions import IsDoctor, IsAdmin
@@ -803,4 +803,36 @@ class AdminBookUpdateView(APIView):
                 "data": serializer.data,
                 "success": True,
             }
+        )
+
+class AdminBookCreateView(APIView):
+    """
+    Admin can create a book on behalf of a doctor.
+    Book is auto-approved.
+    """
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        request_body=AdminBookCreateSerializer,
+        responses={201: StandardResponseSerializer},
+        operation_description="Admin creates a book for a doctor (auto approved).",
+        auto_schema=None
+    )
+    def post(self, request):
+
+        serializer = AdminBookCreateSerializer(
+            data=request.data
+        )
+
+        serializer.is_valid(raise_exception=True)
+        book = serializer.save()
+
+        return Response(
+            {
+                "detail": "Book created and approved successfully.",
+                "data": {"book_id": str(book.id)},
+                "success": True,
+            },
+            status=status.HTTP_201_CREATED,
         )

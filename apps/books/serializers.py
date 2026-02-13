@@ -2,6 +2,7 @@ from rest_framework import serializers
 from apps.books.models import Book, Collection, BookRating
 from apps.books.constants import Status
 from apps.accounts.constants import UserRole
+from apps.accounts.models import User
 
 
 class CollectionSerializer(serializers.ModelSerializer):
@@ -221,6 +222,51 @@ class BookRatingListSerializer(serializers.ModelSerializer):
             "created_at",
         )
 
+class AdminBookCreateSerializer(serializers.ModelSerializer):
+    user_id = serializers.UUIDField(write_only=True)
+
+    class Meta:
+        model = Book
+        fields = (
+            "user_id",
+            "title",
+            "authors",
+            "publisher",
+            "edition",
+            "publication_year",
+            "isbn",
+            "speciality",
+            "book_type",
+            "description",
+            "file",
+            "copyright_status",
+            "access_level",
+            "price",
+        )
+
+    def validate_user_id(self, value):
+        try:
+            user = User.objects.get(id=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Doctor user not found.")
+
+        if user.role != UserRole.DOCTOR:
+            raise serializers.ValidationError(
+                "Books can only be created for doctor users."
+            )
+
+        return user
+
+    def create(self, validated_data):
+        doctor = validated_data.pop("user_id")
+
+        book = Book.objects.create(
+            uploaded_by=doctor,
+            status=Status.APPROVED,  # <-- Direct approval
+            **validated_data
+        )
+
+        return book
 ########### Response Serializers ####################
 
 class PaginatedBookListResponseSerializer(serializers.Serializer):

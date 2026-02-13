@@ -2,7 +2,7 @@ from django.urls import path
 from apps.articles.views import (
     ArticleListView, ArticleDetailView, ToggleBookmarkView, ArticleCreateView, MyArticlesView, 
     ArticleUpdateView, ArticleReviewView, AdminMoveToReviewView, AdminArticleListView,
-    BookmarkListView, SoftDeleteArticleView, MyArticleDetailView, AdminArticleUpdateView
+    BookmarkListView, SoftDeleteArticleView, MyArticleDetailView, AdminArticleUpdateView, AdminArticleCreateView
 )
 
 urlpatterns = [
@@ -24,4 +24,5 @@ urlpatterns = [
     path("admin/<uuid:id>/review/", ArticleReviewView.as_view(), name="article-review"),
     path("admin/<uuid:id>/admin-move-review/", AdminMoveToReviewView.as_view(), name="admin-move-review"),
     path("admin/<uuid:id>/update/", AdminArticleUpdateView.as_view(), name="admin-article-update"),
+    path("admin/create/", AdminArticleCreateView.as_view(), name="admin-article-create"),
 ]
