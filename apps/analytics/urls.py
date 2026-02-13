@@ -11,6 +11,8 @@ from apps.analytics.views.events import EventsAnalyticsView
 from apps.analytics.views.advisory import AdvisoryAnalyticsView
 
 from apps.analytics.views.my_reposit.books import BooksAnalyticsView
+from apps.analytics.views.my_reposit.articles import ArticlesAnalyticsView
+
 
 
 urlpatterns = [
@@ -28,4 +30,5 @@ urlpatterns = [
     path("admin/advisory/metrics/", AdvisoryAnalyticsView.as_view()),
 
     path("admin/books/metrics/", BooksAnalyticsView.as_view()),
+    path("admin/articles/metrics/", ArticlesAnalyticsView.as_view()),
 ]

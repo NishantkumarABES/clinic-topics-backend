@@ -23,6 +23,10 @@ class ArticleListSerializer(serializers.ModelSerializer):
             "download_count",
             "status",
             "is_bookmarked",
+
+            "is_deleted",
+            "abstract",
+            "content",
         ]
 
 
@@ -31,6 +35,21 @@ class ArticleListSerializer(serializers.ModelSerializer):
         if not user or not user.is_authenticated:
             return False
         return Bookmark.objects.filter(user=user, article=obj).exists()
+    
+    def __init__(self, *args, **kwargs):
+        """
+        Hide moderation fields for non-admin users.
+        """
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+
+        if not request:
+            return
+
+        if request.user.role != UserRole.ADMIN:
+            self.fields.pop("is_deleted", None)
+            self.fields.pop("content", None)
+            self.fields.pop("abstract", None)
 
 class ArticleDetailSerializer(serializers.ModelSerializer):
     is_bookmarked = serializers.SerializerMethodField()
