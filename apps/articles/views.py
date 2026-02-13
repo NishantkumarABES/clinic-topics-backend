@@ -236,6 +236,33 @@ class MyArticlesView(APIView):
             "success": True,
         })
 
+class MyArticleDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsDoctor]
+
+    @swagger_auto_schema(
+        responses={200: ArticleDetailSerializer()},
+        operation_description="Retrieve logged-in user's article without increasing view count."
+    )
+    def get(self, request, id):
+
+        article = get_object_or_404(
+            Article,
+            id=id,
+            uploaded_by=request.user,
+            is_deleted=False
+        )
+
+        serializer = ArticleDetailSerializer(
+            article,
+            context={"request": request}
+        )
+
+        return Response({
+            "detail": "My article retrieved successfully",
+            "data": serializer.data,
+            "success": True
+        })
+
 class ToggleBookmarkView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
 
