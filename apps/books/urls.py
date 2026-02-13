@@ -2,7 +2,7 @@ from django.urls import path
 from apps.books.views import (
     BookListView, BookDetailView, BookDownloadView, AdminBookListView, BookListView, BookReviewView, MyBooksView, BookUploadView,
     CreateBookPurchaseView, VerifyBookPurchaseView, MyBookDetailView, MoveBookToReviewView, MyBookUpdateView, BookRatingView,
-    MyBookDeleteView, BookRatingListView, MyBookDownloadView, AdminBookUpdateView
+    MyBookDeleteView, BookRatingListView, MyBookDownloadView, AdminBookUpdateView, AdminBookCreateView
 )
 
 urlpatterns = [
@@ -35,4 +35,5 @@ urlpatterns = [
     path("admin/<uuid:pk>/review/", BookReviewView.as_view(), name="book-review"),
     path("admin/<uuid:pk>/move/", MoveBookToReviewView.as_view(), name="book-move"),
     path("admin/<uuid:pk>/update/", AdminBookUpdateView.as_view(), name="book-update"),
+    path("admin/create/", AdminBookCreateView.as_view(), name="admin-book-create"),
 ]

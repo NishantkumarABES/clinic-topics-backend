@@ -13,7 +13,7 @@ from django.shortcuts import get_object_or_404
 from apps.articles.models import Article, Bookmark
 from apps.articles.serializers import (
     ArticleListSerializer, ArticleDetailSerializer, ArticleCreateSerializer, ArticleUpdateSerializer, ArticleReviewSerializer,
-    PaginatedArticlesListResponseSerializer
+    PaginatedArticlesListResponseSerializer, AdminArticleCreateSerializer
 )
 from apps.articles.constants import Status
 from core.permissions import IsDoctor, IsAdmin
@@ -427,7 +427,6 @@ class SoftDeleteArticleView(APIView):
 
 
 
-
 class AdminArticleListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     pagination_class = ArticlePagination
@@ -565,3 +564,35 @@ class AdminArticleUpdateView(APIView):
             "data": serializer.data,
             "success": True
         })
+
+class AdminArticleCreateView(APIView):
+    """
+    Admin creates an article on behalf of a doctor.
+    Article is instantly published.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        request_body=AdminArticleCreateSerializer(),
+        responses={201: ArticleDetailSerializer()},
+        operation_description="Admin creates and publishes an article.",
+        auto_schema=None
+    )
+    def post(self, request):
+
+        serializer = AdminArticleCreateSerializer(
+            data=request.data
+        )
+        serializer.is_valid(raise_exception=True)
+
+        article = serializer.save()
+
+        return Response({
+            "detail": "Article created and published successfully.",
+            "data": ArticleDetailSerializer(
+                article,
+                context={"request": request}
+            ).data,
+            "success": True
+        }, status=status.HTTP_201_CREATED)

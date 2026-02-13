@@ -23,6 +23,8 @@ class ArticleListSerializer(serializers.ModelSerializer):
             "download_count",
             "status",
             "is_bookmarked",
+            "created_at",
+            "updated_at",
 
             "is_deleted",
             "abstract",
@@ -152,6 +154,48 @@ class BookmarkSerializer(serializers.ModelSerializer):
         model = Bookmark
         fields = ["id", "article", "created_at"]
 
+class AdminArticleCreateSerializer(serializers.ModelSerializer):
+    user_id = serializers.UUIDField(write_only=True)
+
+    class Meta:
+        model = Article
+        exclude = (
+            "uploaded_by",
+            "status",
+            "view_count",
+            "download_count",
+            "rejection_reason",
+            "is_deleted",
+            "created_at",
+            "updated_at",
+        )
+
+    def validate_user_id(self, value):
+        """
+        Ensure article is created for a doctor.
+        """
+        try:
+            user = User.objects.get(id=value)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Doctor user not found.")
+
+        if user.role != UserRole.DOCTOR:
+            raise serializers.ValidationError(
+                "Articles can only be created for doctor users."
+            )
+
+        return user
+
+    def create(self, validated_data):
+        doctor = validated_data.pop("user_id")
+
+        article = Article.objects.create(
+            uploaded_by=doctor,
+            status=Status.PUBLISHED,   # 🔥 Direct publish
+            **validated_data
+        )
+
+        return article
 #####################  Response Serializers #############################
 
 class PaginatedArticlesListResponseSerializer(serializers.Serializer):
