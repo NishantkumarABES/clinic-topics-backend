@@ -532,3 +532,32 @@ class AdminMoveToReviewView(APIView):
             "detail": "Article moved to review by admin",
             "success": True
         })
+
+class AdminArticleUpdateView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(
+        request_body=ArticleUpdateSerializer(),
+        responses={200: ArticleDetailSerializer()},
+        operation_description="Admin can update any non-deleted article."
+    )
+    def patch(self, request, id):
+
+        article = get_object_or_404(
+            Article, id=id,
+            is_deleted=False
+        )
+
+        serializer = ArticleUpdateSerializer(
+            article,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "detail": "Article updated successfully by admin",
+            "data": serializer.data,
+            "success": True
+        })
