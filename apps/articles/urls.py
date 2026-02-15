@@ -22,7 +22,7 @@ urlpatterns = [
     # Admin
     path("admin/", AdminArticleListView.as_view(), name="admin-article-list"),
     path("admin/<uuid:id>/review/", ArticleReviewView.as_view(), name="article-review"),
-    path("admin/<uuid:id>/admin-move-review/", AdminMoveToReviewView.as_view(), name="admin-move-review"),
+    path("admin/<uuid:id>/move/", AdminMoveToReviewView.as_view(), name="admin-move-review"),
     path("admin/<uuid:id>/update/", AdminArticleUpdateView.as_view(), name="admin-article-update"),
     path("admin/create/", AdminArticleCreateView.as_view(), name="admin-article-create"),
 ]

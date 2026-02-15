@@ -1,34 +1,32 @@
 from django.db import models
-from django.contrib.postgres.fields import ArrayField
+from django.core.validators import FileExtensionValidator
+from django.core.exceptions import ValidationError
 
 from core.models import TimeStampedUUIDModel
 from apps.accounts.models import User
 from apps.jobs.constants import *
 
 
+class JobTag(models.Model):
+    name = models.CharField(max_length=100, unique=True)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
 class JobPost(TimeStampedUUIDModel):
-    # ---- Ownership & lifecycle ----
     created_by = models.ForeignKey(
-        User, on_delete=models.CASCADE,
-        related_name="job_posts"
+        User,
+        on_delete=models.CASCADE,
+        related_name="posted_jobs"
     )
 
-    status = models.CharField(
-        max_length=20,
-        choices=JobStatus.choices,
-        default=JobStatus.PENDING_REVIEW,
-        db_index=True
-    )
-
-    # ---- Core identity ----
+    # Core Fields
     title = models.CharField(max_length=255)
     company_name = models.CharField(max_length=255)
 
-    summary = models.TextField()
-    responsibilities = models.TextField()
-    qualifications = models.TextField()
-
-    # ---- Classification ----
     workplace_type = models.CharField(
         max_length=20,
         choices=WorkplaceType.choices
@@ -37,6 +35,13 @@ class JobPost(TimeStampedUUIDModel):
     employment_type = models.CharField(
         max_length=20,
         choices=EmploymentType.choices
+    )
+
+    job_location = models.CharField(max_length=255)
+    hiring_regions = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Applicable if remote"
     )
 
     job_function = models.CharField(
@@ -51,127 +56,139 @@ class JobPost(TimeStampedUUIDModel):
         choices=SeniorityLevel.choices
     )
 
-    # ---- Location ----
-    location = models.CharField(max_length=255)
-    remote_region = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True
+    experience = models.CharField(
+        max_length=100,
+        help_text="E.g., 5+ years",
+        blank=True, null=True
     )
 
-    # ---- Experience & credentials ----
-    experience_years = models.PositiveIntegerField()
+    # Description Blocks
+    role_summary = models.TextField()
+    responsibilities = models.TextField()
+    qualifications = models.TextField()
+
+    must_have_skills = models.TextField()
+    nice_to_have_skills = models.TextField(blank=True)
+
+    salary_range = models.CharField(max_length=150, blank=True, null=True)
+    benefits = models.TextField(blank=True, null=True)
 
     required_degrees = models.CharField(max_length=255)
-    required_registrations = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True
-    )
+    # required_registrations = models.CharField(max_length=255)
 
-    # ---- Skills ----
-    must_have_skills = ArrayField(
-        base_field=models.CharField(max_length=100),
-        default=list,
-    )
+    background_checks = models.BooleanField(default=False)
 
-    nice_to_have_skills = ArrayField(
-        base_field=models.CharField(max_length=100),
-        default=list,
-    )
+    application_deadline = models.DateField(null=True, blank=True)
 
-    # ---- Compensation ----
-    salary_range = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True
-    )
+    recruiter_name = models.CharField(max_length=255, blank=True)
 
-    benefits = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True
-    )
+    additional_notes = models.TextField(blank=True)
 
-    # ---- Compliance ----
-    work_authorization = models.CharField(
-        max_length=30,
-        choices=WorkAuthorization.choices,
-        blank=True,
-        null=True
-    )
-
-    background_checks_required = models.BooleanField(default=False)
-
-    # ---- Application flow ----
     apply_method = models.CharField(
-        max_length=30,
-        choices=ApplyMethod.choices
+        max_length=20,
+        choices=ApplyMethod.choices,
+        default=ApplyMethod.PLATFORM
     )
 
-    apply_target = models.CharField(
-        max_length=500,
-        blank=True,
-        null=True,
-        help_text="URL or email depending on apply_method"
+    external_apply_link = models.URLField(blank=True, null=True)
+    application_email = models.EmailField(blank=True, null=True)
+
+
+    # Moderation
+    status = models.CharField(
+        max_length=20,
+        choices=JobPostStatus.choices,
+        default=JobPostStatus.DRAFT
     )
 
-    application_deadline = models.DateField(
-        blank=True,
-        null=True
+    rejection_reason = models.TextField(blank=True, null=True)
+
+    # Tags
+    tags = models.ManyToManyField(
+        JobTag,
+        related_name="jobs",
+        blank=True
     )
 
-    contact_person = models.CharField(
-        max_length=255,
-        blank=True,
-        null=True
-    )
+    # Analytics
+    views = models.PositiveIntegerField(default=0)
+    applications_count = models.PositiveIntegerField(default=0)
+    application_views_count = models.PositiveIntegerField(default=0)
 
-    # ---- Visibility & discovery ----
-    visibility = models.CharField(
-        max_length=30,
-        choices=Visibility.choices
-    )
-
-    tags = ArrayField(
-        base_field=models.CharField(max_length=100),
-        default=list,
-    )
-
-    # ---- Misc ----
-    notes = models.TextField(blank=True, null=True)
-
-    agreed_to_terms = models.BooleanField(default=False)
-    agreed_at = models.DateTimeField(blank=True, null=True, editable=False)
-
+    is_deleted = models.BooleanField(default=False)
 
     class Meta:
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["status"]),
-            models.Index(fields=["employment_type"]),
-            models.Index(fields=["job_function"]),
-            models.Index(fields=["visibility"]),
+            models.Index(fields=["application_deadline"]),
+            models.Index(fields=["created_by"]),
         ]
 
     def __str__(self):
-        return f"{self.title} @ {self.company_name}"
+        return self.title
 
+class JobApplication(TimeStampedUUIDModel):
+    job = models.ForeignKey(
+        JobPost, on_delete=models.CASCADE,
+        related_name="applications"
+    )
+
+    applicant = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="job_applications"
+    )
+
+    # Application Form Fields
+    resume = models.FileField(
+        upload_to="jobs/resumes/",
+        validators=[FileExtensionValidator(["pdf"])]
+    )
+
+    cover_letter = models.TextField()
+
+    years_of_experience = models.CharField(max_length=50)
+    current_position = models.CharField(max_length=255)
+    current_institution = models.CharField(max_length=255)
+
+    notice_period = models.CharField(max_length=100)
+    expected_salary = models.CharField(max_length=150)
+
+    additional_document = models.FileField(
+        upload_to="jobs/additional_docs/",
+        blank=True,
+        null=True
+    )
+
+    class Meta:
+        unique_together = ("job", "applicant")
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["job"]),
+            models.Index(fields=["applicant"]),
+        ]
+    
     def clean(self):
-        """
-        Model-level validation for conditional rules.
-        """
-        from django.core.exceptions import ValidationError
+        if self.resume.size > 10 * 1024 * 1024:
+            raise ValidationError("Max file size is 10MB")
 
-        if self.apply_method in [
-            ApplyMethod.EXTERNAL_LINK,
-            ApplyMethod.EMAIL
-        ] and not self.apply_target:
-            raise ValidationError(
-                "apply_target is required for external link or email applications."
-            )
 
-        if not self.agreed_to_terms:
-            raise ValidationError(
-                "You must confirm permission to post this job."
-            )
+    def __str__(self):
+        return f"{self.applicant} → {self.job}"
+
+class JobApplicationView(TimeStampedUUIDModel):
+    application = models.ForeignKey(
+        JobApplication,
+        on_delete=models.CASCADE,
+        related_name="views"
+    )
+
+    viewed_by = models.ForeignKey(
+        User, on_delete=models.CASCADE
+    )
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["application"]),
+        ]

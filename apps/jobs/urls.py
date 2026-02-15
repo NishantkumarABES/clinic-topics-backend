@@ -1,11 +1,34 @@
 from django.urls import path
 from apps.jobs.views import (
-    JobPostCreateView, MyJobPostListView, PublicJobPostListView, JobPostDetailView,
+    JobListView, JobDetailView, JobApplyView, MyJobsView, MyJobDetailView,
+    MyJobCreateView, MyJobUpdateView, MyJobDeleteView, MyAppliedJobsView, MyAppliedJobDetailView,
+    AdminApplicationListView, AdminJobCreateView, AdminJobUpdateView, MoveJobToReviewView, 
+    AdminJobReviewView, JobTagListView
+
 )
 
 urlpatterns = [
-    path("", PublicJobPostListView.as_view()),
-    path("create/", JobPostCreateView.as_view()),
-    path("me/", MyJobPostListView.as_view()),
-    path("<uuid:pk>/", JobPostDetailView.as_view()),
+    # Public
+    path("", JobListView.as_view(), name="job-list"),
+    path("<uuid:pk>/", JobDetailView.as_view(), name="job-detail"),
+    path("tags/", JobTagListView.as_view(), name="job-tags"),
+
+
+    # Doctor
+    path("my-jobs/", MyJobsView.as_view(), name="my-jobs"),
+    path("my-jobs/<uuid:pk>/", MyJobDetailView.as_view(), name="my-job-detail"),
+    path("<uuid:pk>/apply/", JobApplyView.as_view(), name="job-apply"),
+    path("my-applied-jobs/", MyAppliedJobsView.as_view(), name="my-applied-jobs"),
+    path("my-applied-jobs/<uuid:pk>/", MyAppliedJobDetailView.as_view(), name="my-applied-job-detail"),
+    path("create/", MyJobCreateView.as_view(), name="job-create"),
+    path("<uuid:pk>/update/", MyJobUpdateView.as_view(), name="job-update"),
+    path("<uuid:pk>/delete/", MyJobDeleteView.as_view(), name="job-delete"),
+
+
+    # Admin 
+    path("admin/create/", AdminJobCreateView.as_view(), name="admin-job-create"),
+    path("admin/jobs/<uuid:pk>/update/", AdminJobUpdateView.as_view(), name="admin-job-update"),
+    path("admin/jobs/<uuid:pk>/review/", AdminJobReviewView.as_view(), name="admin-job-review"),
+    path("admin/jobs/<uuid:pk>/move/", MoveJobToReviewView.as_view(), name="move-job-to-review"),
+    path("admin/applications/", AdminApplicationListView.as_view(), name="admin-application-list"),
 ]
