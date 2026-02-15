@@ -2,6 +2,7 @@ from rest_framework import serializers
 from apps.articles.models import Article, Bookmark
 from apps.articles.constants import Status
 from apps.accounts.constants import UserRole
+from apps.accounts.models import User
 
 class ArticleListSerializer(serializers.ModelSerializer):
     is_bookmarked = serializers.SerializerMethodField()

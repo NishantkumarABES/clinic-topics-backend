@@ -1,11 +1,12 @@
 from django.db import models
 
-class JobStatus(models.TextChoices):
+class JobPostStatus(models.TextChoices):
     DRAFT = "draft", "Draft"
-    PENDING_REVIEW = "pending_review", "Pending Review"
+    IN_REVIEW = "in_review", "In Review"
     PUBLISHED = "published", "Published"
-    ARCHIVED = "archived", "Archived"
-
+    REJECTED = "rejected", "Rejected"
+    EXPIRED = "expired", "Expired"
+    CLOSED = "closed", "Closed"
 
 class WorkplaceType(models.TextChoices):
     ON_SITE = "on_site", "On-site"
@@ -47,14 +48,4 @@ class ApplyMethod(models.TextChoices):
     EMAIL = "email", "Email Application"
 
 
-class Visibility(models.TextChoices):
-    PUBLIC = "public", "Public"
-    MEMBERS_ONLY = "members_only", "Members Only"
-    VERIFIED_ONLY = "verified_only", "Verified Doctors Only"
-
-
-class WorkAuthorization(models.TextChoices):
-    CITIZEN_ONLY = "citizen_only", "Citizen/Resident only"
-    VISA_AVAILABLE = "visa_available", "Visa sponsorship available"
-    OPEN = "open", "Open to all (case-by-case)"
 
