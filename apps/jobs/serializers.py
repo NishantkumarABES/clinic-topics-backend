@@ -43,6 +43,7 @@ class JobDetailSerializer(JobListSerializer):
 
     class Meta(JobListSerializer.Meta):
         fields = JobListSerializer.Meta.fields + (
+            "job_description",
             "must_have_skills",
             "required_degrees",
             "recruiter_name",
