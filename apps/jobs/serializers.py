@@ -2,6 +2,7 @@ from rest_framework import serializers
 from apps.jobs.models import JobPost, JobApplication
 from apps.jobs.constants import JobPostStatus
 from apps.accounts.models import User
+from apps.accounts.constants import UserRole
 
 
 class JobListSerializer(serializers.ModelSerializer):
@@ -23,10 +24,20 @@ class JobListSerializer(serializers.ModelSerializer):
             "application_deadline",
             "views",
             "applications_count",
+            "application_views_count",
             "created_at",
             "created_by",
             "tags",
+            "status",
+
+            "is_deleted",
         )
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        request = self.context.get("request")
+        if request and request.user.role == UserRole.ADMIN: return
+        self.fields.pop("is_deleted", None)
 
 class JobDetailSerializer(JobListSerializer):
 
