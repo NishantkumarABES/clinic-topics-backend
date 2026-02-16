@@ -31,6 +31,7 @@ class JobListSerializer(serializers.ModelSerializer):
             "status",
 
             "is_deleted",
+            "job_description"
         )
     
     def __init__(self, *args, **kwargs):
@@ -38,6 +39,7 @@ class JobListSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         if request and request.user.role == UserRole.ADMIN: return
         self.fields.pop("is_deleted", None)
+        self.fields.pop("job_description", None)
 
 class JobDetailSerializer(JobListSerializer):
 
