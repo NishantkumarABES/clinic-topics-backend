@@ -4,7 +4,7 @@ from apps.jobs.views import (
     MyJobCreateView, MyJobUpdateView, MyJobDeleteView, MyAppliedJobsView, MyAppliedJobDetailView,
     AdminApplicationListView, AdminJobCreateView, AdminJobUpdateView, MoveJobToReviewView, 
     AdminJobReviewView, CloseJobView, MyJobApplicationsView, ReviewApplicationView,
-    MyJobApplicationsDetailView, AdminApplicationListSerializer
+    MyJobApplicationsDetailView, AdminJobListView
 )
 
 urlpatterns = [
@@ -33,7 +33,7 @@ urlpatterns = [
 
     # Admin 
     path("admin/create/", AdminJobCreateView.as_view(), name="admin-job-create"),
-    path("admin/jobs/", AdminApplicationListView.as_view(), name="admin-job-list"),
+    path("admin/jobs/", AdminJobListView.as_view(), name="admin-job-list"),
     path("admin/jobs/<uuid:pk>/update/", AdminJobUpdateView.as_view(), name="admin-job-update"),
     path("admin/jobs/<uuid:pk>/review/", AdminJobReviewView.as_view(), name="admin-job-review"),
     path("admin/jobs/<uuid:pk>/move/", MoveJobToReviewView.as_view(), name="move-job-to-review"),
