@@ -10,35 +10,22 @@ from django.shortcuts import get_object_or_404
 from django.db.models import F, Q
 from django.utils import timezone
 
-from apps.jobs.models import JobPost, JobApplication, JobTag
+from apps.jobs.models import JobPost, JobApplication
 from apps.jobs.serializers import (
     JobListSerializer, JobDetailSerializer, JobCreateSerializer, JobUpdateSerializer, JobReviewSerializer, 
     JobApplySerializer, MyAppliedJobListSerializer, MyAppliedJobDetailSerializer, AdminApplicationListSerializer,
-    AdminJobCreateSerializer, JobTagSerializer, paginatedJobListResponseSerializer, paginatedJobApplicationListResponseSerializer
+    AdminJobCreateSerializer, paginatedJobListResponseSerializer, paginatedJobApplicationListResponseSerializer,
+    DoctorApplicationListSerializer, DoctorApplicationReviewSerializer, paginatedDoctorApplicationListResponseSerializer,
+    DoctorApplicationDetailSerializer
 )
 from core.permissions import IsDoctor, IsAdmin
-from apps.jobs.constants import JobPostStatus
+from apps.jobs.constants import JobPostStatus, ApplyMethod
 
 
 class JobPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
     max_page_size = 50
-
-class JobTagListView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def get(self, request):
-
-        tags = JobTag.objects.all().order_by("name")
-
-        serializer = JobTagSerializer(tags, many=True)
-
-        return Response({
-            "detail": "Tags fetched successfully.",
-            "data": serializer.data,
-            "success": True,
-        })
 
 class JobListView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor | IsAdmin]
@@ -52,7 +39,7 @@ class JobListView(APIView):
             openapi.Parameter(
                 "search",
                 in_=openapi.IN_QUERY,
-                description="Search by title, company, or specialty",
+                description="Search by title, company, or speciality",
                 type=openapi.TYPE_STRING,
             ),
         ]
@@ -139,6 +126,19 @@ class JobApplyView(APIView):
                 {"detail": "Application deadline passed."},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        if job.status in [JobPostStatus.CLOSED, JobPostStatus.EXPIRED]:
+            return Response(
+                {"detail": "This job is no longer accepting applications."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if job.apply_method != ApplyMethod.PLATFORM:
+            return Response(
+                {"detail": "Applications are not accepted on platform."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
 
         if JobApplication.objects.filter(
             job=job,
@@ -379,6 +379,152 @@ class MyAppliedJobDetailView(APIView):
         return Response({
             "detail": "My Application details fetched.",
             "data": serializer.data,
+            "success": True,
+        })
+
+class MyJobApplicationsView(APIView):
+    permission_classes = [IsAuthenticated, IsDoctor]
+    pagination_class = JobPagination
+
+    @swagger_auto_schema(
+        responses={
+            200: paginatedDoctorApplicationListResponseSerializer()
+        }
+    )
+    def get(self, request, pk):
+
+        job = get_object_or_404(
+            JobPost,
+            id=pk,
+            created_by=request.user,
+            is_deleted=False
+        )
+
+        if job.apply_method != ApplyMethod.PLATFORM:
+            return Response(
+                {"detail": "Applications are not managed on platform."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        queryset = job.applications.select_related("applicant")
+
+        # Increment analytics
+        JobPost.objects.filter(pk=job.pk).update(
+            application_views_count=F("application_views_count") + 1
+        )
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = DoctorApplicationListSerializer(page, many=True)
+
+        return Response({
+            "detail": "Applications fetched successfully.",
+            "data": paginator.get_paginated_response(serializer.data).data,
+            "success": True,
+        })
+
+class MyJobApplicationsDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsDoctor]
+
+    @swagger_auto_schema(
+        responses={
+            200: DoctorApplicationDetailSerializer()
+        }
+    )
+    def get(self, request, job_id, application_id):
+
+        # Step 1: Ensure job belongs to doctor
+        job = get_object_or_404(
+            JobPost,
+            id=job_id,
+            created_by=request.user,
+            is_deleted=False
+        )
+
+        # Optional: Consistency with list API
+        if job.apply_method != ApplyMethod.PLATFORM:
+            return Response(
+                {"detail": "Applications are not managed on platform."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Step 2: Ensure application belongs to this job
+        application = get_object_or_404(
+            JobApplication.objects.select_related("applicant", "job"),
+            id=application_id,
+            job=job
+        )
+
+        serializer = DoctorApplicationDetailSerializer(application)
+
+        return Response(
+            {
+                "detail": "Application details fetched.",
+                "data": serializer.data,
+                "success": True,
+            }
+        )
+
+class ReviewApplicationView(APIView):
+    permission_classes = [IsAuthenticated, IsDoctor]
+
+    @swagger_auto_schema(
+        request_body=DoctorApplicationReviewSerializer,
+    )
+    def patch(self, request, pk):
+
+        application = get_object_or_404(
+            JobApplication.objects.select_related("job"),
+            id=pk
+        )
+
+        job = application.job
+
+        if job.created_by != request.user:
+            return Response(
+                {"detail": "Not authorized."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if job.status in [
+            JobPostStatus.CLOSED,
+            JobPostStatus.EXPIRED
+        ]:
+            return Response(
+                {"detail": "Cannot review applications for closed/expired job."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        serializer = DoctorApplicationReviewSerializer(
+            application,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response({
+            "detail": "Application updated successfully.",
+            "success": True,
+        })
+
+class CloseJobView(APIView):
+    permission_classes = [IsAuthenticated, IsDoctor]
+
+    def patch(self, request, pk):
+
+        job = get_object_or_404(
+            JobPost,
+            id=pk,
+            created_by=request.user,
+            status=JobPostStatus.PUBLISHED
+        )
+
+        job.status = JobPostStatus.CLOSED
+        job.save(update_fields=["status"])
+
+        return Response({
+            "detail": "Job closed successfully.",
             "success": True,
         })
 

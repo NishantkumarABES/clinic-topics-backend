@@ -8,6 +8,12 @@ class JobPostStatus(models.TextChoices):
     EXPIRED = "expired", "Expired"
     CLOSED = "closed", "Closed"
 
+class JobApplicationStatus(models.TextChoices):
+    PENDING = "pending", "Pending"
+    APPROVED = "approved", "Approved"
+    REJECTED = "rejected", "Rejected"
+
+
 class WorkplaceType(models.TextChoices):
     ON_SITE = "on_site", "On-site"
     HYBRID = "hybrid", "Hybrid"
