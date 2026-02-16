@@ -29,17 +29,9 @@ class JobListSerializer(serializers.ModelSerializer):
             "created_by",
             "tags",
             "status",
-
-            "is_deleted",
-            "job_description"
         )
     
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        request = self.context.get("request")
-        if request and request.user.role == UserRole.ADMIN: return
-        self.fields.pop("is_deleted", None)
-        self.fields.pop("job_description", None)
+    
 
 class JobDetailSerializer(JobListSerializer):
 
@@ -237,7 +229,12 @@ class DoctorApplicationReviewSerializer(serializers.ModelSerializer):
         model = JobApplication
         fields = ("status",)
 
+class AdminJobListSerializer(serializers.ModelSerializer):
+    created_by = serializers.StringRelatedField(read_only=True)
 
+    class Meta:
+        model = JobPost
+        fields = "__all__"
 
 ############################## Response Serializers ################################
 

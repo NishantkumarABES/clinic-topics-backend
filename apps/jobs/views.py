@@ -16,7 +16,7 @@ from apps.jobs.serializers import (
     JobApplySerializer, MyAppliedJobListSerializer, MyAppliedJobDetailSerializer, AdminApplicationListSerializer,
     AdminJobCreateSerializer, paginatedJobListResponseSerializer, paginatedJobApplicationListResponseSerializer,
     DoctorApplicationListSerializer, DoctorApplicationReviewSerializer, paginatedDoctorApplicationListResponseSerializer,
-    DoctorApplicationDetailSerializer
+    DoctorApplicationDetailSerializer, AdminJobListSerializer
 )
 from core.permissions import IsDoctor, IsAdmin
 from apps.jobs.constants import JobPostStatus, ApplyMethod
@@ -603,7 +603,7 @@ class AdminJobListView(APIView):
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
-        serializer = JobListSerializer(page, many=True)
+        serializer = AdminJobListSerializer(page, many=True)
         response = paginator.get_paginated_response(serializer.data).data
 
         return Response({
