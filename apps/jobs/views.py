@@ -530,6 +530,55 @@ class CloseJobView(APIView):
 
 ############## Admin API ###################
 
+class AdminJobListView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = JobPagination
+
+    @swagger_auto_schema(
+        responses={
+            200: paginatedJobListResponseSerializer()
+        },
+        manual_parameters=[
+            openapi.Parameter(
+                "status",
+                in_=openapi.IN_QUERY,
+                description="Filter by status",
+                type=openapi.TYPE_STRING,
+            ),
+            openapi.Parameter(
+                "search",
+                in_=openapi.IN_QUERY,
+                description="Search by title or company",
+                type=openapi.TYPE_STRING,
+            ),
+        ]
+    )
+    def get(self, request):
+        queryset = JobPost.objects.all().order_by("-created_at")
+
+        status_filter = request.GET.get("status")
+        search = request.GET.get("search")
+
+        if status_filter:
+            queryset = queryset.filter(status=status_filter)
+
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) |
+                Q(company_name__icontains=search)
+            )
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+        serializer = JobListSerializer(page, many=True)
+        response = paginator.get_paginated_response(serializer.data).data
+
+        return Response({
+            "detail": "Jobs fetched successfully for admin.",
+            "data": response,
+            "success": True,
+        })
+        
 class AdminJobReviewView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
