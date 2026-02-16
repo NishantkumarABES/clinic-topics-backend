@@ -42,6 +42,18 @@ class JobListView(APIView):
                 description="Search by title, company, or speciality",
                 type=openapi.TYPE_STRING,
             ),
+            openapi.Parameter(
+                "speciality",
+                in_=openapi.IN_QUERY,
+                description="Filter by speciality",
+                type=openapi.TYPE_STRING,
+            ),
+            openapi.Parameter(
+                "work_type",
+                in_=openapi.IN_QUERY,
+                description="Filter by workplace type",
+                type=openapi.TYPE_STRING,
+            ),
         ]
     )
     def get(self, request):
@@ -54,6 +66,8 @@ class JobListView(APIView):
 
         search = request.GET.get("search")
         speciality = request.GET.get("speciality")
+        work_type = request.GET.get("work_type")
+        
 
         if speciality:
             queryset = queryset.filter(specialty=speciality)
@@ -64,6 +78,10 @@ class JobListView(APIView):
                 Q(company_name__icontains=search) |
                 Q(specialty__icontains=search)
             )
+        
+        if work_type:
+            queryset = queryset.filter(workplace_type=work_type)
+
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
@@ -186,6 +204,8 @@ class MyJobsView(APIView):
 
         search = request.GET.get("search")
         speciality = request.GET.get("speciality")
+        work_type = request.GET.get("work_type")
+
 
         if speciality:
             queryset = queryset.filter(specialty=speciality)
@@ -196,6 +216,9 @@ class MyJobsView(APIView):
                 Q(company_name__icontains=search) |
                 Q(specialty__icontains=search)
             )
+        
+        if work_type:
+            queryset = queryset.filter(workplace_type=work_type)
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
@@ -558,6 +581,9 @@ class AdminJobListView(APIView):
 
         status_filter = request.GET.get("status")
         search = request.GET.get("search")
+        speciality = request.GET.get("speciality")
+        job_function = request.GET.get("job_function")
+
 
         if status_filter:
             queryset = queryset.filter(status=status_filter)
@@ -567,6 +593,13 @@ class AdminJobListView(APIView):
                 Q(title__icontains=search) |
                 Q(company_name__icontains=search)
             )
+        
+        if speciality:
+            queryset = queryset.filter(specialty=speciality)
+
+        if job_function:
+            queryset = queryset.filter(job_function=job_function)
+
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
