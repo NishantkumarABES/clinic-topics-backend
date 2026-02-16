@@ -3,16 +3,14 @@ from apps.jobs.views import (
     JobListView, JobDetailView, JobApplyView, MyJobsView, MyJobDetailView,
     MyJobCreateView, MyJobUpdateView, MyJobDeleteView, MyAppliedJobsView, MyAppliedJobDetailView,
     AdminApplicationListView, AdminJobCreateView, AdminJobUpdateView, MoveJobToReviewView, 
-    AdminJobReviewView, JobTagListView
-
+    AdminJobReviewView, CloseJobView, MyJobApplicationsView, ReviewApplicationView,
+    MyJobApplicationsDetailView
 )
 
 urlpatterns = [
     # Public
     path("", JobListView.as_view(), name="job-list"),
     path("<uuid:pk>/", JobDetailView.as_view(), name="job-detail"),
-    path("tags/", JobTagListView.as_view(), name="job-tags"),
-
 
     # Doctor
     path("my-jobs/", MyJobsView.as_view(), name="my-jobs"),
@@ -23,7 +21,15 @@ urlpatterns = [
     path("create/", MyJobCreateView.as_view(), name="job-create"),
     path("<uuid:pk>/update/", MyJobUpdateView.as_view(), name="job-update"),
     path("<uuid:pk>/delete/", MyJobDeleteView.as_view(), name="job-delete"),
+    path("<uuid:pk>/applications/", MyJobApplicationsView.as_view(), name="doctor-application-list"),
+    path(
+        "<uuid:job_id>/applications/<uuid:application_id>/",
+        MyJobApplicationsDetailView.as_view(),
+        name="doctor-application-detail",
+    ),
 
+    path("<uuid:pk>applications/review/", ReviewApplicationView.as_view(), name="doctor-application-review"),
+    path("<uuid:pk>/close/", CloseJobView.as_view(), name="close-job"),
 
     # Admin 
     path("admin/create/", AdminJobCreateView.as_view(), name="admin-job-create"),

@@ -1,25 +1,17 @@
 from django.db import models
 from django.core.validators import FileExtensionValidator
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from core.models import TimeStampedUUIDModel
 from apps.accounts.models import User
 from apps.jobs.constants import *
 
 
-class JobTag(models.Model):
-    name = models.CharField(max_length=100, unique=True)
-
-    class Meta:
-        ordering = ["name"]
-
-    def __str__(self):
-        return self.name
 
 class JobPost(TimeStampedUUIDModel):
     created_by = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
+        User, on_delete=models.CASCADE,
         related_name="posted_jobs"
     )
 
@@ -38,18 +30,13 @@ class JobPost(TimeStampedUUIDModel):
     )
 
     job_location = models.CharField(max_length=255)
-    hiring_regions = models.CharField(
-        max_length=255,
-        blank=True,
-        help_text="Applicable if remote"
-    )
 
     job_function = models.CharField(
         max_length=30,
         choices=JobFunction.choices
     )
 
-    specialty = models.CharField(max_length=255)
+    speciality = models.CharField(max_length=255)
 
     seniority_level = models.CharField(
         max_length=20,
@@ -59,30 +46,25 @@ class JobPost(TimeStampedUUIDModel):
     experience = models.CharField(
         max_length=100,
         help_text="E.g., 5+ years",
+        blank=True,
+        null=True
+    )
+
+    # ✅ Unified Rich Text Description Field
+    job_description = models.TextField(
+        help_text="Full job description including summary, responsibilities, qualifications, and benefits (supports rich text).",
         blank=True, null=True
     )
 
-    # Description Blocks
-    role_summary = models.TextField()
-    responsibilities = models.TextField()
-    qualifications = models.TextField()
-
     must_have_skills = models.TextField()
-    nice_to_have_skills = models.TextField(blank=True)
 
     salary_range = models.CharField(max_length=150, blank=True, null=True)
-    benefits = models.TextField(blank=True, null=True)
 
     required_degrees = models.CharField(max_length=255)
-    # required_registrations = models.CharField(max_length=255)
-
-    background_checks = models.BooleanField(default=False)
 
     application_deadline = models.DateField(null=True, blank=True)
 
     recruiter_name = models.CharField(max_length=255, blank=True)
-
-    additional_notes = models.TextField(blank=True)
 
     apply_method = models.CharField(
         max_length=20,
@@ -92,7 +74,6 @@ class JobPost(TimeStampedUUIDModel):
 
     external_apply_link = models.URLField(blank=True, null=True)
     application_email = models.EmailField(blank=True, null=True)
-
 
     # Moderation
     status = models.CharField(
@@ -104,10 +85,10 @@ class JobPost(TimeStampedUUIDModel):
     rejection_reason = models.TextField(blank=True, null=True)
 
     # Tags
-    tags = models.ManyToManyField(
-        JobTag,
-        related_name="jobs",
-        blank=True
+    tags = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Comma separated tags. Example: cardiology, remote, urgent"
     )
 
     # Analytics
@@ -124,6 +105,16 @@ class JobPost(TimeStampedUUIDModel):
             models.Index(fields=["application_deadline"]),
             models.Index(fields=["created_by"]),
         ]
+    
+    def check_and_mark_expired(self):
+        if (
+            self.status == JobPostStatus.PUBLISHED
+            and self.application_deadline
+            and self.application_deadline < timezone.now().date()
+        ):
+            self.status = JobPostStatus.EXPIRED
+            self.save(update_fields=["status"])
+
 
     def __str__(self):
         return self.title
@@ -135,8 +126,7 @@ class JobApplication(TimeStampedUUIDModel):
     )
 
     applicant = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
+        User, on_delete=models.CASCADE,
         related_name="job_applications"
     )
 
@@ -146,19 +136,28 @@ class JobApplication(TimeStampedUUIDModel):
         validators=[FileExtensionValidator(["pdf"])]
     )
 
-    cover_letter = models.TextField()
+    additional_information = models.TextField(
+        help_text="Additional information provided by applicant (supports rich text).",
+        blank=True,
+        null=True
+    )
 
-    years_of_experience = models.CharField(max_length=50)
-    current_position = models.CharField(max_length=255)
-    current_institution = models.CharField(max_length=255)
+    years_of_experience = models.CharField(max_length=50, blank=True, null=True)
+    current_position = models.CharField(max_length=255, blank=True, null=True)
+    current_institution = models.CharField(max_length=255, blank=True, null=True)
 
-    notice_period = models.CharField(max_length=100)
-    expected_salary = models.CharField(max_length=150)
+    notice_period = models.CharField(max_length=100, blank=True, null=True)
+    expected_salary = models.CharField(max_length=150, blank=True, null=True)
 
     additional_document = models.FileField(
         upload_to="jobs/additional_docs/",
         blank=True,
         null=True
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=JobApplicationStatus.choices,
+        default=JobApplicationStatus.PENDING
     )
 
     class Meta:

@@ -1,16 +1,11 @@
 from rest_framework import serializers
-from apps.jobs.models import JobPost, JobApplication, JobTag
+from apps.jobs.models import JobPost, JobApplication
 from apps.jobs.constants import JobPostStatus
 from apps.accounts.models import User
 
-class JobTagSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = JobTag
-        fields = ("id", "name")
 
 class JobListSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField()
-    tags = JobTagSerializer(many=True, read_only=True)
 
     class Meta:
         model = JobPost
@@ -22,7 +17,7 @@ class JobListSerializer(serializers.ModelSerializer):
             "employment_type",
             "job_location",
             "job_function",
-            "specialty",
+            "speciality",
             "seniority_level",
             "salary_range",
             "application_deadline",
@@ -37,17 +32,9 @@ class JobDetailSerializer(JobListSerializer):
 
     class Meta(JobListSerializer.Meta):
         fields = JobListSerializer.Meta.fields + (
-            "role_summary",
-            "responsibilities",
-            "qualifications",
             "must_have_skills",
-            "nice_to_have_skills",
-            "benefits",
             "required_degrees",
-            # "required_registrations",
-            "background_checks",
             "recruiter_name",
-            "additional_notes",
             "status",
             "rejection_reason",
         )
@@ -98,7 +85,7 @@ class JobReviewSerializer(serializers.ModelSerializer):
         fields = ("status", "rejection_reason")
 
     def validate(self, attrs):
-        status_value = attrs.get("status")
+        status_value = attrs.get("status",)
         reason = attrs.get("rejection_reason")
 
         if status_value == JobPostStatus.REJECTED and not reason:
@@ -115,18 +102,11 @@ class JobApplySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = JobApplication
-        exclude = ("job", "applicant", "created_at", "updated_at")
+        exclude = ("job", "applicant", "created_at", "updated_at", "status")
 
     def validate_resume(self, value):
         if value.size > 10 * 1024 * 1024:
             raise serializers.ValidationError("Max file size is 10MB.")
-        return value
-
-    def validate_cover_letter(self, value):
-        if not (50 <= len(value) <= 3000):
-            raise serializers.ValidationError(
-                "Cover letter must be 50–3000 characters."
-            )
         return value
 
 class MyAppliedJobListSerializer(serializers.ModelSerializer):
@@ -149,7 +129,7 @@ class MyAppliedJobDetailSerializer(serializers.ModelSerializer):
             "id",
             "job",
             "resume",
-            "cover_letter",
+            "additional_information",
             "years_of_experience",
             "current_position",
             "current_institution",
@@ -204,6 +184,45 @@ class AdminJobCreateSerializer(serializers.ModelSerializer):
             **validated_data
         )
 
+class DoctorApplicationListSerializer(serializers.ModelSerializer):
+    applicant = serializers.StringRelatedField()
+
+    class Meta:
+        model = JobApplication
+        fields = (
+            "id",
+            "applicant",
+            "status",
+            "created_at",
+        )
+
+class DoctorApplicationDetailSerializer(serializers.ModelSerializer):
+    applicant = serializers.StringRelatedField()
+
+    class Meta:
+        model = JobApplication
+        fields = (
+            "id",
+            "applicant",
+            "resume",
+            "additional_information",
+            "years_of_experience",
+            "current_position",
+            "current_institution",
+            "notice_period",
+            "expected_salary",
+            "additional_document",
+            "status",
+            "created_at",
+        )
+        read_only_fields = ("status",)
+
+class DoctorApplicationReviewSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = JobApplication
+        fields = ("status",)
+
 
 
 ############################## Response Serializers ################################
@@ -228,4 +247,15 @@ class paginatedJobApplicationListSerializer(serializers.Serializer):
 class paginatedJobApplicationListResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
     data = paginatedJobApplicationListSerializer()
+    success = serializers.BooleanField()
+
+class paginatedDoctorApplicationListSerializers(serializers.Serializer):
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = DoctorApplicationListSerializer(many=True)
+
+class paginatedDoctorApplicationListResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    data = paginatedDoctorApplicationListSerializers()
     success = serializers.BooleanField()
