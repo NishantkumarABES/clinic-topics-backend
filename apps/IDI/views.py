@@ -167,7 +167,8 @@ class AdminIDIExtractAPIView(APIView):
     @swagger_auto_schema(
         operation_summary="Extract structured IDI from paragraph",
         request_body=ExtractIDIRequestSerializer,
-        responses={200: IDIDataResponseSerializer}
+        responses={200: IDIDataResponseSerializer},
+        auto_schema=None
     )
     def post(self, request):
         serializer = ExtractIDIRequestSerializer(data=request.data)

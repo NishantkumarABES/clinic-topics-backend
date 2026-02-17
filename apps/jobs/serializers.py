@@ -2,8 +2,6 @@ from rest_framework import serializers
 from apps.jobs.models import JobPost, JobApplication
 from apps.jobs.constants import JobPostStatus
 from apps.accounts.models import User
-from apps.accounts.constants import UserRole
-
 
 class JobListSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField()

@@ -27,8 +27,11 @@ urlpatterns = [
         MyJobApplicationsDetailView.as_view(),
         name="doctor-application-detail",
     ),
-
-    path("<uuid:pk>/applications/review/", ReviewApplicationView.as_view(), name="doctor-application-review"),
+    path(
+        "<uuid:job_id>/applications/<uuid:application_id>/review/",
+         ReviewApplicationView.as_view(), 
+         name="doctor-application-review"
+    ),
     path("<uuid:pk>/close/", CloseJobView.as_view(), name="close-job"),
 
     # Admin 

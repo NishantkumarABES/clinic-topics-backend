@@ -253,7 +253,7 @@ class MyJobDetailView(APIView):
             is_deleted=False
         )
 
-        serializer = JobDetailSerializer(job)
+        serializer = JobDetailSerializer(job, context={"request": request})
         return Response({
             "detail" : "Job details fetched.",
             "data" : serializer.data,
@@ -496,25 +496,25 @@ class MyJobApplicationsDetailView(APIView):
 
 class ReviewApplicationView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
-
     @swagger_auto_schema(
         request_body=DoctorApplicationReviewSerializer,
     )
-    def patch(self, request, pk):
+    def patch(self, request, job_id, application_id):
 
-        application = get_object_or_404(
-            JobApplication.objects.select_related("job"),
-            id=pk
+        # 1️⃣ Ensure job belongs to doctor
+        job = get_object_or_404(
+            JobPost, id=job_id,
+            created_by=request.user,
+            is_deleted=False
         )
 
-        job = application.job
+        # 2️⃣ Ensure application belongs to this job
+        application = get_object_or_404(
+            JobApplication.objects.select_related("job"),
+            id=application_id, job=job
+        )
 
-        if job.created_by != request.user:
-            return Response(
-                {"detail": "Not authorized."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-
+        # 3️⃣ Prevent reviewing closed/expired jobs
         if job.status in [
             JobPostStatus.CLOSED,
             JobPostStatus.EXPIRED
@@ -567,6 +567,7 @@ class AdminJobListView(APIView):
         responses={
             200: paginatedJobListResponseSerializer()
         },
+        auto_schema=None,
         manual_parameters=[
             openapi.Parameter(
                 "status",
@@ -621,6 +622,13 @@ class AdminJobListView(APIView):
 class AdminJobReviewView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        request_body=JobReviewSerializer,
+        responses={
+            200: JobDetailSerializer()
+        },
+        auto_schema=None,
+    )
     def patch(self, request, pk):
 
         job = get_object_or_404(
@@ -649,6 +657,12 @@ class AdminJobReviewView(APIView):
 class MoveJobToReviewView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        responses={
+            200: JobDetailSerializer()
+        },
+        auto_schema=None,
+    )
     def patch(self, request, pk):
 
         job = get_object_or_404(
@@ -668,6 +682,13 @@ class MoveJobToReviewView(APIView):
 class AdminJobCreateView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        request_body=AdminJobCreateSerializer,
+        responses={
+            201: paginatedJobListResponseSerializer()
+        },
+        auto_schema=None,
+    )
     def post(self, request):
 
         serializer = AdminJobCreateSerializer(data=request.data)
@@ -684,6 +705,13 @@ class AdminJobCreateView(APIView):
 class AdminJobUpdateView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        request_body=JobUpdateSerializer,
+        responses={
+            200: JobDetailSerializer()
+        },
+        auto_schema=None,
+    )
     def patch(self, request, pk):
 
         job = get_object_or_404(JobPost, id=pk)
@@ -716,6 +744,7 @@ class AdminApplicationListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     pagination_class = JobPagination
 
+    @swagger_auto_schema(auto_schema=None)
     def get(self, request):
 
         queryset = JobApplication.objects.select_related(
