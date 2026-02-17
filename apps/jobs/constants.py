@@ -10,7 +10,7 @@ class JobPostStatus(models.TextChoices):
 
 class JobApplicationStatus(models.TextChoices):
     PENDING = "pending", "Pending"
-    APPROVED = "approved", "Approved"
+    ACCEPTED = "accepted", "Accepted"
     REJECTED = "rejected", "Rejected"
 
 

@@ -11,7 +11,7 @@ from apps.profiles.serializers import (
     StandardResponseSerializer, DoctorProfileResponseSerializer,
     PatientProfileResponseSerializer, RatingCreateResponseSerializer,
     RatingsListResponseSerializer, DoctorRatingSerializer,
-    DoctorRatingCreateSerializer
+    DoctorRatingCreateSerializer, SimpleDoctorReviewCreateSerializer
 )
 from apps.accounts.constants import UserRole
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
@@ -266,3 +266,59 @@ class DoctorRatingView(APIView):
             "data": {"rating_id": str(rating.id)},
             "success": True
         }, status=status.HTTP_201_CREATED)
+
+class LeaveDoctorReviewView(APIView):
+    """
+    Simple leave review API (no second opinion)
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Leave a simple review for a doctor",
+        request_body=SimpleDoctorReviewCreateSerializer,
+        responses={
+            201: RatingCreateResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+            403: StandardResponseSerializer,
+        },
+    )
+    def post(self, request, doctor_id):
+        from apps.accounts.constants import UserRole
+
+        if request.user.role != UserRole.PATIENT:
+            return Response(
+                {
+                    "detail": "Only patients can leave reviews",
+                    "data": None,
+                    "success": False
+                },
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        serializer = SimpleDoctorReviewCreateSerializer(
+            data=request.data,
+            context={"request": request, "doctor_id": doctor_id}
+        )
+
+        if not serializer.is_valid():
+            first_error = next(iter(serializer.errors.values()))[0]
+            return Response(
+                {
+                    "detail": str(first_error),
+                    "data": None,
+                    "success": False
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        rating = serializer.save()
+
+        return Response(
+            {
+                "detail": "Review submitted successfully",
+                "data": {"rating_id": str(rating.id)},
+                "success": True
+            },
+            status=status.HTTP_201_CREATED
+        )
