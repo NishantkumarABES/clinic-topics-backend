@@ -32,6 +32,9 @@ class JobListSerializer(serializers.ModelSerializer):
         )
     
 class JobDetailSerializer(JobListSerializer):
+    is_applied = serializers.SerializerMethodField()
+    is_my_job = serializers.SerializerMethodField()
+
     class Meta(JobListSerializer.Meta):
         fields = JobListSerializer.Meta.fields + (
             "job_description",
@@ -43,8 +46,27 @@ class JobDetailSerializer(JobListSerializer):
             "recruiter_name",
             "status",
             "rejection_reason",
+            "is_applied",
+            "is_my_job"
         )
+    
+    def get_is_applied(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
 
+        return JobApplication.objects.filter(
+            job=obj,
+            applicant=request.user
+        ).exists()
+    
+    def get_is_my_job(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return obj.created_by == request.user
+    
 class JobCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
