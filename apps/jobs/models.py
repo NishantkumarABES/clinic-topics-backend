@@ -94,7 +94,6 @@ class JobPost(TimeStampedUUIDModel):
     # Analytics
     views = models.PositiveIntegerField(default=0)
     applications_count = models.PositiveIntegerField(default=0)
-    application_views_count = models.PositiveIntegerField(default=0)
 
     is_deleted = models.BooleanField(default=False)
 
@@ -176,18 +175,4 @@ class JobApplication(TimeStampedUUIDModel):
     def __str__(self):
         return f"{self.applicant} → {self.job}"
 
-class JobApplicationView(TimeStampedUUIDModel):
-    application = models.ForeignKey(
-        JobApplication,
-        on_delete=models.CASCADE,
-        related_name="views"
-    )
 
-    viewed_by = models.ForeignKey(
-        User, on_delete=models.CASCADE
-    )
-
-    class Meta:
-        indexes = [
-            models.Index(fields=["application"]),
-        ]

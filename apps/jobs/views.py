@@ -436,12 +436,6 @@ class MyJobApplicationsView(APIView):
             )
 
         queryset = job.applications.select_related("applicant")
-
-        # Increment analytics
-        JobPost.objects.filter(pk=job.pk).update(
-            application_views_count=F("application_views_count") + 1
-        )
-
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
         serializer = DoctorApplicationListSerializer(page, many=True)
