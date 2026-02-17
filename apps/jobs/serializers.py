@@ -31,15 +31,15 @@ class JobListSerializer(serializers.ModelSerializer):
             "status",
         )
     
-    
-
 class JobDetailSerializer(JobListSerializer):
-
     class Meta(JobListSerializer.Meta):
         fields = JobListSerializer.Meta.fields + (
             "job_description",
             "must_have_skills",
             "required_degrees",
+            "apply_method",
+            "external_apply_link",
+            "application_email",
             "recruiter_name",
             "status",
             "rejection_reason",
