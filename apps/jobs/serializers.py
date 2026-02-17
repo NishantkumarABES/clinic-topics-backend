@@ -256,6 +256,45 @@ class AdminJobListSerializer(serializers.ModelSerializer):
         model = JobPost
         fields = "__all__"
 
+class AdminApplicationListSerializer(serializers.ModelSerializer):
+    applicant = serializers.StringRelatedField(read_only=True)
+    applicant_id = serializers.UUIDField(source="applicant.id", read_only=True)
+
+    job_id = serializers.UUIDField(source="job.id", read_only=True)
+    job_title = serializers.CharField(source="job.title", read_only=True)
+    company_name = serializers.CharField(source="job.company_name", read_only=True)
+
+    class Meta:
+        model = JobApplication
+        fields = (
+            "id",
+
+            # Applicant Info
+            "applicant",
+            "applicant_id",
+
+            # Job Reference (minimal, not full job payload)
+            "job_id",
+            "job_title",
+            "company_name",
+
+            # Submitted Application Data
+            "resume",
+            "additional_information",
+            "years_of_experience",
+            "current_position",
+            "current_institution",
+            "notice_period",
+            "expected_salary",
+            "additional_document",
+
+            # Admin Controls
+            "status",
+            # Meta
+            "created_at",
+        )
+
+
 ############################## Response Serializers ################################
 
 class paginatedJobListSerializer(serializers.Serializer):
@@ -284,7 +323,7 @@ class paginatedDoctorApplicationListSerializers(serializers.Serializer):
     count = serializers.IntegerField()
     next = serializers.URLField(allow_null=True)
     previous = serializers.URLField(allow_null=True)
-    results = DoctorApplicationListSerializer(many=True)
+    results = AdminApplicationListSerializer(many=True)
 
 class paginatedDoctorApplicationListResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
