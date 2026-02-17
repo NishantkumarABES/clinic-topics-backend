@@ -180,7 +180,8 @@ class AdminIDIExtractAPIView(APIView):
             )
 
         paragraph = serializer.validated_data["paragraph"]
-        # extracted_data = IDIExtractionService.extract(paragraph)
+        extractor = IDIExtractionService()
+        extracted_data = extractor.extract(paragraph)
 
         # 🔥 MOCK DATA — Replace later with LLM extraction
         mock_data = {
@@ -219,8 +220,8 @@ class AdminIDIExtractAPIView(APIView):
 
         return Response(
             {
-                "detail": "IDI extracted successfully (mock)",
-                "data": mock_data,
+                "detail": "IDI extracted successfully",
+                "data": extracted_data,
                 "success": True
             },
             status=status.HTTP_200_OK
