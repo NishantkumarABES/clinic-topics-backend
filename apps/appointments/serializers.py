@@ -2,11 +2,15 @@ from rest_framework import serializers
 from apps.profiles.models import DoctorProfile
 from django.db.models import Avg, Count
 
+from apps.profiles.serializers import DoctorRatingSerializer
+
+#########################   Request Serializers    #########################
 
 class DoctorListSerializer(serializers.ModelSerializer):
     doctor_id = serializers.UUIDField(source="user.id", read_only=True)
     full_name = serializers.CharField(source="user.full_name", read_only=True)
 
+    profile_photo = serializers.FileField(read_only=True)
     specialization = serializers.CharField()
     years_of_experience = serializers.IntegerField()
     clinic_name = serializers.CharField()
@@ -22,6 +26,7 @@ class DoctorListSerializer(serializers.ModelSerializer):
         fields = [
             "doctor_id",
             "full_name",
+            "profile_photo",
             "specialization",
             "years_of_experience",
             "clinic_name",
@@ -44,7 +49,8 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     full_name = serializers.CharField(source="user.full_name", read_only=True)
     email = serializers.EmailField(source="user.email", read_only=True)
     phone = serializers.CharField(source="user.phone", read_only=True)
-
+    
+    profile_photo = serializers.FileField(read_only=True)
     specialization = serializers.CharField()
     years_of_experience = serializers.IntegerField()
     credentials = serializers.CharField()
@@ -63,6 +69,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
 
     average_rating = serializers.SerializerMethodField()
     total_ratings = serializers.SerializerMethodField()
+    ratings = serializers.SerializerMethodField()
 
     class Meta:
         model = DoctorProfile
@@ -71,6 +78,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
             "full_name",
             "email",
             "phone",
+            "profile_photo",
             "specialization",
             "years_of_experience",
             "credentials",
@@ -86,6 +94,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
             "website_url",
             "average_rating",
             "total_ratings",
+            "ratings",
         ]
 
     def get_average_rating(self, obj):
@@ -95,6 +104,9 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     def get_total_ratings(self, obj):
         return obj.user.ratings_received.aggregate(cnt=Count("id"))["cnt"]
 
+    def get_ratings(self, obj):
+        ratings_qs = obj.user.ratings_received.all().order_by("-created_at")
+        return DoctorRatingSerializer(ratings_qs, many=True).data
 
 #########################   Response Serializers    #########################
 
@@ -107,18 +119,15 @@ class StandardResponseSerializer(serializers.Serializer):
     class Meta:
         ref_name = "AppointmentsStandardResponseSerializer"
 
-
 class PaginationMetaSerializer(serializers.Serializer):
     """Pagination metadata for list responses."""
     count = serializers.IntegerField(help_text="Total number of items")
     next = serializers.CharField(allow_null=True, help_text="URL for next page")
     previous = serializers.CharField(allow_null=True, help_text="URL for previous page")
 
-
 class DoctorListDataSerializer(serializers.Serializer):
     """Data structure for paginated doctor list."""
     doctors = DoctorListSerializer(many=True)
-
 
 class DoctorListResponseSerializer(serializers.Serializer):
     """Response for doctor list endpoint."""
@@ -132,11 +141,9 @@ class DoctorListResponseSerializer(serializers.Serializer):
     class Meta:
         ref_name = "AppointmentsDoctorListResponseSerializer"
 
-
 class DoctorDetailDataSerializer(serializers.Serializer):
     """Data structure for doctor detail response."""
     doctor = DoctorDetailSerializer()
-
 
 class DoctorDetailResponseSerializer(serializers.Serializer):
     """Response for doctor detail endpoint."""
