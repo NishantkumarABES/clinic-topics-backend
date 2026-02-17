@@ -744,15 +744,23 @@ class AdminApplicationListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
     pagination_class = JobPagination
 
-    @swagger_auto_schema(auto_schema=None)
-    def get(self, request):
+    @swagger_auto_schema(
+        responses={200: paginatedDoctorApplicationListResponseSerializer()},
+        auto_schema=None,
+    )
+    def get(self, request, job_id):
 
-        queryset = JobApplication.objects.select_related(
-            "job", "applicant"
-        ).order_by("-created_at")
+        # 1️⃣ Ensure job exists (even if deleted or any status)
+        job = get_object_or_404(JobPost, id=job_id)
+
+        # 2️⃣ Fetch applications for that job only
+        queryset = JobApplication.objects.filter(
+            job=job
+        ).select_related("job", "applicant").order_by("-created_at")
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
-
         serializer = AdminApplicationListSerializer(page, many=True)
+
         return Response(paginator.get_paginated_response(serializer.data).data)
+
