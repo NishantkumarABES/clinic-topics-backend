@@ -116,7 +116,7 @@ class JobDetailView(APIView):
 
         job.refresh_from_db()
 
-        serializer = JobDetailSerializer(job)
+        serializer = JobDetailSerializer(job, context={"request": request})
         return Response({
             "detail": "Job details fetched.",
             "data": serializer.data,
@@ -154,6 +154,12 @@ class JobApplyView(APIView):
         if job.apply_method != ApplyMethod.PLATFORM:
             return Response(
                 {"detail": "Applications are not accepted on platform."},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if job.created_by == request.user:
+            return Response(
+                {"detail": "You cannot apply to your own job posting."},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
