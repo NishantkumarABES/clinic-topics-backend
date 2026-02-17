@@ -40,5 +40,5 @@ urlpatterns = [
     path("admin/jobs/<uuid:pk>/update/", AdminJobUpdateView.as_view(), name="admin-job-update"),
     path("admin/jobs/<uuid:pk>/review/", AdminJobReviewView.as_view(), name="admin-job-review"),
     path("admin/jobs/<uuid:pk>/move/", MoveJobToReviewView.as_view(), name="move-job-to-review"),
-    path("admin/jobs/<uuid:pk>/applications/", AdminApplicationListView.as_view(), name="admin-application-list"),
+    path("admin/jobs/<uuid:job_id>/applications/", AdminApplicationListView.as_view(), name="admin-application-list"),
 ]
