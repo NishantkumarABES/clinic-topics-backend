@@ -70,7 +70,7 @@ class JobListView(APIView):
         
 
         if speciality:
-            queryset = queryset.filter(specialty=speciality)
+            queryset = queryset.filter(speciality=speciality)
 
         if search:
             queryset = queryset.filter(

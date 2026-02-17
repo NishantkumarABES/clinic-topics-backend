@@ -125,6 +125,49 @@ class DoctorAverageRatingSerializer(serializers.Serializer):
     total_ratings = serializers.IntegerField()
     rating_breakdown = serializers.DictField()
 
+class SimpleDoctorReviewCreateSerializer(serializers.Serializer):
+    """
+    Simple leave review serializer (no second opinion linking).
+    """
+    rating = serializers.IntegerField(min_value=1, max_value=5)
+    review = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        from apps.accounts.models import User
+        from apps.accounts.constants import UserRole
+        from apps.profiles.models import DoctorRating
+
+        request = self.context["request"]
+        doctor_id = self.context["doctor_id"]
+
+        # Validate doctor exists
+        try:
+            doctor = User.objects.get(id=doctor_id, role=UserRole.DOCTOR)
+        except User.DoesNotExist:
+            raise serializers.ValidationError("Doctor not found")
+
+        # Prevent duplicate review (recommended)
+        if DoctorRating.objects.filter(
+            doctor=doctor,
+            patient=request.user,
+            second_opinion_doctor_request__isnull=True
+        ).exists():
+            raise serializers.ValidationError(
+                "You have already reviewed this doctor"
+            )
+
+        data["doctor"] = doctor
+        return data
+
+    def create(self, validated_data):
+        from apps.profiles.models import DoctorRating
+
+        return DoctorRating.objects.create(
+            doctor=validated_data["doctor"],
+            patient=self.context["request"].user,
+            rating=validated_data["rating"],
+            review=validated_data.get("review", ""),
+        )
 
 #########################   Response Serializers    #########################
 
