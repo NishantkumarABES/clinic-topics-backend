@@ -214,6 +214,8 @@ class TopicFeedItemSerializer(serializers.ModelSerializer):
     comment_count = serializers.IntegerField(read_only=True)
     is_liked = serializers.SerializerMethodField()
     comments = serializers.SerializerMethodField()
+    video_url = serializers.SerializerMethodField()
+
 
     class Meta:
         model = Topic
@@ -246,6 +248,9 @@ class TopicFeedItemSerializer(serializers.ModelSerializer):
         # Return latest 3 comments only for feed
         comments = obj.comments.all()[:3]
         return TopicCommentSerializer(comments, many=True).data
+    
+    def get_video_url(self, obj):
+        return obj.video
 
 class AdvertisementFeedItemSerializer(serializers.Serializer):
     """Serializer for advertisements in the feed with type discriminator"""
