@@ -86,3 +86,50 @@ class TopicTranscription(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"Transcription for {self.topic.title} - {self.status}"
+
+class TopicLike(TimeStampedUUIDModel):
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.CASCADE,
+        related_name="likes"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="liked_topics"
+    )
+
+    class Meta:
+        db_table = "topic_likes"
+        unique_together = ("topic", "user")
+        indexes = [
+            models.Index(fields=["topic"]),
+            models.Index(fields=["user"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} liked {self.topic.title}"
+
+class TopicComment(TimeStampedUUIDModel):
+    topic = models.ForeignKey(
+        Topic,
+        on_delete=models.CASCADE,
+        related_name="comments"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="topic_comments"
+    )
+    comment = models.TextField()
+
+    class Meta:
+        db_table = "topic_comments"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["topic"]),
+            models.Index(fields=["user"]),
+        ]
+
+    def __str__(self):
+        return f"Comment by {self.user} on {self.topic.title}"

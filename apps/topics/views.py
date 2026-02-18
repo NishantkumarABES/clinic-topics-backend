@@ -1,26 +1,29 @@
-from urllib.parse import urlparse
+import random
 from rest_framework import generics, permissions, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
-from django.db.models import Q
+from django.db.models import Q, Count, Prefetch
 from django.utils.timezone import now
 from django.core.files.storage import default_storage
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from apps.topics.services import inshort_generator, check_transcription_status, start_transcription
-from apps.topics.models import Topic
+from apps.topics.models import Topic, TopicComment, TopicLike
 from apps.topics.serializers import (
     TopicListSerializer, TopicDetailSerializer, ArticleExtractionSerializer, CleanupImagesSerializer, AdminTopicReadSerializer,
-    AdminTopicWriteSerializer, DoctorTopicCreateSerializer, TopicCreateSuccessResponseSerializer
+    AdminTopicWriteSerializer, DoctorTopicCreateSerializer, TopicCreateSuccessResponseSerializer, TopicFeedItemSerializer,
+    TopicCommentSerializer, TopicCommentCreateSerializer
 )
 from apps.notifications.services import create_admin_notification
-from core.permissions import IsAdmin, IsDoctor
 from apps.topics.services import TopicImageService
-
+from apps.cms.models import SiteConfiguration
+from apps.advertisements.models import Advertisement
+from apps.accounts.constants import UserRole
+from core.permissions import IsAdmin, IsDoctor
 
 class TopicListView(generics.ListAPIView):
     serializer_class = TopicListSerializer
@@ -333,12 +336,6 @@ class TopicsFeedView(APIView):
         },
     )
     def get(self, request):
-        from apps.cms.models import SiteConfiguration
-        from apps.advertisements.models import Advertisement
-        from apps.topics.serializers import TopicFeedItemSerializer, AdvertisementFeedItemSerializer
-        from apps.accounts.constants import UserRole
-        import random
-
         # Get ad interval from site configuration
         try:
             config = SiteConfiguration.get_config()
@@ -347,7 +344,22 @@ class TopicsFeedView(APIView):
             ad_interval = 5  # Default fallback
 
         # Get published topics ordered by publishing time
-        topics_queryset = Topic.objects.filter(publish_status=True).order_by("-publishing_time")
+        topics_queryset = (
+            Topic.objects
+            .filter(publish_status=True)
+            .annotate(
+                like_count=Count("likes", distinct=True),
+                comment_count=Count("comments", distinct=True)
+            )
+            .prefetch_related(
+                "likes",
+                Prefetch(
+                    "comments",
+                    queryset=TopicComment.objects.select_related("user")
+                )
+            )
+            .order_by("-publishing_time")
+        )
 
         # Get enabled advertisements, filtered by specialization for doctors
         ads_queryset = Advertisement.objects.filter(status='enabled')
@@ -378,7 +390,10 @@ class TopicsFeedView(APIView):
 
         for topic in paginated_topics:
             # Add topic to feed
-            topic_data = TopicFeedItemSerializer(topic).data
+            topic_data = TopicFeedItemSerializer(
+                topic,
+                context={"request": request}
+            ).data
             feed_items.append(topic_data)
             topic_counter += 1
 
@@ -563,3 +578,59 @@ class DownloadTranscriptSRTAPIView(APIView):
                 {"detail": str(e), "data": None, "success": False},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+
+class TopicLikeToggleAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Toggle like for a topic",
+        tags=['Advt - Topics'],
+    )
+    def post(self, request, topic_id):
+        topic = get_object_or_404(Topic, id=topic_id)
+
+        like, created = TopicLike.objects.get_or_create(
+            topic=topic,
+            user=request.user
+        )
+
+        if not created:
+            # already liked → unlike
+            like.delete()
+            return Response({
+                "detail": "Unliked successfully",
+                "liked": False,
+                "success": True
+            })
+
+        return Response({
+            "detail": "Liked successfully",
+            "data": {"liked": True},
+            "success": True
+        })
+
+class TopicCommentCreateAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        request_body=TopicCommentCreateSerializer,
+        responses={201: TopicCommentSerializer},
+        operation_summary="Add comment to a topic",
+        tags=['Advt - Topics']
+    )
+    def post(self, request, topic_id):
+        topic = get_object_or_404(Topic, id=topic_id)
+
+        serializer = TopicCommentCreateSerializer(
+            data=request.data,
+            context={"request": request, "topic": topic}
+        )
+        serializer.is_valid(raise_exception=True)
+        comment = serializer.save()
+
+        return Response({
+            "detail": "Comment added successfully",
+            "data": TopicCommentSerializer(comment).data,
+            "success": True
+        }, status=status.HTTP_201_CREATED)

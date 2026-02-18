@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.utils.timezone import now
-from apps.topics.models import Topic
+from apps.topics.models import Topic, TopicComment
 from apps.topics.services import TopicImageService
 
 class TopicListSerializer(serializers.ModelSerializer):
@@ -162,6 +162,10 @@ class TopicCreateSuccessResponseSerializer(serializers.Serializer):
 class TopicFeedItemSerializer(serializers.ModelSerializer):
     """Serializer for topics in the feed with type discriminator"""
     type = serializers.SerializerMethodField()
+    like_count = serializers.IntegerField(read_only=True)
+    comment_count = serializers.IntegerField(read_only=True)
+    is_liked = serializers.SerializerMethodField()
+    comments = serializers.SerializerMethodField()
 
     class Meta:
         model = Topic
@@ -175,10 +179,25 @@ class TopicFeedItemSerializer(serializers.ModelSerializer):
             "image",
             "source_url",
             "video_url",
+            "like_count",
+            "comment_count",
+            "is_liked",
+            "comments",
         ]
 
     def get_type(self, obj):
         return "topic"
+
+    def get_is_liked(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+        return obj.likes.filter(user=request.user).exists()
+
+    def get_comments(self, obj):
+        # Return latest 3 comments only for feed
+        comments = obj.comments.all()[:3]
+        return TopicCommentSerializer(comments, many=True).data
 
 class AdvertisementFeedItemSerializer(serializers.Serializer):
     """Serializer for advertisements in the feed with type discriminator"""
@@ -212,3 +231,33 @@ class TopicTranscriptionSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         from apps.topics.models import TopicTranscription
         self.Meta.model = TopicTranscription
+
+class TopicCommentSerializer(serializers.ModelSerializer):
+    user_name = serializers.CharField(source="user.full_name", read_only=True)
+
+    class Meta:
+        model = TopicComment
+        fields = [
+            "id",
+            "user",
+            "user_name",
+            "comment",
+            "created_at",
+        ]
+        read_only_fields = ["id", "user", "created_at", "user_name"]
+
+class TopicCommentCreateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = TopicComment
+        fields = ["comment"]
+
+    def create(self, validated_data):
+        request = self.context["request"]
+        topic = self.context["topic"]
+
+        return TopicComment.objects.create(
+            topic=topic,
+            user=request.user,
+            comment=validated_data["comment"]
+        )
