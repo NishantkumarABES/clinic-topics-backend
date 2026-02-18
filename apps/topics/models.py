@@ -21,7 +21,11 @@ class Topic(TimeStampedUUIDModel):
         upload_to='topics/images/', blank=True, null=True
     )
     source_url = models.URLField(blank=True, null=True)
-    video_url = models.URLField(blank=True, null=True)
+    video_file = models.FileField(
+        upload_to="topics/videos/",
+        blank=True,
+        null=True
+    )
     publishing_time = models.DateTimeField()
     publish_status = models.BooleanField(default=False)
 
@@ -38,6 +42,15 @@ class Topic(TimeStampedUUIDModel):
             if not self.image_url.startswith('http'):
                 return default_storage.url(self.image_url)
             return self.image_url
+        return None
+
+    @property
+    def video(self):
+        if self.video_file:
+            try:
+                return self.video_file.url
+            except Exception:
+                return None
         return None
 
 

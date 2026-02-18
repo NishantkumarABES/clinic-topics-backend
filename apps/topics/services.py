@@ -10,9 +10,9 @@ from nltk.tokenize import sent_tokenize
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from sklearn.feature_extraction.text import TfidfVectorizer
+
 from apps.topics.models import Topic, TopicTranscription
 from external.sonix.service import sonix_client, SonixAPIError
-
 
 try:
     nltk.data.find("tokenizers/punkt")
@@ -47,7 +47,7 @@ SUMMARIZATION_PROMPT_TEMPLATE = PromptTemplate(
     template=SUMMARIZATION_PROMPT,
 )
 
-DEBUG_MODE = True
+DEBUG_MODE = False
 
 
 class TopicImageService:
@@ -243,8 +243,9 @@ This is a dummy transcript generated in DEBUG mode.
 
 def start_transcription(topic_id: str) -> dict:
     topic = Topic.objects.get(id=topic_id)
+    video_url = topic.video
     
-    if not topic.video_url:
+    if not video_url:
         raise ValueError("Topic does not have a video URL")
     
     # Check if transcription already exists
@@ -255,13 +256,15 @@ def start_transcription(topic_id: str) -> dict:
         # --- DEBUG MODE: Dummy Sonix call ---
         if DEBUG_MODE:
             result = _dummy_sonix_create(topic)
+            
         else:
-            result = None
-            # result = sonix_client.create_transcription_from_url(
-            #     media_url=topic.video_url,
-            #     language="en",
-            #     name=topic.title
-            # )
+            print(video_url)
+            # result = None
+            result = sonix_client.create_transcription_from_url(
+                media_url=video_url,
+                language="en",
+                name=topic.title
+            )
         
         # Create transcription record
         transcription = TopicTranscription.objects.create(
@@ -295,9 +298,9 @@ def check_transcription_status(topic_id: str) -> dict:
         if DEBUG_MODE:
             status_data = _dummy_sonix_status(transcription.sonix_media_id)
         else:
-            status_data = None
-            # status_data = sonix_client.get_media_status(transcription.sonix_media_id)
-        
+            # status_data = None
+            status_data = sonix_client.get_media_status(transcription.sonix_media_id)
+            
         # Update local record
         transcription.status = status_data['status']
         transcription.save()
@@ -332,17 +335,18 @@ def retrieve_and_summarize_transcript(topic_id: str) -> dict:
     try:
         # --- DEBUG MODE: Dummy transcript ---
         if DEBUG_MODE:
-            transcript_text, transcript_srt, transcript_json = _dummy_sonix_transcript(
-                transcription.sonix_media_id
-            )
+            transcript_text, transcript_srt, transcript_json = _dummy_sonix_transcript(transcription.sonix_media_id)
         else:
-            transcript_text, transcript_srt, transcript_json = None, None, None
-            # transcript_text = sonix_client.get_transcript_text(transcription.sonix_media_id)
-            # transcript_srt = sonix_client.get_transcript_srt(transcription.sonix_media_id)
-            # transcript_json = sonix_client.get_transcript_json(transcription.sonix_media_id)
+            # transcript_text, transcript_srt, transcript_json = None, None, None
+            transcript_text = sonix_client.get_transcript_text(transcription.sonix_media_id)
+            transcript_srt = sonix_client.get_transcript_srt(transcription.sonix_media_id)
+            transcript_json = sonix_client.get_transcript_json(transcription.sonix_media_id)
         
         # Generate AI summary from transcript text
-        summary = summarize_tfidf(transcript_text)
+        if DEBUG_MODE:
+            summary = summarize_tfidf(transcript_text)
+        else:
+            summary = summarize_openai(transcript_text)
         
         # Update transcription record
         transcription.status = 'completed'

@@ -5,6 +5,7 @@ from apps.topics.services import TopicImageService
 
 class TopicListSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
+    video_url = serializers.SerializerMethodField()
     class Meta:
         model = Topic
         fields = [
@@ -19,11 +20,15 @@ class TopicListSerializer(serializers.ModelSerializer):
         ]
     def get_image(self, obj):
         return obj.image
+    def get_video_url(self, obj):
+        return obj.video
 
 class TopicDetailSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(source="author.full_name", read_only=True)
     author_eamil_id = serializers.UUIDField(source="author.email", read_only=True)
     image = serializers.SerializerMethodField()
+    video_url = serializers.SerializerMethodField()
+
     class Meta:
         model = Topic
         fields = [
@@ -39,6 +44,8 @@ class TopicDetailSerializer(serializers.ModelSerializer):
         ]
     def get_image(self, obj):
         return obj.image
+    def get_video_url(self, obj):
+        return obj.video
 
 class AdminTopicReadSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(
@@ -51,8 +58,8 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
     )
     transcription = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
+    video_url = serializers.SerializerMethodField()
     
-
     class Meta:
         model = Topic
         fields = [
@@ -80,6 +87,9 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
             from apps.topics.serializers import TopicTranscriptionSerializer
             return TopicTranscriptionSerializer(obj.transcription).data
         return None
+    
+    def get_video_url(self, obj):
+        return obj.video
 
 class AdminTopicWriteSerializer(serializers.ModelSerializer):
     image_url = serializers.URLField(required=False, allow_null=True)
@@ -134,12 +144,49 @@ class CleanupImagesSerializer(serializers.Serializer):
     )
 
 class DoctorTopicCreateSerializer(serializers.ModelSerializer):
-    video_url = serializers.URLField(write_only=True, required=True)
-    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    video_file = serializers.FileField(required=True, write_only=True)
+    description = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
 
     class Meta:
         model = Topic
-        fields = ["title", "description", "video_url"]
+        fields = [
+            "title",
+            "description",
+            "video_file",
+        ]
+
+    # -----------------------------------------
+    # VIDEO VALIDATION
+    # -----------------------------------------
+
+    def validate_video_file(self, value):
+        max_size = 300 * 1024 * 1024  # 300MB limit
+
+        if value.size > max_size:
+            raise serializers.ValidationError(
+                "Video size cannot exceed 300MB."
+            )
+
+        allowed_types = [
+            "video/mp4",
+            "video/mpeg",
+            "video/quicktime",
+            "video/x-msvideo",
+            "video/x-matroska",
+        ]
+
+        if hasattr(value, "content_type") and value.content_type not in allowed_types:
+            raise serializers.ValidationError(
+                "Unsupported video format. Allowed: mp4, mpeg, mov, avi, mkv."
+            )
+
+        return value
+
+    # -----------------------------------------
+    # CREATE
+    # -----------------------------------------
 
     def create(self, validated_data):
         request = self.context["request"]
@@ -148,10 +195,11 @@ class DoctorTopicCreateSerializer(serializers.ModelSerializer):
             author=request.user,
             title=validated_data["title"],
             description=validated_data.get("description"),
-            video_url=validated_data["video_url"],
+            video_file=validated_data["video_file"],
             publish_status=False,
             publishing_time=now()
         )
+
         return topic
 
 class TopicCreateSuccessResponseSerializer(serializers.Serializer):
