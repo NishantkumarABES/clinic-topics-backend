@@ -71,6 +71,7 @@ INSTALLED_APPS = [
     "apps.books.app.BooksConfig",
     "apps.jobs.app.JobsConfig",
     "apps.articles.app.ArticlesConfig",
+    "apps.videos.app.VideosConfig",
 
     "core.app.CoreConfig",
 ]

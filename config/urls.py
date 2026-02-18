@@ -59,6 +59,7 @@ urlpatterns = [
     path("api/v1/books/", include(("apps.books.urls", "books"), namespace="books")),
     path("api/v1/articles/", include(("apps.articles.urls", "articles"), namespace="articles")),
     path("api/v1/jobs/", include(("apps.jobs.urls", "jobs"), namespace="jobs")),
+    path("api/v1/videos/", include(("apps.videos.urls", "videos"), namespace="videos")),
 
 ]
 
