@@ -12,7 +12,6 @@ from django.core.files.storage import default_storage
 from sklearn.feature_extraction.text import TfidfVectorizer
 from apps.topics.models import Topic, TopicTranscription
 from external.sonix.service import sonix_client, SonixAPIError
-from config import settings
 
 
 try:
@@ -48,6 +47,7 @@ SUMMARIZATION_PROMPT_TEMPLATE = PromptTemplate(
     template=SUMMARIZATION_PROMPT,
 )
 
+DEBUG_MODE = True
 
 
 class TopicImageService:
@@ -253,15 +253,15 @@ def start_transcription(topic_id: str) -> dict:
     
     try:
         # --- DEBUG MODE: Dummy Sonix call ---
-        if settings.DEBUG:
+        if DEBUG_MODE:
             result = _dummy_sonix_create(topic)
         else:
             result = None
-            result = sonix_client.create_transcription_from_url(
-                media_url=topic.video_url,
-                language="en",
-                name=topic.title
-            )
+            # result = sonix_client.create_transcription_from_url(
+            #     media_url=topic.video_url,
+            #     language="en",
+            #     name=topic.title
+            # )
         
         # Create transcription record
         transcription = TopicTranscription.objects.create(
@@ -292,7 +292,7 @@ def check_transcription_status(topic_id: str) -> dict:
     
     try:
         # Get status from Sonix
-        if settings.DEBUG:
+        if DEBUG_MODE:
             status_data = _dummy_sonix_status(transcription.sonix_media_id)
         else:
             status_data = None
@@ -331,7 +331,7 @@ def retrieve_and_summarize_transcript(topic_id: str) -> dict:
     
     try:
         # --- DEBUG MODE: Dummy transcript ---
-        if settings.DEBUG:
+        if DEBUG_MODE:
             transcript_text, transcript_srt, transcript_json = _dummy_sonix_transcript(
                 transcription.sonix_media_id
             )
