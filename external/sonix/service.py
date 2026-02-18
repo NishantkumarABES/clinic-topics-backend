@@ -28,6 +28,7 @@ class SonixClient:
     def _request(self, method: str, endpoint: str, **kwargs):
         """Internal unified request handler."""
         url = f"{self.BASE_URL}{endpoint}"
+        print("URL:", url)
         try:
             response = requests.request(
                 method,
@@ -88,9 +89,6 @@ class SonixClient:
 
         if response.status_code in (200, 201):
             result = response.json()
-            print("✅ Transcription job created successfully.")
-            print("Media ID:", result["id"])
-            print("Status:", result["status"])
             return result
 
         elif response.status_code == 400:

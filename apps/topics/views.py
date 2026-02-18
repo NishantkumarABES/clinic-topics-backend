@@ -1,6 +1,7 @@
 import random
 from rest_framework import generics, permissions, status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.pagination import PageNumberPagination
@@ -230,27 +231,21 @@ class CleanupUnwantedImages(APIView):
 
 class DoctorTopicCreateAPIView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
+    parser_classes = [MultiPartParser, FormParser]
 
     @swagger_auto_schema(
         operation_summary="Create / Upload new educational topic (Doctors only)",
         tags=['Doctor - Topics'],
+        consumes=['multipart/form-data'],
         request_body=DoctorTopicCreateSerializer,
         responses={
             status.HTTP_201_CREATED: openapi.Response(
                 description="Topic successfully created and queued for approval",
                 schema=TopicCreateSuccessResponseSerializer,
             ),
-            status.HTTP_400_BAD_REQUEST: openapi.Response(
-                description="Validation error",
-                examples={
-                    "application/json": {
-                        "title": ["This field is required."],
-                        "video_url": ["Enter a valid URL."]
-                    }
-                }
-            ),
-            status.HTTP_401_UNAUTHORIZED: "Authentication credentials were not provided.",
-            status.HTTP_403_FORBIDDEN: "You do not have permission to perform this action.",
+            status.HTTP_400_BAD_REQUEST: "Validation error",
+            status.HTTP_401_UNAUTHORIZED: "Authentication required",
+            status.HTTP_403_FORBIDDEN: "Doctor access required",
         }
     )
     def post(self, request):
@@ -258,13 +253,16 @@ class DoctorTopicCreateAPIView(APIView):
             data=request.data,
             context={"request": request}
         )
-        doctor_full_name = request.user.full_name
+
         serializer.is_valid(raise_exception=True)
         topic = serializer.save()
+
+        # Send admin notification
         create_admin_notification(
             title="Topic Upload Request",
-            message=f"Dr. {doctor_full_name} has submitted a new topic for approval.",
-        ) 
+            message=f"Dr. {request.user.full_name} has submitted a new topic for approval.",
+        )
+
         return Response(
             {
                 "success": True,
