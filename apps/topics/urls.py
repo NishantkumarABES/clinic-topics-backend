@@ -2,7 +2,8 @@ from django.urls import path
 from apps.topics.views import (
     CleanupUnwantedImages, TopicListView, TopicDetailView, ExtractArticleDataView, AdminTopicListCreateAPIView, AdminTopicUpdateAPIView,
     AdminTopicUpdatePublishStatusAPIView, DoctorTopicCreateAPIView, TopicsFeedView,
-    StartTranscriptionAPIView, TranscriptionStatusAPIView, DownloadTranscriptAPIView, DownloadTranscriptSRTAPIView
+    StartTranscriptionAPIView, TranscriptionStatusAPIView, DownloadTranscriptAPIView, DownloadTranscriptSRTAPIView,
+    TopicLikeToggleAPIView, TopicCommentCreateAPIView
 )
 
 urlpatterns = [
@@ -23,4 +24,6 @@ urlpatterns = [
 
     path("doctor/topics/create/", DoctorTopicCreateAPIView.as_view()),
     path("feed/", TopicsFeedView.as_view(), name="topics-feed"),
+    path("feed/<uuid:topic_id>/like/", TopicLikeToggleAPIView.as_view()),
+    path("feed/<uuid:topic_id>/comment/", TopicCommentCreateAPIView.as_view()),
 ]

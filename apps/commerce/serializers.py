@@ -311,6 +311,7 @@ class AddToWishlistSerializer(serializers.Serializer):
 
 class OrderItemSerializer(serializers.ModelSerializer):
     product_id = serializers.UUIDField(source="product.id", read_only=True)
+    product_image = serializers.SerializerMethodField()
     product_name = serializers.CharField(source="product.name", read_only=True)
     base_price = serializers.DecimalField(source="product.price", max_digits=10, decimal_places=2, read_only=True)
     tax_percentage = serializers.DecimalField(source="product.tax_percentage", max_digits=5, decimal_places=2, read_only=True)
@@ -325,6 +326,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "id",
             "product_id",
             "product_name",
+            "product_image",
             "base_price",
             "tax_percentage",
             "discount_percentage",
