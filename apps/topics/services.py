@@ -342,9 +342,10 @@ def retrieve_and_summarize_transcript(topic_id: str) -> dict:
             # transcript_json = sonix_client.get_transcript_json(transcription.sonix_media_id)
         
         # Generate AI summary from transcript text
-        summary = summarizer(transcript_text, word_limit=300)
+        summary = summarize_tfidf(transcript_text)
         
         # Update transcription record
+        transcription.status = 'completed'
         transcription.transcript_text = transcript_text
         transcription.transcript_srt = transcript_srt
         transcription.transcript_json = transcript_json
