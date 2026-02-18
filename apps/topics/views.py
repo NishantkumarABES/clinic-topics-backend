@@ -600,7 +600,7 @@ class TopicLikeToggleAPIView(APIView):
             like.delete()
             return Response({
                 "detail": "Unliked successfully",
-                "liked": False,
+                "data": {"liked": False},
                 "success": True
             })
 

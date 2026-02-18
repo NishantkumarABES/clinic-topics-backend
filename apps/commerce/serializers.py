@@ -337,6 +337,21 @@ class OrderItemSerializer(serializers.ModelSerializer):
     
     def get_final_total(self, obj):
         return round(obj.price_at_purchase * obj.quantity, 2)
+    
+    def get_product_image(self, obj):
+        product = obj.product
+        if not product:
+            return None
+
+        first_image = product.images.first()
+        if not first_image or not first_image.image:
+            return None
+
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(first_image.image.url)
+
+        return first_image.image.url
 
 class OrderHistorySerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
