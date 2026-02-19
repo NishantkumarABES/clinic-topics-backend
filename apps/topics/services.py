@@ -10,6 +10,7 @@ from nltk.tokenize import sent_tokenize
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from sklearn.feature_extraction.text import TfidfVectorizer
+from moviepy.editor import VideoFileClip
 
 from apps.topics.models import Topic, TopicTranscription
 from external.sonix.service import sonix_client, SonixAPIError
@@ -393,5 +394,13 @@ def get_transcription_data(topic_id: str) -> dict:
         'updated_at': transcription.updated_at,
     }
 
-
+def generate_thumbnail_moviepy(video_path, output_image_path, time_in_seconds=1.0):
+    try:
+        clip = VideoFileClip(video_path)
+        duration = clip.duration
+        clip.save_frame(output_image_path, t=time_in_seconds) 
+        clip.close()
+        return duration
+    except Exception as e:
+        print(f"An error occurred: {e}")
 

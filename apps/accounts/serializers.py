@@ -21,7 +21,7 @@ class RegisterSerializer(serializers.Serializer):
     )
 
     # -------- Common User Fields --------
-    role = serializers.ChoiceField(choices=[UserRole.DOCTOR, UserRole.PATIENT])
+    role = serializers.ChoiceField(choices=[UserRole.DOCTOR, UserRole.PATIENT], required=False)
     full_name = serializers.CharField()
     email = serializers.EmailField()
     phone = serializers.CharField()

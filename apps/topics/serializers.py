@@ -1,7 +1,11 @@
+import os, tempfile, uuid
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from rest_framework import serializers
 from django.utils.timezone import now
 from apps.topics.models import Topic, TopicComment
 from apps.topics.services import TopicImageService
+from apps.topics.services import generate_thumbnail_moviepy
 
 class TopicListSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -59,6 +63,7 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
     transcription = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
+    thumbnail = serializers.SerializerMethodField()
     
     class Meta:
         model = Topic
@@ -76,6 +81,8 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "transcription",
+            "thumbnail",
+            "duration_seconds"
         ]
         read_only_fields = fields
     
@@ -90,6 +97,17 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
     
     def get_video_url(self, obj):
         return obj.video
+    
+    def get_thumbnail(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return None
+
+        if obj.thumbnail:
+            return request.build_absolute_uri(obj.thumbnail.url)
+        return None
+    
+    
 
 class AdminTopicWriteSerializer(serializers.ModelSerializer):
     image_url = serializers.URLField(required=False, allow_null=True)
@@ -199,8 +217,58 @@ class DoctorTopicCreateSerializer(serializers.ModelSerializer):
             publish_status=False,
             publishing_time=now()
         )
+        if topic.video_file:
+            self._process_video(topic)
 
         return topic
+    
+    def _process_video(self, topic):
+        # ---- 1. Extract original extension ----
+        original_name = topic.video_file.name
+        _, ext = os.path.splitext(original_name)
+
+        if not ext:
+            ext = ".mp4"  # fallback (rare edge case)
+        
+        # ---- 2. Download video from storage ----
+        with default_storage.open(original_name, "rb") as f:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_video:
+                for chunk in f.chunks():
+                    temp_video.write(chunk)
+                temp_video_path = temp_video.name
+        
+        # ---- 3. Generate thumbnail ----
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_thumb:
+            temp_thumbnail_path = temp_thumb.name
+        
+        duration = generate_thumbnail_moviepy(
+            temp_video_path,
+            temp_thumbnail_path,
+            time_in_seconds=1.0
+        )
+        
+        # ---- 4. Save thumbnail back to S3 ----
+        with open(temp_thumbnail_path, "rb") as thumb_file:
+            thumbnail_name = f"topics/thumbnails/{uuid.uuid4()}.jpg"
+
+            saved_path = default_storage.save(
+                thumbnail_name,
+                ContentFile(thumb_file.read())
+            )
+        
+        
+
+        # ---- 5. Update model ----
+        topic.thumbnail = saved_path
+        if duration:
+            topic.duration_seconds = int(duration)
+        print("Duration updated successfully", topic.duration_seconds, duration)
+
+        topic.save(update_fields=["thumbnail", "duration_seconds"])
+        print("Video model updated successfully")
+        # ---- 6. Cleanup ----
+        os.remove(temp_video_path)
+        os.remove(temp_thumbnail_path)
 
 class TopicCreateSuccessResponseSerializer(serializers.Serializer):
     success = serializers.BooleanField(default=True)
@@ -215,7 +283,7 @@ class TopicFeedItemSerializer(serializers.ModelSerializer):
     is_liked = serializers.SerializerMethodField()
     comments = serializers.SerializerMethodField()
     video_url = serializers.SerializerMethodField()
-
+    thumbnail = serializers.SerializerMethodField()
 
     class Meta:
         model = Topic
@@ -233,6 +301,8 @@ class TopicFeedItemSerializer(serializers.ModelSerializer):
             "comment_count",
             "is_liked",
             "comments",
+            "thumbnail",
+            "duration_seconds"
         ]
 
     def get_type(self, obj):
@@ -251,6 +321,16 @@ class TopicFeedItemSerializer(serializers.ModelSerializer):
     
     def get_video_url(self, obj):
         return obj.video
+    
+    def get_thumbnail(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return None
+
+        if obj.thumbnail:
+            return request.build_absolute_uri(obj.thumbnail.url)
+        return None
+    
 
 class AdvertisementFeedItemSerializer(serializers.Serializer):
     """Serializer for advertisements in the feed with type discriminator"""

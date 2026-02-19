@@ -139,7 +139,6 @@ class VideoDownloadView(APIView):
             "success": True
         })
 
-
 class MyVideoListView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
 
