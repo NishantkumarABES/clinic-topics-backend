@@ -198,8 +198,8 @@ class RegisterView(APIView):
 
         # ---- Inject role into request data ----
         # data = request.data.copy()
-        data = dict(request.data)
-        data["role"] = role
+        # data = dict(request.data)
+        # data["role"] = role
 
         is_admin_request = (
             request.user.is_authenticated and
@@ -207,9 +207,13 @@ class RegisterView(APIView):
         )
 
         serializer = RegisterSerializer(
-            data=data,
-            context={"is_admin_request": is_admin_request}
+            data=request.data,
+            context={
+                "is_admin_request": is_admin_request,
+                "forced_role": role
+            }
         )
+
         serializer.is_valid(raise_exception=True)
         try:
             user = serializer.save()

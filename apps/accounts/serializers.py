@@ -62,6 +62,13 @@ class RegisterSerializer(serializers.Serializer):
     # ---------------- VALIDATION ----------------
 
     def validate(self, data):
+        forced_role = self.context.get("forced_role")
+        if forced_role:
+            data["role"] = forced_role
+        
+        if "role" not in data:
+            raise ValidationError({"role": "Role is required"})
+
         role = data["role"]
         via_social = data.get("via_social", False)
 
