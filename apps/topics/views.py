@@ -77,7 +77,7 @@ class AdminTopicListCreateAPIView(APIView):
             queryset.order_by("-created_at"), request
         )
 
-        serializer = AdminTopicReadSerializer(page, many=True)
+        serializer = AdminTopicReadSerializer(page, many=True, context={"request": request})
         response = paginator.get_paginated_response(serializer.data)
         response.data["success"] = True
         return response

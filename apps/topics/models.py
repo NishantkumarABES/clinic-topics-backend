@@ -29,6 +29,17 @@ class Topic(TimeStampedUUIDModel):
     publishing_time = models.DateTimeField()
     publish_status = models.BooleanField(default=False)
 
+    thumbnail = models.ImageField(
+        upload_to="videos/thumbnails/",
+        blank=True,
+        null=True
+    )
+
+    duration_seconds = models.PositiveIntegerField(
+        blank=True,
+        null=True
+    )
+
     @property
     def image(self):
         from django.core.files.storage import default_storage

@@ -13,6 +13,7 @@ from apps.videos.services import generate_thumbnail_moviepy
 class VideoListSerializer(serializers.ModelSerializer):
     is_bookmarked = serializers.SerializerMethodField()
     uploaded_by = serializers.StringRelatedField()
+    thumbnail = serializers.SerializerMethodField()
 
     class Meta:
         model = Video
@@ -25,6 +26,8 @@ class VideoListSerializer(serializers.ModelSerializer):
             "speciality",
             "duration_seconds",
             "view_count",
+            "video_file",
+            "thumbnail",
             "download_count",
             "allow_download",
             "status",
@@ -55,7 +58,26 @@ class VideoListSerializer(serializers.ModelSerializer):
 
         if request.user.role != UserRole.ADMIN:
             self.fields.pop("is_deleted", None)
+    
+    def get_thumbnail(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return None
 
+        if obj.thumbnail:
+            return request.build_absolute_uri(obj.thumbnail.url)
+        return None
+        
+    
+    def get_video_file(self, obj):
+        request = self.context.get("request")
+        if not request:
+            return None
+
+        if obj.video_file:
+            return request.build_absolute_uri(obj.video_file.url)
+        return None
+        
 class VideoDetailSerializer(serializers.ModelSerializer):
     is_bookmarked = serializers.SerializerMethodField()
     uploaded_by = serializers.StringRelatedField()
@@ -82,7 +104,6 @@ class VideoDetailSerializer(serializers.ModelSerializer):
             self.fields.pop("is_deleted", None)
 
 class VideoCreateSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Video
         exclude = (
@@ -100,27 +121,28 @@ class VideoCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         # Step 1: Create video object (S3 upload happens here)
+        print("Creating video...")
         video = Video.objects.create(**validated_data)
+        print("Video FIle", video.video_file)
         if video.video_file:
             self._process_video(video)
 
         return video
 
-    def _process_video(video):
+    def _process_video(self, video):
         # ---- 1. Extract original extension ----
         original_name = video.video_file.name
         _, ext = os.path.splitext(original_name)
 
         if not ext:
             ext = ".mp4"  # fallback (rare edge case)
-
         # ---- 2. Download video from storage ----
         with default_storage.open(original_name, "rb") as f:
             with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_video:
                 for chunk in f.chunks():
                     temp_video.write(chunk)
                 temp_video_path = temp_video.name
-
+    
         # ---- 3. Generate thumbnail ----
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_thumb:
             temp_thumbnail_path = temp_thumb.name
@@ -130,7 +152,6 @@ class VideoCreateSerializer(serializers.ModelSerializer):
             temp_thumbnail_path,
             time_in_seconds=1.0
         )
-
         # ---- 4. Save thumbnail back to S3 ----
         with open(temp_thumbnail_path, "rb") as thumb_file:
             thumbnail_name = f"videos/thumbnails/{uuid.uuid4()}.jpg"
@@ -146,7 +167,6 @@ class VideoCreateSerializer(serializers.ModelSerializer):
             video.duration_seconds = int(duration)
 
         video.save(update_fields=["thumbnail", "duration_seconds"])
-
         # ---- 6. Cleanup ----
         os.remove(temp_video_path)
         os.remove(temp_thumbnail_path)
@@ -240,8 +260,54 @@ class AdminVideoCreateSerializer(serializers.ModelSerializer):
             status=Status.PUBLISHED,
             **validated_data
         )
+        if video.video_file:
+            self._process_video(video)
 
         return video
+    
+    def _process_video(self, video):
+        # ---- 1. Extract original extension ----
+        original_name = video.video_file.name
+        _, ext = os.path.splitext(original_name)
+
+        if not ext:
+            ext = ".mp4"  # fallback (rare edge case)
+
+        # ---- 2. Download video from storage ----
+        with default_storage.open(original_name, "rb") as f:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as temp_video:
+                for chunk in f.chunks():
+                    temp_video.write(chunk)
+                temp_video_path = temp_video.name
+        
+        # ---- 3. Generate thumbnail ----
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as temp_thumb:
+            temp_thumbnail_path = temp_thumb.name
+        
+        duration = generate_thumbnail_moviepy(
+            temp_video_path,
+            temp_thumbnail_path,
+            time_in_seconds=1.0
+        )
+        
+        # ---- 4. Save thumbnail back to S3 ----
+        with open(temp_thumbnail_path, "rb") as thumb_file:
+            thumbnail_name = f"videos/thumbnails/{uuid.uuid4()}.jpg"
+
+            saved_path = default_storage.save(
+                thumbnail_name,
+                ContentFile(thumb_file.read())
+            )
+
+        # ---- 5. Update model ----
+        video.thumbnail = saved_path
+        if duration:
+            video.duration_seconds = int(duration)
+
+        video.save(update_fields=["thumbnail", "duration_seconds"])
+        # ---- 6. Cleanup ----
+        os.remove(temp_video_path)
+        os.remove(temp_thumbnail_path)
 
 
 #####################  Response Serializers #############################
