@@ -197,7 +197,8 @@ class RegisterView(APIView):
             )
 
         # ---- Inject role into request data ----
-        data = request.data.copy()
+        # data = request.data.copy()
+        data = dict(request.data)
         data["role"] = role
 
         is_admin_request = (
