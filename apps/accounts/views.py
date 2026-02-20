@@ -333,8 +333,21 @@ class SocialLoginView(APIView):
 
         if not user.can_authenticate():
             return Response(
-                {"detail": "User account is inactive", "data":None, "success": False}
+                {
+                    "detail": "Registration required",
+                    "data": {
+                        "registration_required": True,
+                        "provider": social_user.provider,
+                        "provider_user_id": social_user.provider_user_id,
+                        "email": social_user.email,
+                    },
+                    "success": True
+                },
+                status=status.HTTP_200_OK
             )
+            # return Response(
+            #     {"detail": "User account is inactive", "data":None, "success": False}
+            # )
 
         # 3️⃣ Activate if eligible
         activate_user_if_eligible(user)
