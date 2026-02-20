@@ -489,6 +489,11 @@ class AdminVideoCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(
+        request_body=AdminVideoCreateSerializer(),
+        responses={201: VideoDetailSerializer()},
+        auto_schema=None
+    )
     def post(self, request):
 
         serializer = AdminVideoCreateSerializer(
@@ -505,6 +510,7 @@ class AdminVideoCreateView(APIView):
 class AdminVideoUpdateView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(auto_schema=None)
     def patch(self, request, id):
 
         video = get_object_or_404(
@@ -530,6 +536,7 @@ class AdminVideoUpdateView(APIView):
 class AdminVideoListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(responses={200: VideoListSerializer(many=True)}, auto_schema=None)
     def get(self, request):
 
         queryset = Video.objects.all().order_by("-created_at")
@@ -571,6 +578,7 @@ class AdminVideoListView(APIView):
 class AdminMoveToReviewView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(responses={200: VideoDetailSerializer()}, auto_schema=None)
     def patch(self, request, id):
 
         video = get_object_or_404(
@@ -591,6 +599,7 @@ class AdminMoveToReviewView(APIView):
 class VideoReviewView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
+    @swagger_auto_schema(responses={200: VideoDetailSerializer()}, auto_schema=None)
     def patch(self, request, id):
 
         video = get_object_or_404(
