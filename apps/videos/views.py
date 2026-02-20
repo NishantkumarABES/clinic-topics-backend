@@ -9,11 +9,12 @@ from django.db.models import Q, F
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse, Http404
 
-from apps.videos.models import Video
+from apps.videos.models import Video, VideoBookmark
 from apps.videos.constants import Status
 from apps.videos.serializers import (
     VideoListSerializer, VideoDetailSerializer, VideoCreateSerializer, VideoUpdateSerializer, 
-    VideoReviewSerializer, AdminVideoCreateSerializer, PaginatedVideosListResponseSerializer
+    VideoReviewSerializer, AdminVideoCreateSerializer, PaginatedVideosListResponseSerializer,
+    VideoBookmarkSerializer
 )
 from core.permissions import IsDoctor, IsAdmin
 
@@ -288,6 +289,46 @@ class VideoUpdateView(APIView):
 
         return Response({
             "detail": "Video updated successfully",
+            "success": True
+        })
+
+class ToggleVideoBookmarkView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(responses={200: VideoBookmarkSerializer()})
+    def post(self, request, id):
+        # Step 1: Ensure video exists and is published
+        video = get_object_or_404(
+            Video,
+            id=id,
+            status=Status.PUBLISHED,
+            is_deleted=False
+        )
+
+        # Step 2: Check if bookmark exists
+        bookmark = VideoBookmark.objects.filter(
+            user=request.user,
+            video=video
+        ).first()
+
+        # Step 3: Toggle logic
+        if bookmark:
+            bookmark.delete()
+            return Response({
+                "detail": "Video removed from bookmarks",
+                "is_bookmarked": False,
+                "success": True
+            })
+
+        # Create bookmark
+        VideoBookmark.objects.create(
+            user=request.user,
+            video=video
+        )
+
+        return Response({
+            "detail": "Video bookmarked successfully",
+            "is_bookmarked": True,
             "success": True
         })
 
