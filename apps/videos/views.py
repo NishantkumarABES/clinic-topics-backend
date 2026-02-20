@@ -263,7 +263,7 @@ class VideoCreateView(APIView):
 
         serializer.save(
             uploaded_by=request.user,
-            status=Status.DRAFT
+            status=Status.PENDING
         )
 
         return Response({
@@ -287,7 +287,7 @@ class VideoUpdateView(APIView):
             is_deleted=False
         )
 
-        if video.status != Status.DRAFT:
+        if video.status != Status.PENDING:
             return Response({
                 "detail": "Only draft videos can be edited.",
                 "success": False
@@ -584,7 +584,7 @@ class AdminMoveToReviewView(APIView):
         video = get_object_or_404(
             Video,
             id=id,
-            status=Status.DRAFT,
+            status=Status.PENDING,
             is_deleted=False
         )
 
