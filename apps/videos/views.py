@@ -141,8 +141,9 @@ class VideoDownloadView(APIView):
 
 class MyVideoListView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
+    pagination_class = VideoPagination
 
-    @swagger_auto_schema(responses={200: PaginatedVideosListResponseSerializer})
+    @swagger_auto_schema(responses={200: PaginatedVideosListResponseSerializer()})
     def get(self, request):
 
         queryset = Video.objects.filter(
@@ -162,15 +163,17 @@ class MyVideoListView(APIView):
         if speciality:
             queryset = queryset.filter(speciality=speciality)
 
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
         serializer = VideoListSerializer(
-            queryset,
-            many=True,
+            page, many=True,
             context={"request": request}
         )
 
         return Response({
             "detail": "My videos fetched successfully",
-            "data": serializer.data,
+            "data": paginator.get_paginated_response(serializer.data).data,
             "success": True
         })
 
