@@ -23,6 +23,7 @@ class DoctorProfile(TimeStampedUUIDModel):
 
     specialization = models.CharField(max_length=100, null=True, blank=True)
     years_of_experience = models.PositiveIntegerField()
+    address = models.TextField(null=True, blank=True)
 
     # languages_spoken = models.JSONField(null=True, blank=True)
 

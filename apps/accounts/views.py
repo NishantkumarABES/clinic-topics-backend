@@ -319,11 +319,16 @@ class SocialLoginView(APIView):
         if not user:
             return Response(
                 {
-                    "detail": "User with this social account does not exist",
-                    "data": {"registration_required": True},
-                    "success": False
+                    "detail": "Registration required",
+                    "data": {
+                        "registration_required": True,
+                        "provider": social_user.provider,
+                        "provider_user_id": social_user.provider_user_id,
+                        "email": social_user.email,
+                    },
+                    "success": True
                 },
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_200_OK
             )
 
         if not user.can_authenticate():
