@@ -115,6 +115,7 @@ class VideoDownloadView(APIView):
     @swagger_auto_schema(responses={200: VideoDetailSerializer()})
     def post(self, request, id):
 
+        # Step 1: Validate published video
         video = get_object_or_404(
             Video,
             id=id,
@@ -122,20 +123,32 @@ class VideoDownloadView(APIView):
             is_deleted=False
         )
 
+        # Step 2: Check download permission
         if not video.allow_download:
             return Response({
                 "detail": "Downloads are disabled for this video.",
                 "success": False
             }, status=400)
 
+        # Step 3: Ensure file exists
+        if not video.video_file:
+            return Response({
+                "detail": "Video file not available.",
+                "success": False
+            }, status=404)
+
+        # Step 4: Atomic increment of download count
         Video.objects.filter(id=video.id).update(
             download_count=F("download_count") + 1
         )
-
         video.refresh_from_db()
 
+        # Step 5: Build absolute URL
+        file_url = request.build_absolute_uri(video.video_file.url)
+
         return Response({
-            "detail": "Download count updated",
+            "detail": "Download URL generated successfully",
+            "download_url": file_url,
             "download_count": video.download_count,
             "success": True
         })
@@ -208,6 +221,7 @@ class MyVideoDownloadView(APIView):
     @swagger_auto_schema(responses={200: VideoDetailSerializer()})
     def post(self, request, id):
 
+        # Step 1: Validate ownership and non-deleted
         video = get_object_or_404(
             Video,
             id=id,
@@ -215,22 +229,21 @@ class MyVideoDownloadView(APIView):
             is_deleted=False
         )
 
-        # Ensure file exists
+        # Step 2: Ensure file exists
         if not video.video_file:
-            raise Http404("Video file not found.")
+            return Response({
+                "detail": "Video file not available.",
+                "success": False
+            }, status=404)
 
-        file_path = video.video_file.path
+        # Step 3: Build absolute URL
+        file_url = request.build_absolute_uri(video.video_file.url)
 
-        try:
-            response = FileResponse(
-                open(file_path, "rb"),
-                as_attachment=True,
-                filename=video.video_file.name.split("/")[-1]
-            )
-            return response
-
-        except FileNotFoundError:
-            raise Http404("Video file not found.")
+        return Response({
+            "detail": "Download URL generated successfully",
+            "download_url": file_url,
+            "success": True
+        })
         
 class VideoCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser]
