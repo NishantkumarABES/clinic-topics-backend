@@ -292,6 +292,63 @@ class VideoUpdateView(APIView):
             "success": True
         })
 
+class MyBookmarkedVideosView(APIView):
+    """
+    List all videos bookmarked by the authenticated user.
+    Only returns published and non-deleted videos.
+    """
+    permission_classes = [IsAuthenticated]
+    pagination_class = VideoPagination
+
+    @swagger_auto_schema(responses={200: PaginatedVideosListResponseSerializer()})
+    def get(self, request):
+
+        # Step 1: Filter bookmarked videos
+        queryset = Video.objects.filter(
+            bookmarks__user=request.user,
+            status=Status.PUBLISHED,
+            is_deleted=False
+        ).order_by("-created_at")
+
+        # Step 2: Optional filters (consistent with VideoListView)
+        search = request.GET.get("search")
+        speciality = request.GET.get("speciality")
+        sort = request.GET.get("sort", "newest")
+
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) |
+                Q(description__icontains=search)
+            )
+
+        if speciality:
+            queryset = queryset.filter(speciality=speciality)
+
+        if sort == "oldest":
+            queryset = queryset.order_by("created_at")
+        elif sort == "mostViewed":
+            queryset = queryset.order_by("-view_count")
+        elif sort == "mostDownloaded":
+            queryset = queryset.order_by("-download_count")
+        else:
+            queryset = queryset.order_by("-created_at")
+
+        # Step 3: Pagination
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        serializer = VideoListSerializer(
+            page,
+            many=True,
+            context={"request": request}
+        )
+
+        return Response({
+            "detail": "Bookmarked videos fetched successfully",
+            "data": paginator.get_paginated_response(serializer.data).data,
+            "success": True,
+        })
+
 class ToggleVideoBookmarkView(APIView):
     permission_classes = [IsAuthenticated]
 
