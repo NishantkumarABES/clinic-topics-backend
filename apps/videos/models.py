@@ -52,6 +52,7 @@ class Video(TimeStampedUUIDModel):
     )
 
     # Analytics
+    like_count = models.PositiveIntegerField(default=0)
     view_count = models.PositiveIntegerField(default=0)
     download_count = models.PositiveIntegerField(default=0)
     # Soft Delete
@@ -90,3 +91,26 @@ class VideoBookmark(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.user} -> {self.video}"
+
+class VideoLike(TimeStampedUUIDModel):
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="video_likes"
+    )
+
+    video = models.ForeignKey(
+        Video,
+        on_delete=models.CASCADE,
+        related_name="likes"
+    )
+
+    class Meta:
+        unique_together = ("user", "video")
+        indexes = [
+            models.Index(fields=["user"]),
+            models.Index(fields=["video"]),
+        ]
+
+    def __str__(self):
+        return f"{self.user} liked {self.video}"

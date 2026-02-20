@@ -5,11 +5,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_yasg.utils import swagger_auto_schema
+from django.db import transaction
 from django.db.models import Q, F
 from django.shortcuts import get_object_or_404
-from django.http import FileResponse, Http404
 
-from apps.videos.models import Video, VideoBookmark
+
+from apps.videos.models import Video, VideoBookmark, VideoLike
 from apps.videos.constants import Status
 from apps.videos.serializers import (
     VideoListSerializer, VideoDetailSerializer, VideoCreateSerializer, VideoUpdateSerializer, 
@@ -401,6 +402,65 @@ class ToggleVideoBookmarkView(APIView):
             "is_bookmarked": True,
             "success": True
         })
+
+class ToggleVideoLikeView(APIView):
+    """
+    Toggle like for a published video.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, id):
+
+        # Step 1: Validate published + non-deleted
+        video = get_object_or_404(
+            Video,
+            id=id,
+            status=Status.PUBLISHED,
+            is_deleted=False
+        )
+
+        with transaction.atomic():
+
+            like = VideoLike.objects.filter(
+                user=request.user,
+                video=video
+            ).first()
+
+            if like:
+                # Unlike
+                like.delete()
+
+                Video.objects.filter(id=video.id).update(
+                    like_count=F("like_count") - 1
+                )
+
+                video.refresh_from_db()
+
+                return Response({
+                    "detail": "Video unliked successfully",
+                    "is_liked": False,
+                    "like_count": video.like_count,
+                    "success": True
+                })
+
+            # Like
+            VideoLike.objects.create(
+                user=request.user,
+                video=video
+            )
+
+            Video.objects.filter(id=video.id).update(
+                like_count=F("like_count") + 1
+            )
+
+            video.refresh_from_db()
+
+            return Response({
+                "detail": "Video liked successfully",
+                "is_liked": True,
+                "like_count": video.like_count,
+                "success": True
+            })
 
 class SoftDeleteVideoView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]

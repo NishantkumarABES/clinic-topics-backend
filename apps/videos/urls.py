@@ -2,7 +2,8 @@ from django.urls import path
 from apps.videos.views import (
     VideoDetailView, VideoListView, VideoDownloadView, MyVideoDetailView, MyVideoListView, MyVideoDownloadView,
     VideoCreateView, VideoUpdateView, SoftDeleteVideoView, AdminVideoCreateView, AdminVideoUpdateView,
-    AdminVideoListView, AdminMoveToReviewView, VideoReviewView, ToggleVideoBookmarkView, MyBookmarkedVideosView
+    AdminVideoListView, AdminMoveToReviewView, VideoReviewView, ToggleVideoBookmarkView, MyBookmarkedVideosView,
+    ToggleVideoLikeView
 )
 
 
@@ -19,6 +20,7 @@ urlpatterns = [
     path("<uuid:id>/update/", VideoUpdateView.as_view(), name="video-update"),
     path("my/bookmarks/", MyBookmarkedVideosView.as_view(), name="my-bookmarked-videos"),
     path("<uuid:id>/bookmark/", ToggleVideoBookmarkView.as_view(), name="video-bookmark"),
+    path("<uuid:id>/like/", ToggleVideoLikeView.as_view(), name="video-like"),
     path("<uuid:id>/delete/", SoftDeleteVideoView.as_view(), name="video-delete"),
 
     path("admin/", AdminVideoListView.as_view(), name="admin-video-list"),

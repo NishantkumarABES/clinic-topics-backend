@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
-from apps.videos.models import Video, VideoBookmark
+from apps.videos.models import Video, VideoBookmark, VideoLike
 from apps.accounts.constants import UserRole
 from apps.accounts.models import User
 from apps.videos.constants import Status
@@ -14,6 +14,7 @@ class VideoListSerializer(serializers.ModelSerializer):
     is_bookmarked = serializers.SerializerMethodField()
     uploaded_by = serializers.StringRelatedField()
     thumbnail = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = Video
@@ -34,6 +35,8 @@ class VideoListSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
             "is_bookmarked",
+            "is_liked",
+            "like_count",
             "is_deleted",
         ]
 
@@ -77,6 +80,16 @@ class VideoListSerializer(serializers.ModelSerializer):
         if obj.video_file:
             return request.build_absolute_uri(obj.video_file.url)
         return None
+    
+    def get_is_liked(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return VideoLike.objects.filter(
+            user=request.user,
+            video=obj
+        ).exists()
         
 class VideoDetailSerializer(serializers.ModelSerializer):
     is_bookmarked = serializers.SerializerMethodField()
