@@ -53,8 +53,13 @@ class EmailOTPRequestView(APIView):
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data["email"]
+        if email:
+            user = User.objects.filter(
+                email=email
+            ).exclude(state=UserState.DELETED).first()
+
         try:
-            otp = send_email_otp(email)
+            otp = send_email_otp(email, full_name=user.full_name if user else None)
         except Exception as e:
             return Response({
                 "detail": str(e),
