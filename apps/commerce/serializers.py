@@ -142,7 +142,7 @@ class ApplyCouponSerializer(serializers.Serializer):
 class CartItemSerializer(serializers.ModelSerializer):
     product_id = serializers.UUIDField(source="product.id", read_only=True)
     product_name = serializers.CharField(source="product.name", read_only=True)
-    brand_name = serializers.CharField(source="product.brand", read_only=True)
+    brand = serializers.CharField(source="product.brand", read_only=True)
     category_name = serializers.CharField(source="product.category", read_only=True)
     product_image = serializers.SerializerMethodField()
     base_price = serializers.DecimalField(source="product.price", max_digits=10, decimal_places=2, read_only=True)
@@ -158,7 +158,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             "id",
             "product_id",
             "product_name",
-            "brand_name",
+            "brand",
             "category_name",
             "product_image",
             "base_price",
