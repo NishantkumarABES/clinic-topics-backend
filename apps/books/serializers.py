@@ -59,9 +59,11 @@ class BookListSerializer(serializers.ModelSerializer):
 class BookDetailSerializer(BookListSerializer):
     is_paid = serializers.SerializerMethodField()
     my_rating = serializers.SerializerMethodField()
+    is_my_book = serializers.SerializerMethodField()
+
 
     class Meta(BookListSerializer.Meta):
-        fields = BookListSerializer.Meta.fields + ("is_paid", "my_rating")
+        fields = BookListSerializer.Meta.fields + ("is_paid", "my_rating", "is_my_book")
 
     def get_is_paid(self, obj):
         request = self.context.get("request")
@@ -93,6 +95,14 @@ class BookDetailSerializer(BookListSerializer):
             "comment": rating.comment,
             "created_at": rating.created_at,
         }
+
+    def get_is_my_book(self, obj):
+        request = self.context.get("request")
+        if not request or not request.user.is_authenticated:
+            return False
+
+        return obj.uploaded_by == request.user
+
 
 class BookUploadSerializer(serializers.ModelSerializer):
     price = serializers.IntegerField(

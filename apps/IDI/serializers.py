@@ -145,7 +145,6 @@ class StandardResponseSerializer(serializers.Serializer):
     class Meta:
         ref_name = "IDIStandardResponseSerializer"
 
-
 class IDIDataResponseSerializer(serializers.Serializer):
     """Response for single IDI data."""
     detail = serializers.CharField(help_text="Response message")
@@ -154,7 +153,6 @@ class IDIDataResponseSerializer(serializers.Serializer):
 
     class Meta:
         ref_name = "IDIDataResponseSerializer"
-
 
 class IDIListDataSerializer(serializers.Serializer):
     """Paginated IDI list data."""
