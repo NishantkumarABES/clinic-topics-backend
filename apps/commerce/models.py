@@ -165,6 +165,7 @@ class CartItem(TimeStampedUUIDModel):
 
     class Meta:
         unique_together = ("cart", "product")
+        ordering = ["-created_at"]
     
     def get_unit_price(self):
         return self.product.get_unit_final_price()
