@@ -199,7 +199,9 @@ class RegisterSerializer(serializers.Serializer):
         return user
 
 class PhoneOTPRequestSerializer(serializers.Serializer):
+    full_name = serializers.CharField(required=False, allow_blank=True)
     phone = serializers.CharField(max_length=15)
+    email = serializers.EmailField(required=False, allow_blank=True)
     country_code = serializers.CharField(max_length=5, required=False, default="+91")
     create_account = serializers.BooleanField(required=False, default=False)
 
@@ -232,6 +234,8 @@ class PhoneOTPVerifySerializer(serializers.Serializer):
         return data
 
 class EmailOTPRequestSerializer(serializers.Serializer):
+    full_name = serializers.CharField(required=False, allow_blank=True)
+    phone = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField()
 
 class EmailOTPVerifySerializer(serializers.Serializer):

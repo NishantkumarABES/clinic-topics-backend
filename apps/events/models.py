@@ -1,3 +1,4 @@
+import pytz
 from django.db import models
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -22,7 +23,10 @@ class Event(TimeStampedUUIDModel):
     end_date = models.DateField(null=True)
     start_time = models.TimeField(null=True)
     end_time = models.TimeField(null=True)
-
+    timezone = models.CharField(
+        max_length=50,
+        default="Asia/Kolkata"
+    )
     format = models.CharField(
         max_length=20,
         choices=EventFormat.CHOICES
@@ -62,24 +66,42 @@ class Event(TimeStampedUUIDModel):
         if self.start_date == self.end_date:
             if self.end_time <= self.start_time:
                 raise ValidationError("End time must be after start time")
+        
+    def calculate_status(self):
+        if self.status == EventStatus.CANCELLED:
+            return EventStatus.CANCELLED
 
-    def save(self, *args, **kwargs):
-        # Compute duration_minutes
+        if not all([self.start_date, self.start_time, self.end_date, self.end_time]):
+            return EventStatus.UPCOMING
+
+        try:
+            tz = pytz.timezone(self.timezone or "Asia/Kolkata")
+        except Exception:
+            tz = pytz.timezone("Asia/Kolkata")
+
         start_dt = datetime.combine(self.start_date, self.start_time)
         end_dt = datetime.combine(self.end_date, self.end_time)
-        self.duration_minutes = int((end_dt - start_dt).total_seconds() / 60)
-        # Auto status update
-        now = timezone.now()
-        start_dt_utc = timezone.make_aware(start_dt)
-        end_dt_utc = timezone.make_aware(end_dt)
 
-        if self.status != "cancelled":
-            if now < start_dt_utc:
-                self.status = "upcoming"
-            elif start_dt_utc <= now <= end_dt_utc:
-                self.status = "ongoing"
-            else:
-                self.status = "completed"
+        start_dt = tz.localize(start_dt)
+        end_dt = tz.localize(end_dt)
+
+        now = timezone.now().astimezone(tz)
+
+        if now < start_dt:
+            return EventStatus.UPCOMING
+        elif start_dt <= now <= end_dt:
+            return EventStatus.ONGOING
+        return EventStatus.COMPLETED
+
+    def save(self, *args, **kwargs):
+        # Calculate duration
+        if all([self.start_date, self.start_time, self.end_date, self.end_time]):
+            start_dt = datetime.combine(self.start_date, self.start_time)
+            end_dt = datetime.combine(self.end_date, self.end_time)
+            self.duration_minutes = int((end_dt - start_dt).total_seconds() / 60)
+
+        # Single source of truth
+        self.status = self.calculate_status()
 
         super().save(*args, **kwargs)
 
