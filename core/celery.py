@@ -15,7 +15,7 @@ CELERY_BEAT_SCHEDULE = {
     
     "update-event-statuses": {
         "task": "apps.events.tasks.update_event_statuses",
-        "schedule": crontab(hour=0, minute=0),  # every day at 12 AM UTC
+        "schedule": crontab(minute="*/15"),  # every 15 minutes
     },
 }
 CELERY_TASK_TRACK_STARTED = True
