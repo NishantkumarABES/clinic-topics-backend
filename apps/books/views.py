@@ -16,7 +16,7 @@ from apps.books.serializers import (
     CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer,
     BookUpdateSerializer, BookRatingSerializer, BookRatingListSerializer, AdminBookCreateSerializer
 )
-from apps.books.constants import Status
+from apps.books.constants import Status, OrderStatus
 from core.permissions import IsDoctor, IsAdmin
 from core.api_responses import BAD_REQUEST_400, UNAUTHORIZE_401
 from external.razorpay.service import razorpay_service
@@ -172,7 +172,7 @@ class CreateBookPurchaseView(APIView):
             user=request.user,
             book=book,
             defaults={
-                "amount": book.price,
+                "amount": book.price * 100,
                 "currency": "INR",
                 "razorpay_order_id": ""
             }
@@ -184,7 +184,7 @@ class CreateBookPurchaseView(APIView):
             )
 
         order = razorpay_service.create_order(
-            amount=book.price,
+            amount=book.price * 100,
             receipt=str(purchase.id),
             notes={"book_id": str(book.id), "user_id": str(request.user.id)}
         )
@@ -244,7 +244,15 @@ class VerifyBookPurchaseView(APIView):
         purchase.save(update_fields=["razorpay_payment_id", "is_paid"])
 
         return Response(
-            {"detail": "Payment successful", "success": True}
+            {
+                "detail": "Payment successful", 
+                "data": {
+                    "order_id": data["razorpay_order_id"],
+                    "payment_id": data["razorpay_payment_id"],
+                    "status": OrderStatus.PAID
+                },
+                "success": True
+            }
         )
 
 class BookRatingView(APIView):

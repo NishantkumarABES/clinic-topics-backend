@@ -1,5 +1,11 @@
 from django.db import models
 
+class OrderStatus:
+    PENDING_PAYMENT = 'pending_payment'
+    PAID = 'paid'
+    CANCELLED = 'cancelled'
+    REFUNDED = 'refunded'
+
 class Status(models.TextChoices):
     PENDING = "pending", "Pending Review"
     INREVIEW = "in_review", "Under Review"
