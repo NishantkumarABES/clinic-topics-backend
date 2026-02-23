@@ -12,6 +12,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.accounts.tasks.mark_inactive_users",
         "schedule": crontab(hour=3, minute=0),  # every day at 3 AM
     },
+    
+    "update-event-statuses": {
+        "task": "apps.events.tasks.update_event_statuses",
+        "schedule": crontab(hour=0, minute=0),  # every day at 12 AM UTC
+    },
 }
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60

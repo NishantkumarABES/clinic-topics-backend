@@ -67,6 +67,7 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
             "end_date",
             "start_time",
             "end_time",
+            "timezone",
             "format",
             "is_free",
             "registration_fee",
@@ -147,7 +148,6 @@ class StandardResponseSerializer(serializers.Serializer):
     class Meta:
         ref_name = "EventsStandardResponseSerializer"
 
-
 class EventResponseSerializer(serializers.Serializer):
     """Response for single event endpoints (create, retrieve, update)."""
     detail = serializers.CharField(help_text="Response message")
@@ -156,7 +156,6 @@ class EventResponseSerializer(serializers.Serializer):
 
     class Meta:
         ref_name = "EventsEventResponseSerializer"
-
 
 class EventListResponseSerializer(serializers.Serializer):
     """Response for paginated event list endpoint."""
