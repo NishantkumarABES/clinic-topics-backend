@@ -53,13 +53,34 @@ class EmailOTPRequestView(APIView):
         serializer.is_valid(raise_exception=True)
 
         email = serializer.validated_data["email"]
-        if email:
-            user = User.objects.filter(
-                email=email
-            ).exclude(state=UserState.DELETED).first()
+        phone = serializer.validated_data.get("phone")
+        full_name = serializer.validated_data.get("full_name")
+        qs = User.objects.exclude(state=UserState.DELETED)
+
+        email_exists = qs.filter(email=email).exists() if email else False
+        phone_exists = qs.filter(phone=phone).exists() if phone else False
+
+        # 🚫 Prevent sending OTP if identity already exists
+        if email_exists or phone_exists:
+
+            if email_exists and phone_exists:
+                msg = "Account already exists with this email and phone"
+            elif email_exists:
+                msg = "Account already exists with this email"
+            else:
+                msg = "Account already exists with this phone"
+
+            return Response({
+                "detail": msg,
+                "data": {
+                    "email_exists": email_exists,
+                    "phone_exists": phone_exists
+                },
+                "success": False
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            otp = send_email_otp(email, full_name=user.full_name if user else None)
+            otp = send_email_otp(email, full_name)
         except Exception as e:
             return Response({
                 "detail": str(e),
@@ -118,11 +139,37 @@ class PhoneOTPRequestView(APIView):
         serializer.is_valid(raise_exception=True)
 
         phone = serializer.validated_data["phone"]
+        email = serializer.validated_data.get("email")
+        full_name = serializer.validated_data.get("full_name")
         phone_number = serializer.validated_data["phone_number"]
         create_account = serializer.validated_data["create_account"]
 
+        qs = User.objects.exclude(state=UserState.DELETED)
+
+        email_exists = qs.filter(email=email).exists() if email else False
+        phone_exists = qs.filter(phone=phone).exists() if phone else False
+
+        # 🚫 Prevent sending OTP if identity already exists
+        if email_exists or phone_exists:
+
+            if email_exists and phone_exists:
+                msg = "Account already exists with this email and phone"
+            elif email_exists:
+                msg = "Account already exists with this email"
+            else:
+                msg = "Account already exists with this phone"
+
+            return Response({
+                "detail": msg,
+                "data": {
+                    "email_exists": email_exists,
+                    "phone_exists": phone_exists
+                },
+                "success": False
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         if not create_account and User.objects.filter(
-            phone=phone_number, state=UserState.DELETED
+            phone=phone, state=UserState.DELETED
         ).exists():
             return Response(
                 {
@@ -132,7 +179,7 @@ class PhoneOTPRequestView(APIView):
                 }
             )
 
-        if not can_resend_otp(phone=phone_number):
+        if not can_resend_otp(phone=phone):
             return Response(
                 {"detail": "Please wait before requesting another OTP", "data": None, "success": False},
                 status=status.HTTP_429_TOO_MANY_REQUESTS

@@ -174,6 +174,8 @@ class EventRetrieveUpdateAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
         event = serializer.save()
+        event.status = event.calculate_status()
+        event.save(update_fields=["status"])
         return Response({
             "detail": "Event updated successfully",
             "data": EventSerializer(event).data,

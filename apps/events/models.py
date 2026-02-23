@@ -62,6 +62,27 @@ class Event(TimeStampedUUIDModel):
         if self.start_date == self.end_date:
             if self.end_time <= self.start_time:
                 raise ValidationError("End time must be after start time")
+        
+    def calculate_status(self):
+        if self.status == "cancelled":
+            return "cancelled"
+
+        if not all([self.start_date, self.start_time, self.end_date, self.end_time]):
+            return "upcoming"
+
+        start_dt = datetime.combine(self.start_date, self.start_time)
+        end_dt = datetime.combine(self.end_date, self.end_time)
+
+        start_dt = timezone.make_aware(start_dt)
+        end_dt = timezone.make_aware(end_dt)
+
+        now = timezone.now()
+
+        if now < start_dt:
+            return "upcoming"
+        elif start_dt <= now <= end_dt:
+            return "ongoing"
+        return "completed"
 
     def save(self, *args, **kwargs):
         # Compute duration_minutes
