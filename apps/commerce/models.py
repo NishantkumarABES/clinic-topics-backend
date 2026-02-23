@@ -35,6 +35,7 @@ class Product(TimeStampedUUIDModel):
                 name="unique_product_name_brand"
             )
         ]
+        ordering = ["-created_at"]
     
     @property
     def is_out_of_stock(self):
