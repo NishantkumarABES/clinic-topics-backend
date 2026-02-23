@@ -235,6 +235,7 @@ class PhoneOTPVerifySerializer(serializers.Serializer):
 
 class EmailOTPRequestSerializer(serializers.Serializer):
     full_name = serializers.CharField(required=False, allow_blank=True)
+    country_code = serializers.CharField(required=False, default="+91")
     phone = serializers.CharField(required=False, allow_blank=True)
     email = serializers.EmailField()
 
