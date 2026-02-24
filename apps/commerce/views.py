@@ -8,10 +8,11 @@ from rest_framework.pagination import PageNumberPagination
 from django.shortcuts import get_object_or_404
 from django.conf import settings
 from django.db import transaction, IntegrityError
-from django.db.models import Q, Sum
+from django.db.models import Q, Sum, Min, Max
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from decimal import Decimal
+
 
 from core.permissions import IsAdmin
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404
@@ -30,7 +31,7 @@ from apps.commerce.serializers import (
     ProductReviewResponseSerializer, CartResponseSerializer, AddressListResponseSerializer,
     AddressResponseSerializer, WishlistResponseSerializer, OrderDetailResponseSerializer
 )
-from apps.commerce.constants import OrderStatus
+from apps.commerce.constants import OrderStatus, ProductCategory
 from apps.notifications.services import create_admin_notification
 from external.razorpay.service import razorpay_service
 
@@ -143,6 +144,109 @@ class ProductReviewListView(APIView):
             "detail": "Reviews retrieved successfully",
             "data": serializer.data,
             "success": True
+        })
+
+class ProductFilterOptionsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_id="product_filter_options",
+        operation_description="Get filter options including categories, brands, brands by category, and price ranges.",
+        tags=["Commerce - Products"],
+        responses={
+            200: openapi.Response(
+                description="Filter options retrieved successfully"
+            )
+        }
+    )
+    def get(self, request):
+        user = request.user
+
+        # Base queryset (only active and in stock)
+        queryset = Product.objects.filter(
+            is_active=True,
+            stock_quantity__gt=0
+        )
+
+        # Role-based filtering
+        if user.role == UserRole.DOCTOR:
+            queryset = queryset.filter(for_doctors=True)
+        elif user.role == UserRole.PATIENT:
+            queryset = queryset.filter(for_patients=True)
+
+        # -----------------------------------
+        # 1️⃣ Categories
+        # -----------------------------------
+        categories = [
+            label for value, label in ProductCategory.CHOICES
+        ]
+
+        # -----------------------------------
+        # 2️⃣ Global Brands
+        # -----------------------------------
+        brands = (
+            queryset.exclude(brand="")
+            .values_list("brand", flat=True)
+            .distinct()
+            .order_by("brand")
+        )
+
+        # -----------------------------------
+        # 3️⃣ Brands by Category
+        # -----------------------------------
+        brands_by_category = {}
+
+        for category_value, _ in ProductCategory.CHOICES:
+            category_brands = (
+                queryset.filter(category=category_value)
+                .exclude(brand="")
+                .values_list("brand", flat=True)
+                .distinct()
+                .order_by("brand")
+            )
+            brands_by_category[category_value] = list(category_brands)
+
+        # -----------------------------------
+        # 4️⃣ Global Price Range
+        # -----------------------------------
+        price_agg = queryset.aggregate(
+            min_price=Min("price"),
+            max_price=Max("price")
+        )
+
+        price_range = {
+            "min_price": price_agg["min_price"] or 0,
+            "max_price": price_agg["max_price"] or 0,
+        }
+
+        # -----------------------------------
+        # 5️⃣ Price Range by Category
+        # -----------------------------------
+        price_range_by_category = {}
+
+        for category_value, _ in ProductCategory.CHOICES:
+            category_queryset = queryset.filter(category=category_value)
+
+            agg = category_queryset.aggregate(
+                min_price=Min("price"),
+                max_price=Max("price")
+            )
+
+            price_range_by_category[category_value] = {
+                "min_price": agg["min_price"] or 0,
+                "max_price": agg["max_price"] or 0,
+            }
+
+        return Response({
+            "success": True,
+            "detail": "Filter options fetched successfully",
+            "data": {
+                "categories": categories,
+                "brands": list(brands),
+                "brands_by_category": brands_by_category,
+                "price_range": price_range,
+                "price_range_by_category": price_range_by_category,
+            }
         })
 
 class CreateUpdateProductReviewView(APIView):

@@ -3,7 +3,7 @@ from apps.commerce.views import (
     ProductListView, ProductDetailView, CartDetailView, AddToCartView, UpdateCartItemView, RemoveCartItemView, AddressListCreateView, 
     AddressDetailView, AdminProductListCreateAPIView, AdminProductUpdateAPIView, ProductReviewListView, CreateUpdateProductReviewView, 
     ApplyCouponView, RemoveCouponView, AdminCouponListCreateView, AdminCouponUpdateDestroyView, WishlistDetailView, AddToWishlistView, 
-    RemoveFromWishlistView, OrderHistoryView, OrderDetailView,
+    RemoveFromWishlistView, OrderHistoryView, OrderDetailView, ProductFilterOptionsAPIView,
     AdminOrderListAPIView, AdminOrderAnalyticsAPIView, AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView,
     CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, CancelOrderView, RefundOrderView, RetryPaymentView
 )
@@ -13,6 +13,8 @@ urlpatterns = [
     path("products/<uuid:product_id>/", ProductDetailView.as_view(), name="product-detail"),
     path("products/<uuid:product_id>/reviews/", ProductReviewListView.as_view()),
     path("products/review/", CreateUpdateProductReviewView.as_view()),
+    path("products/filter-options/", ProductFilterOptionsAPIView.as_view()),
+
 
     path("cart/", CartDetailView.as_view()),
     path("cart/add/", AddToCartView.as_view()),
