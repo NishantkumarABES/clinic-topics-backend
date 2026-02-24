@@ -11,7 +11,6 @@ from apps.events.serializers import (
     EventSerializer, EventCreateUpdateSerializer, EventResponseSerializer, EventListResponseSerializer, 
 )
 from core.api_responses import NOT_FOUND_404
-from core.permissions import IsAdmin, IsDoctor
 from apps.accounts.constants import UserRole
 
 
@@ -78,7 +77,7 @@ class EventListCreateAPIView(APIView):
     def get(self, request):
         queryset = Event.objects.filter(is_active=True)
         queryset = EventFilterHelper.filter_queryset(request, queryset)
-
+        
         paginator = self.pagination_class()
         paginated_queryset = paginator.paginate_queryset(queryset, request)
 

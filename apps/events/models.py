@@ -105,9 +105,11 @@ class Event(TimeStampedUUIDModel):
 
         super().save(*args, **kwargs)
 
+    class Meta:
+        ordering = ["start_date"]
+
     def __str__(self):
         return self.title
-
 
 # ----------------------------
 # Speaker Model
@@ -126,7 +128,6 @@ class EventSpeaker(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.name} ({self.event.title})"
-
 
 # ----------------------------
 # Event Image Model
