@@ -57,23 +57,14 @@ class EmailOTPRequestView(APIView):
         full_name = serializer.validated_data.get("full_name")
         qs = User.objects.exclude(state=UserState.DELETED)
 
-        email_exists = qs.filter(email=email).exists() if email else False
         phone_exists = qs.filter(phone=phone).exists() if phone else False
 
         # 🚫 Prevent sending OTP if identity already exists
-        if email_exists or phone_exists:
-
-            if email_exists and phone_exists:
-                msg = "Account already exists with this email and phone"
-            elif email_exists:
-                msg = "Account already exists with this email"
-            else:
-                msg = "Account already exists with this phone"
-
+        if phone_exists:
+            msg = "Account already exists with this phone"
             return Response({
                 "detail": msg,
                 "data": {
-                    "email_exists": email_exists,
                     "phone_exists": phone_exists
                 },
                 "success": False
@@ -147,23 +138,14 @@ class PhoneOTPRequestView(APIView):
         qs = User.objects.exclude(state=UserState.DELETED)
 
         email_exists = qs.filter(email=email).exists() if email else False
-        phone_exists = qs.filter(phone=phone).exists() if phone else False
-
+        
         # 🚫 Prevent sending OTP if identity already exists
-        if email_exists or phone_exists:
-
-            if email_exists and phone_exists:
-                msg = "Account already exists with this email and phone"
-            elif email_exists:
-                msg = "Account already exists with this email"
-            else:
-                msg = "Account already exists with this phone"
-
+        if email_exists:
+            msg = "Account already exists with this email"
             return Response({
                 "detail": msg,
                 "data": {
                     "email_exists": email_exists,
-                    "phone_exists": phone_exists
                 },
                 "success": False
             }, status=status.HTTP_400_BAD_REQUEST)
