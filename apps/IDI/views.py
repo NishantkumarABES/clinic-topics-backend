@@ -8,12 +8,12 @@ from drf_yasg.utils import swagger_auto_schema
 
 from apps.IDI.models import IDI
 from apps.IDI.serializers import (
-    IDIReadSerializer, IDIWriteSerializer, AdminIDIListPagination,
+    IDIReadSerializer, IDIWriteSerializer, AdminIDIListPagination, IDIFilterOptionsSerializer,
     IDIDataResponseSerializer, IDIListDataSerializer, ExtractIDIRequestSerializer
 )
 from core.api_responses import NOT_FOUND_404
 from apps.IDI.services import IDIExtractionService
-
+from apps.IDI.constants import DrugClass, TherapeuticCategory
 
 
 class AdminIDIListCreateAPIView(APIView):
@@ -117,12 +117,21 @@ class IDIListAPIView(APIView):
         # Only return published drugs for regular users
         queryset = IDI.objects.filter(status="published")
 
+        therapeutic_category_filter = request.query_params.get("therapeutic_category")
+        drug_class_filter = request.query_params.get("drug_class")
+
         if search:
             queryset = queryset.filter(
                 Q(drug_name_generic__icontains=search) |
                 Q(drug_class__icontains=search) |
                 Q(therapeutic_category__icontains=search)
             )
+        
+        if therapeutic_category_filter:
+            queryset = queryset.filter(therapeutic_category=therapeutic_category_filter)
+
+        if drug_class_filter:
+            queryset = queryset.filter(drug_class=drug_class_filter)
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
@@ -224,6 +233,35 @@ class AdminIDIExtractAPIView(APIView):
                 "detail": "IDI extracted successfully",
                 "data": extracted_data,
                 "success": True
+            },
+            status=status.HTTP_200_OK
+        )
+
+class IDIFilterOptionsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Get static filter options for IDI listing",
+        responses={200: IDIFilterOptionsSerializer}
+    )
+    def get(self, request):
+
+        drug_class_options = [
+            choice.label for choice in DrugClass
+        ]
+
+        therapeutic_category_options = [
+            choice.label for choice in TherapeuticCategory
+        ]
+
+        return Response(
+            {
+                'detail': 'Filter options retrieved successfully',
+                'data': {
+                    "drug_class": drug_class_options,
+                    "therapeutic_category": therapeutic_category_options,
+                },
+                'success': True
             },
             status=status.HTTP_200_OK
         )

@@ -1,6 +1,7 @@
 from django.urls import path
 from apps.IDI.views import (
-    AdminIDIListCreateAPIView, AdminIDIUpdateAPIView, IDIListAPIView, IDIDetailAPIView, AdminIDIExtractAPIView
+    AdminIDIListCreateAPIView, AdminIDIUpdateAPIView, IDIListAPIView, IDIDetailAPIView, AdminIDIExtractAPIView,
+    IDIFilterOptionsAPIView
 )
 
 urlpatterns = [
@@ -12,4 +13,5 @@ urlpatterns = [
     # User endpoints (requires IsAuthenticated) - only published drugs
     path("idi/", IDIListAPIView.as_view(), name="idi-list"),
     path("idi/<uuid:idi_id>/", IDIDetailAPIView.as_view(), name="idi-detail"),
+    path("idi/filter-options/", IDIFilterOptionsAPIView.as_view(), name="idi-filter-options"),
 ]
