@@ -150,9 +150,9 @@ class PhoneOTPRequestView(APIView):
                 "success": False
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        if not create_account and User.objects.filter(
-            phone=phone, state=UserState.DELETED
-        ).exists():
+        qs = User.objects.exclude(state=UserState.DELETED)
+        phone_exists = qs.filter(phone=phone).exists()
+        if create_account is False and phone_exists is False:
             return Response(
                 {
                     "detail": "Registration required",

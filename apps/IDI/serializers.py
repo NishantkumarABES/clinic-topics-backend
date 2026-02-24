@@ -133,6 +133,15 @@ class IDIWriteSerializer(serializers.ModelSerializer):
 class ExtractIDIRequestSerializer(serializers.Serializer):
     paragraph = serializers.CharField()
 
+class IDIFilterOptionsSerializer(serializers.Serializer):
+    drug_class = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="Available drug class filter options"
+    )
+    therapeutic_category = serializers.ListField(
+        child=serializers.DictField(),
+        help_text="Available therapeutic category filter options"
+    )
 
 #########################   Response Serializers    #########################
 
