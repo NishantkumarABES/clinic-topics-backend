@@ -106,7 +106,7 @@ class Event(TimeStampedUUIDModel):
         super().save(*args, **kwargs)
 
     class Meta:
-        ordering = ["start_date"]
+        ordering = ["-start_date"]
 
     def __str__(self):
         return self.title
