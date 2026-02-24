@@ -398,18 +398,24 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True
     )
+    deleted_image_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        required=False,
+        write_only=True
+    )
 
     class Meta:
         model = Product
         fields = [
             "name", "category", "brand", "description",
             "price", "tax_percentage", "discount_percentage",
-            "is_active", "stock_quantity", "images",
+            "is_active", "stock_quantity", "images", "deleted_image_ids",
             "for_patients", "for_doctors"
         ]
 
     def create(self, validated_data):
         images = validated_data.pop("images", [])
+        validated_data.pop("deleted_image_ids", None)
         validated_data["sku"] = uuid.uuid4().hex
         product = Product.objects.create(**validated_data)
 
@@ -420,13 +426,18 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         images = validated_data.pop("images", None)
+        deleted_image_ids = validated_data.pop("deleted_image_ids", None)
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        if images is not None:
-            instance.images.all().delete()
+        # Delete only specific images if requested
+        if deleted_image_ids:
+            instance.images.filter(id__in=deleted_image_ids).delete()
+
+        # Append new images (don't replace existing)
+        if images:
             for image in images:
                 ProductImage.objects.create(product=instance, image=image)
 
