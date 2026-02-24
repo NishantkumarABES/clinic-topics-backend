@@ -150,16 +150,20 @@ class PhoneOTPRequestView(APIView):
                 "success": False
             }, status=status.HTTP_400_BAD_REQUEST)
 
-        # if not create_account and User.objects.filter(
-        #     phone=phone, state=UserState.DELETED
-        # ).exists():
-        #     return Response(
-        #         {
-        #             "detail": "User with this phone number does not exist",
-        #             "data": None,
-        #             "success": False
-        #         }
-        #     )
+        if not create_account and User.objects.filter(
+            phone=phone, state=UserState.DELETED
+        ).exists():
+            return Response(
+                {
+                    "detail": "Registration required",
+                    "data": {
+                        "registration_required": True,
+                        "phone": phone_number
+                    },
+                    "success": True
+                },
+                status=status.HTTP_200_OK
+            )
 
         if not can_resend_otp(phone=phone):
             return Response(
