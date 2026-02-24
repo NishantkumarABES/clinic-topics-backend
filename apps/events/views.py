@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
 from drf_yasg.utils import swagger_auto_schema
 from django.db.models import Q
+from drf_yasg import openapi
 
 from apps.events.models import Event
 from apps.events.serializers import (
@@ -12,6 +13,7 @@ from apps.events.serializers import (
 )
 from core.api_responses import NOT_FOUND_404
 from apps.accounts.constants import UserRole
+
 
 
 
@@ -70,6 +72,22 @@ class EventListCreateAPIView(APIView):
 
     @swagger_auto_schema(
         operation_description="List all events with pagination and filters",
+        manual_parameters=[
+            openapi.Parameter(
+                name="search",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                description="Search events by title, description, or agenda",
+            ),
+            openapi.Parameter(
+                name="status",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                enum=["upcoming", "ongoing", "completed", "cancelled"],
+            ),
+        ],
         responses={
             200: EventListResponseSerializer,
         },

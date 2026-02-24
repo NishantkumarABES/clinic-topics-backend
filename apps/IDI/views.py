@@ -5,6 +5,7 @@ from rest_framework import status
 from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 from apps.IDI.models import IDI
 from apps.IDI.serializers import (
@@ -107,6 +108,28 @@ class IDIListAPIView(APIView):
 
     @swagger_auto_schema(
         operation_description="Get list of published IDI drugs",
+        manual_parameters=[
+            openapi.Parameter(
+                name="search",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+            ),
+            openapi.Parameter(
+                name="therapeutic_category",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                enum=TherapeuticCategory.choices,
+            ),  
+            openapi.Parameter(
+                name="drug_class",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                enum=DrugClass.choices,
+            ),
+        ],
         responses={
             200: IDIListDataSerializer,
         }
