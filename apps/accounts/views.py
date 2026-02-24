@@ -454,9 +454,17 @@ class PhoneLoginView(APIView):
             user = User.objects.exclude(state=UserState.DELETED).get(phone=phone)
         except User.DoesNotExist:
             return Response(
-                {"detail": "User with this phone number does not exist", 
-                 "data": None, "success": False}
+                {
+                    "detail": "Registration required",
+                    "data": {
+                        "registration_required": True,
+                        "phone": phone_number
+                    },
+                    "success": True
+                },
+                status=status.HTTP_200_OK
             )
+            
         
         if not user.can_authenticate():
             return Response({
