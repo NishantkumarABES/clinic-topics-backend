@@ -361,6 +361,7 @@ class OrderHistorySerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             "id",
+            "order_number",
             "status",
             "total_amount",
             "payment_method",
@@ -558,6 +559,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             "id",
+            "order_number",
             "user",
             "address",
             "status",
@@ -618,6 +620,7 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
         model = Order
         fields = [
             "id",
+            "order_number",
             "user",
             "address",
             "status",
