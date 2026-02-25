@@ -78,8 +78,12 @@ class DoctorListView(APIView):
                 status=status.HTTP_403_FORBIDDEN
             )
 
-        queryset = DoctorProfile.objects.select_related("user").all()
-
+        # queryset = DoctorProfile.objects.select_related("user").all()
+        queryset = (
+            DoctorProfile.objects
+            .select_related("user")
+            .exclude(user__state="deleted")
+        )
         # ---------- Filters ----------
         specialization = request.query_params.get("specialization")
         min_experience = request.query_params.get("min_experience")
