@@ -1361,6 +1361,7 @@ class VerifyPaymentView(APIView):
                 {"success": False, "detail": "Payment verification failed"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+        payment_details = razorpay_service.fetch_payment(razorpay_payment_id)
 
         with transaction.atomic():
             # Update payment record
@@ -1373,6 +1374,8 @@ class VerifyPaymentView(APIView):
             order = payment.order
             order.status = OrderStatus.PAID
             order.payment_reference = razorpay_payment_id
+            order.payment_method = payment_details.get("method")
+            order.payment_meta = payment_details  # 🔥 Full JSON stored
             order.save()
 
             for item in order.items.select_related("product"):

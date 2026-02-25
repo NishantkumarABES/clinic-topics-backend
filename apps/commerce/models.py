@@ -5,7 +5,7 @@ from decimal import Decimal
 
 from core.models import TimeStampedUUIDModel
 from apps.accounts.models import User
-from apps.commerce.constants import ProductCategory, OrderStatus, PaymentStatus
+from apps.commerce.constants import ProductCategory, OrderStatus, PaymentStatus, PaymentGateway, PaymentMethod
 
 class Product(TimeStampedUUIDModel):
     name = models.CharField(max_length=255)
@@ -226,9 +226,24 @@ class Order(TimeStampedUUIDModel):
     status = models.CharField(max_length=20, choices=OrderStatus.CHOICES)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
-    payment_method = models.CharField(max_length=50)
-    payment_reference = models.CharField(max_length=255, blank=True)
+    payment_gateway = models.CharField(
+        max_length=20,
+        choices=PaymentGateway.choices,
+        default=PaymentGateway.RAZORPAY
+    )
 
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PaymentMethod.choices,
+        null=True,
+        blank=True
+    )
+    payment_reference = models.CharField(max_length=255, blank=True)
+    payment_meta = models.JSONField(
+        null=True,
+        blank=True,
+        help_text="Stores complete Razorpay payment response"
+    )
     coupon = models.ForeignKey(
         Coupon,
         on_delete=models.SET_NULL,

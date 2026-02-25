@@ -1,3 +1,5 @@
+from django.db import models
+
 class OrderStatus:
     PENDING_PAYMENT = 'pending_payment'
     PAID = 'paid'
@@ -18,20 +20,17 @@ class OrderStatus:
     ]
 
 
-class PaymentMethod:
-    CARD = 'card'
-    UPI = 'upi'
-    NETBANKING = 'netbanking'
-    WALLET = 'wallet'
-    COD = 'cod'
+class PaymentGateway(models.TextChoices):
+    RAZORPAY = "razorpay", "Razorpay"
+    COD = "cod", "Cash on Delivery"
 
-    CHOICES = [
-        (CARD, 'Credit/Debit Card'),
-        (UPI, 'UPI'),
-        (NETBANKING, 'Net Banking'),
-        (WALLET, 'Wallet'),
-        (COD, 'Cash on Delivery'),
-    ]
+class PaymentMethod(models.TextChoices):
+    CARD = "card", "Credit/Debit Card"
+    UPI = "upi", "UPI"
+    NETBANKING = "netbanking", "Net Banking"
+    WALLET = "wallet", "Wallet"
+    COD = "cod", "Cash on Delivery"
+
 
 
 class ProductCategory:
