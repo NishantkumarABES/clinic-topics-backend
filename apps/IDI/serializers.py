@@ -88,6 +88,16 @@ class IDIWriteSerializer(serializers.ModelSerializer):
             "practical_prescribing_pearls",
         ]
 
+    def validate_drug_name_generic(self, value):
+        queryset = IDI.objects.filter(drug_name_generic__iexact=value)
+        if self.instance:
+            queryset = queryset.exclude(pk=self.instance.pk)
+        if queryset.exists():
+            raise serializers.ValidationError(
+                f"A drug with the name \"{value}\" already exists."
+            )
+        return value
+
     def create(self, validated_data):
         interactions = validated_data.pop("key_interactions", [])
         pearls = validated_data.pop("practical_prescribing_pearls", [])
