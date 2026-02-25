@@ -1,4 +1,4 @@
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 from django.core.validators import MinValueValidator
 from decimal import Decimal
@@ -215,6 +215,13 @@ class Address(TimeStampedUUIDModel):
 class Order(TimeStampedUUIDModel):
     user = models.ForeignKey(User, on_delete=models.PROTECT)
     address = models.ForeignKey(Address, on_delete=models.PROTECT)
+    order_number = models.CharField(
+        max_length=20,
+        unique=True,
+        null=False,
+        blank=False,
+        db_index=True
+    )
 
     status = models.CharField(max_length=20, choices=OrderStatus.CHOICES)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -229,9 +236,27 @@ class Order(TimeStampedUUIDModel):
         blank=True,
         related_name="orders"
     )
-    def __str__(self):
-        return f"Order {self.id}"
 
+    def save(self, *args, **kwargs):
+        if not self.order_number:
+            with transaction.atomic():
+                last_order = Order.objects.select_for_update().order_by("-created_at").first()
+                last_number = 0
+
+                if last_order and last_order.order_number:
+                    try:
+                        last_number = int(last_order.order_number.split("-")[-1])
+                    except Exception:
+                        last_number = 0
+
+                new_number = last_number + 1
+                self.order_number = f"ORD-{str(new_number).zfill(8)}"
+
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.order_number}"
+    
 class OrderItem(TimeStampedUUIDModel):
     order = models.ForeignKey(
         Order,
