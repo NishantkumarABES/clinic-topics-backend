@@ -5,7 +5,7 @@ from apps.IDI.constants import IDIStatus
 
 class IDI(TimeStampedUUIDModel):
     # Basic Drug Information
-    drug_name_generic = models.CharField(max_length=255)
+    drug_name_generic = models.CharField(max_length=255, unique=True)
     drug_class = models.CharField(max_length=255)
     therapeutic_category = models.CharField(max_length=255)
     brands_in_india = models.TextField()
