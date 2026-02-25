@@ -1051,37 +1051,6 @@ class AdminUserAddressListView(APIView):
             "results": serializer.data
         })
 
-class AdminOrderAnalyticsAPIView(APIView):
-    """Admin endpoint to get order analytics."""
-    permission_classes = [IsAdmin]
-
-    @swagger_auto_schema(auto_schema=None)
-    def get(self, request):
-    # Get all orders (no date filter)
-        all_orders = Order.objects.all()
-
-        # Calculate analytics
-        total_orders = all_orders.count()
-        pending_payments = all_orders.filter(status="pending_payment").count()
-        processing_orders = all_orders.filter(status="processing").count()
-        delivered_orders = all_orders.filter(status="delivered").count()
-        cancelled_orders = all_orders.filter(status="cancelled").count()
-
-        # Total revenue (from successful/active orders)
-        total_revenue = all_orders.filter(
-            status__in=["paid", "processing", "shipped", "delivered"]
-        ).aggregate(total=Sum("total_amount"))["total"] or 0
-
-        return Response({
-            "success": True,
-            "total_orders": total_orders,
-            "pending_payments": pending_payments,
-            "processing_orders": processing_orders,
-            "delivered_orders": delivered_orders,
-            "cancelled_orders": cancelled_orders,
-            "total_revenue": float(total_revenue),
-        })
-
 class AdminOrderDetailAPIView(APIView):
     """Admin endpoint to get order details."""
     permission_classes = [IsAdmin]
