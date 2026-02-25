@@ -26,7 +26,9 @@ AWS_QUERYSTRING_AUTH = True  # private files via signed URLs
 # Don't set AWS_S3_CUSTOM_DOMAIN when using querystring_auth=True
 # Custom domain bypasses signed URL generation, causing 403 errors
 AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
-MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/"
+AWS_S3_CUSTOM_DOMAIN = "dt6cbml8wwgzk.cloudfront.net"
+# MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.{AWS_S3_REGION_NAME}.amazonaws.com/"
+MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/"
 
 STORAGES = {
     "default": {
