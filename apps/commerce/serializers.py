@@ -571,6 +571,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
             "total_amount",
             "payment_method",
             "payment_reference",
+            "payment_meta",
             "items",
             "items_count",
             "created_at",
