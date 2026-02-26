@@ -38,7 +38,7 @@ from external.razorpay.service import razorpay_service
 
 
 class ProductListPagination(PageNumberPagination):
-    page_size = 5
+    page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 100
 
@@ -690,7 +690,7 @@ class RemoveFromWishlistView(APIView):
         return Response({"detail": "Removed from wishlist", "data": None, "success": True})
 
 class OrderHistoryPagination(PageNumberPagination):
-    page_size = 5
+    page_size = 10
     page_size_query_param = "page_size"
     max_page_size = 50
 
