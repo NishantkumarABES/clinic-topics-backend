@@ -212,7 +212,7 @@ class ProductFilterOptionsAPIView(APIView):
         # 1️⃣ Categories
         # -----------------------------------
         categories = [
-            label for value, label in ProductCategory.CHOICES
+            label for value, label in ProductCategory.choices
         ]
 
         # -----------------------------------
@@ -230,7 +230,7 @@ class ProductFilterOptionsAPIView(APIView):
         # -----------------------------------
         brands_by_category = {}
 
-        for category_value, _ in ProductCategory.CHOICES:
+        for category_value, _ in ProductCategory.choices:
             category_brands = (
                 queryset.filter(category=category_value)
                 .exclude(brand="")
@@ -258,7 +258,7 @@ class ProductFilterOptionsAPIView(APIView):
         # -----------------------------------
         price_range_by_category = {}
 
-        for category_value, _ in ProductCategory.CHOICES:
+        for category_value, _ in ProductCategory.choices:
             category_queryset = queryset.filter(category=category_value)
 
             agg = category_queryset.aggregate(
