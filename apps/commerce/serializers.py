@@ -381,7 +381,7 @@ class ShopBannerSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShopBanner
-        fields = ["id", "title", "subtitle", "image", "redirect_url"]
+        fields = ["id", "title", "subtitle", "image", "redirect_category"]
 
     def get_image(self, obj):
         request = self.context.get("request")
