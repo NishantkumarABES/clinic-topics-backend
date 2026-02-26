@@ -18,7 +18,7 @@ from core.permissions import IsAdmin
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404
 from apps.accounts.models import UserRole
 from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order, OrderItem, Payment
-from apps.commerce.models import PaymentStatus
+from apps.commerce.models import PaymentStatus, ShopCategoryConfig, ShopBanner
 from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
     AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer,
@@ -26,6 +26,7 @@ from apps.commerce.serializers import (
     WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer,
     AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer, AdminCreateOrderSerializer,
     CreatePaymentOrderSerializer, VerifyPaymentSerializer, CancelOrderSerializer, RefundRequestSerializer,
+    ShopCategorySerializer, ShopBannerSerializer, AdminShopBannerWriteSerializer, AdminShopCategoryWriteSerializer,
     # Response serializers
     StandardResponseSerializer, ProductDetailResponseSerializer, ProductReviewListResponseSerializer,
     ProductReviewResponseSerializer, CartResponseSerializer, AddressListResponseSerializer,
@@ -35,7 +36,40 @@ from apps.commerce.constants import OrderStatus, ProductCategory
 from apps.notifications.services import create_admin_notification
 from external.razorpay.service import razorpay_service
 
+class ShopLandingAPIView(APIView):
+    permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_id="shop_landing",
+        operation_description="Returns shop landing categories and banners",
+        tags=["Commerce - Shop"]
+    )
+    def get(self, request):
+
+        categories = ShopCategoryConfig.objects.filter(
+            is_active=True
+        )
+
+        banners = ShopBanner.objects.filter(
+            is_active=True
+        )
+
+        return Response({
+            "success": True,
+            "detail": "Shop landing data fetched successfully",
+            "data": {
+                "categories": ShopCategorySerializer(
+                    categories,
+                    many=True,
+                    context={"request": request}
+                ).data,
+                "banners": ShopBannerSerializer(
+                    banners,
+                    many=True,
+                    context={"request": request}
+                ).data
+            }
+        })
 
 class ProductListPagination(PageNumberPagination):
     page_size = 10
@@ -896,6 +930,53 @@ class AdminCouponUpdateDestroyView(APIView):
         coupon.delete()
         return Response({"success": True, "message": "Coupon deleted"})
 
+class AdminCreateShopCategoryAPIView(APIView):
+    permission_classes = [IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        operation_id="create_shop_category",
+        operation_description="Create a shop landing category with image (multipart/form-data)",
+        tags=["Commerce - Shop"],
+        request_body=AdminShopCategoryWriteSerializer
+    )
+    def post(self, request):
+        serializer = AdminShopCategoryWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        category = serializer.save()
+
+        return Response({
+            "success": True,
+            "detail": "Shop category created successfully",
+            "data": ShopCategorySerializer(
+                category,
+                context={"request": request}
+            ).data
+        }, status=201)
+
+class AdminCreateShopBannerAPIView(APIView):
+    permission_classes = [IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        operation_id="create_shop_banner",
+        operation_description="Create a shop landing banner with image (multipart/form-data)",
+        tags=["Commerce - Shop"],
+        request_body=AdminShopBannerWriteSerializer
+    )
+    def post(self, request):
+        serializer = AdminShopBannerWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        banner = serializer.save()
+
+        return Response({
+            "success": True,
+            "detail": "Shop banner created successfully",
+            "data": ShopBannerSerializer(
+                banner,
+                context={"request": request}
+            ).data
+        }, status=201)
 
 #### ADMIN APIS FOR ORDERS ####
 

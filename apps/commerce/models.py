@@ -14,7 +14,7 @@ class Product(TimeStampedUUIDModel):
 
     category = models.CharField(
         max_length=50,
-        choices=ProductCategory.CHOICES
+        choices=ProductCategory.choices
     )
     brand = models.CharField(max_length=100, blank=True)
     description = models.TextField(blank=True)
@@ -350,4 +350,34 @@ class Payment(TimeStampedUUIDModel):
     def __str__(self):
         return f"Payment {self.razorpay_order_id} - {self.status}"
 
+class ShopBanner(TimeStampedUUIDModel):
+    title = models.CharField(max_length=255)
+    subtitle = models.CharField(max_length=255, blank=True)
+    image = models.ImageField(upload_to="shop/banners/")
+    redirect_url = models.URLField(blank=True)
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
 
+    class Meta:
+        ordering = ["order", "-created_at"]
+
+    def __str__(self):
+        return self.title
+
+class ShopCategoryConfig(TimeStampedUUIDModel):
+    category = models.CharField(
+        max_length=50,
+        choices=ProductCategory.choices,
+        unique=True
+    )
+    image = models.ImageField(upload_to="shop/categories/")
+    title = models.CharField(max_length=255, blank=True)
+    subtitle = models.CharField(max_length=255, blank=True)
+    is_active = models.BooleanField(default=True)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ["order"]
+
+    def __str__(self):
+        return self.category

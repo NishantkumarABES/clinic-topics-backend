@@ -2,7 +2,8 @@ import uuid
 from django.db import models
 from rest_framework import serializers
 from apps.commerce.models import (
-    Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem, Order, OrderItem, Payment
+    Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem, Order, OrderItem, Payment,
+    ShopBanner, ShopCategoryConfig
 )
 
 
@@ -375,6 +376,47 @@ class OrderHistorySerializer(serializers.ModelSerializer):
         addr = obj.address
         return f"{addr.address_line}, {addr.city}, {addr.state}, {addr.postal_code}"
 
+class ShopBannerSerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ShopBanner
+        fields = ["id", "title", "subtitle", "image", "redirect_url"]
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
+
+class ShopCategorySerializer(serializers.ModelSerializer):
+    image = serializers.SerializerMethodField()
+    product_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ShopCategoryConfig
+        fields = [
+            "id",
+            "category",
+            "image",
+            "title",
+            "subtitle",
+            "product_count"
+        ]
+
+    def get_image(self, obj):
+        request = self.context.get("request")
+        if request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url
+
+    def get_product_count(self, obj):
+        return Product.objects.filter(
+            category=obj.category,
+            is_active=True,
+            stock_quantity__gt=0
+        ).count()
+
 ########### ADMIN SERIALIZERS ###########
 class AdminProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -444,6 +486,34 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
 
         return instance
 
+class AdminShopCategoryWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShopCategoryConfig
+        fields = [
+            "category",
+            "image",
+            "title",
+            "subtitle",
+            "is_active",
+            "order",
+        ]
+
+    def validate_category(self, value):
+        if ShopCategoryConfig.objects.filter(category=value).exists():
+            raise serializers.ValidationError("Category already configured.")
+        return value
+
+class AdminShopBannerWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShopBanner
+        fields = [
+            "title",
+            "subtitle",
+            "image",
+            "redirect_url",
+            "is_active",
+            "order",
+        ]
 ########### ADMIN ORDER SERIALIZERS ###########
 class AdminOrderItemSerializer(serializers.ModelSerializer):
     """Order item serializer for admin with full pricing details."""
