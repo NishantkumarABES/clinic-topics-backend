@@ -510,7 +510,7 @@ class AdminShopBannerWriteSerializer(serializers.ModelSerializer):
             "title",
             "subtitle",
             "image",
-            "redirect_url",
+            "redirect_category",
             "is_active",
             "order",
         ]

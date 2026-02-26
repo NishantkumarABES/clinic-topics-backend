@@ -354,7 +354,12 @@ class ShopBanner(TimeStampedUUIDModel):
     title = models.CharField(max_length=255)
     subtitle = models.CharField(max_length=255, blank=True)
     image = models.ImageField(upload_to="shop/banners/")
-    redirect_url = models.URLField(blank=True)
+    redirect_category = models.CharField(
+        max_length=50,
+        choices=ProductCategory.choices,
+        blank=True,
+        null=True
+    )
     is_active = models.BooleanField(default=True)
     order = models.PositiveIntegerField(default=0)
 
