@@ -1,4 +1,4 @@
-from django.db.models import Q, Avg
+from django.db.models import Q, Avg, Count
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -8,13 +8,54 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 from apps.accounts.constants import UserRole
+from apps.appointments.models import AppointmentCategory
 from apps.profiles.models import DoctorProfile
 from apps.appointments.serializers import (
-    DoctorListSerializer, DoctorDetailSerializer,
+    DoctorListSerializer, DoctorDetailSerializer, AppointmentCategorySerializer,
     DoctorListResponseSerializer, DoctorDetailResponseSerializer
 )
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
+from core.permissions import IsAdmin
 
+class AppointmentLandingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        # Get doctor counts grouped by specialization
+        doctor_counts = (
+            DoctorProfile.objects
+            .exclude(user__state="deleted")
+            .values("specialization")
+            .annotate(count=Count("id"))
+        )
+
+        # Convert to dictionary for quick lookup
+        doctor_count_map = {
+            item["specialization"]: item["count"]
+            for item in doctor_counts
+        }
+
+        # Fetch ALL categories (even if zero doctors)
+        categories = AppointmentCategory.objects.filter(is_active=True)
+
+        response_data = []
+
+        for category in categories:
+            response_data.append({
+                "key": category.key,
+                "label": category.label,
+                "image": category.image.url if category.image else None,
+                "doctor_count": doctor_count_map.get(category.key, 0)
+            })
+
+        return Response({
+            "detail": "Doctor categories retrieved successfully",
+            "data": {
+                "categories": response_data
+            },
+            "success": True
+        })
 
 class DoctorListPagination(PageNumberPagination):
     page_size = 10
@@ -170,3 +211,14 @@ class DoctorDetailView(APIView):
             "data": serializer.data,
             "success": True
         })
+
+class AppointmentCategoryCreateView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        serializer = AppointmentCategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
