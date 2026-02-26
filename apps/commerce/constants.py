@@ -33,18 +33,21 @@ class PaymentMethod(models.TextChoices):
 
 
 
-class ProductCategory:
-    DIAGONISTICS = 'diagnostics'
-    PPE = 'ppe'
-    MONITORING = 'monitoring'
-    SUPPLIES = 'supplies'
-
-    CHOICES = [
-        (DIAGONISTICS, 'Diagnostics'),
-        (PPE, 'PPE'),
-        (MONITORING, 'Monitoring'),
-        (SUPPLIES, 'Supplies'),
-    ]
+class ProductCategory(models.TextChoices):
+    DIAGNOSTICS = 'diagnostics', 'Diagnostics'
+    PPE = 'ppe', 'PPE'
+    MONITORING = 'monitoring', 'Monitoring'
+    SUPPLIES = 'supplies', 'Supplies'
+    MEDICINE = 'medicine', 'Medicine'
+    SKIN_CARE = "skin_care", 'Skin Care'
+    VITAMINS_MINERALS = "vitamins_minerals", 'Vitamins & Minerals'
+    BABY_CARE = "baby_care", 'Baby Care'
+    PAIN_RELIEF = "pain_relief", 'Pain Relief'
+    DIABETIC_CARE = "diabetic_care", 'Diabetic Care'
+    PROTEIN_SUPPLEMENTS = "protein_supplements", 'Protein Supplements'
+    PERSONAL_CARE_HYGIENE = "personal_care_hygiene", 'Personal Care & Hygiene'
+    FITNESS_WELLNESS_EQUIPMENT = "fitness_wellness_equipment", 'Fitness & Wellness Equipment'
+    
 
 class PaymentStatus:
     CREATED = 'created'
