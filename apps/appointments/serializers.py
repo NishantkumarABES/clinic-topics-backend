@@ -3,6 +3,7 @@ from apps.profiles.models import DoctorProfile
 from django.db.models import Avg, Count
 
 from apps.profiles.serializers import DoctorRatingSerializer
+from apps.appointments.models import AppointmentCategory
 
 #########################   Request Serializers    #########################
 
@@ -107,6 +108,16 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     def get_ratings(self, obj):
         ratings_qs = obj.user.ratings_received.all().order_by("-created_at")
         return DoctorRatingSerializer(ratings_qs, many=True).data
+
+class DoctorCategorySerializer(serializers.Serializer):
+    key = serializers.CharField()
+    label = serializers.CharField()
+    doctor_count = serializers.IntegerField()
+
+class AppointmentCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppointmentCategory
+        fields = ["id", "key", "label", "image", "is_active"]
 
 #########################   Response Serializers    #########################
 

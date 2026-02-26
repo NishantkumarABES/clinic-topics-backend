@@ -1,4 +1,4 @@
-from django.db.models import Q, Avg
+from django.db.models import Q, Avg, Count
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
@@ -10,11 +10,44 @@ from drf_yasg import openapi
 from apps.accounts.constants import UserRole
 from apps.profiles.models import DoctorProfile
 from apps.appointments.serializers import (
-    DoctorListSerializer, DoctorDetailSerializer,
+    DoctorListSerializer, DoctorDetailSerializer, AppointmentCategorySerializer,
     DoctorListResponseSerializer, DoctorDetailResponseSerializer
 )
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
+from core.permissions import IsAdmin
+from apps.appointments.constants import SPECIALTY_LABELS
 
+
+
+class AppointmentLandingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        queryset = (
+            DoctorProfile.objects
+            .exclude(user__state="deleted")
+            .values("specialization")
+            .annotate(doctor_count=Count("id"))
+            .order_by("specialization")
+        )
+
+        categories = []
+
+        for item in queryset:
+            key = item["specialization"]
+            categories.append({
+                "key": key,
+                "label": SPECIALTY_LABELS.get(key, key),
+                "doctor_count": item["doctor_count"],
+            })
+
+        return Response({
+            "detail": "Doctor categories retrieved successfully",
+            "data": {
+                "categories": categories
+            },
+            "success": True
+        })
 
 class DoctorListPagination(PageNumberPagination):
     page_size = 10
@@ -170,3 +203,14 @@ class DoctorDetailView(APIView):
             "data": serializer.data,
             "success": True
         })
+
+class AppointmentCategoryCreateView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request):
+        serializer = AppointmentCategorySerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
