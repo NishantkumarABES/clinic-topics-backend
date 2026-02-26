@@ -8,6 +8,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 from apps.accounts.constants import UserRole
+from apps.appointments.models import AppointmentCategory
 from apps.profiles.models import DoctorProfile
 from apps.appointments.serializers import (
     DoctorListSerializer, DoctorDetailSerializer, AppointmentCategorySerializer,
@@ -15,36 +16,43 @@ from apps.appointments.serializers import (
 )
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
 from core.permissions import IsAdmin
-from apps.appointments.constants import SPECIALTY_LABELS
-
-
 
 class AppointmentLandingView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        queryset = (
+
+        # Get doctor counts grouped by specialization
+        doctor_counts = (
             DoctorProfile.objects
             .exclude(user__state="deleted")
             .values("specialization")
-            .annotate(doctor_count=Count("id"))
-            .order_by("specialization")
+            .annotate(count=Count("id"))
         )
 
-        categories = []
+        # Convert to dictionary for quick lookup
+        doctor_count_map = {
+            item["specialization"]: item["count"]
+            for item in doctor_counts
+        }
 
-        for item in queryset:
-            key = item["specialization"]
-            categories.append({
-                "key": key,
-                "label": SPECIALTY_LABELS.get(key, key),
-                "doctor_count": item["doctor_count"],
+        # Fetch ALL categories (even if zero doctors)
+        categories = AppointmentCategory.objects.filter(is_active=True)
+
+        response_data = []
+
+        for category in categories:
+            response_data.append({
+                "key": category.key,
+                "label": category.label,
+                "image": category.image.url if category.image else None,
+                "doctor_count": doctor_count_map.get(category.key, 0)
             })
 
         return Response({
             "detail": "Doctor categories retrieved successfully",
             "data": {
-                "categories": categories
+                "categories": response_data
             },
             "success": True
         })

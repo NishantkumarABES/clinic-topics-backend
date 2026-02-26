@@ -109,11 +109,6 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
         ratings_qs = obj.user.ratings_received.all().order_by("-created_at")
         return DoctorRatingSerializer(ratings_qs, many=True).data
 
-class DoctorCategorySerializer(serializers.Serializer):
-    key = serializers.CharField()
-    label = serializers.CharField()
-    doctor_count = serializers.IntegerField()
-
 class AppointmentCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = AppointmentCategory
