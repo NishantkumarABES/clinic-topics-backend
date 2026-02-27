@@ -928,7 +928,7 @@ class AdminUserListView(APIView):
         by_admin = request.query_params.get("by_admin")
         ordering = request.query_params.get("ordering", "-created_at")
 
-        users = User.objects.filter(role=role)
+        users = User.objects.filter(role=role).exclude(state=UserState.DELETED)
 
         # Efficient join
         if role == UserRole.DOCTOR:
@@ -977,8 +977,12 @@ class AdminAllUserListView(APIView):
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         search_term = request.query_params.get('search', '')
-        users = User.objects.filter(role__in=[UserRole.PATIENT, UserRole.DOCTOR])
-        users = users.order_by('-created_at')
+        users = User.objects.filter(
+            role__in=[UserRole.PATIENT, UserRole.DOCTOR]
+        ).exclude(
+            state=UserState.DELETED
+        ).order_by("-created_at")
+        
 
         if search_term:
             users = users.filter(
