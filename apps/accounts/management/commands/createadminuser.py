@@ -7,7 +7,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **kwargs):
 
-        email = os.getenv("INITIAL_ADMIN_EMAIL", "admin@clinic.topics.com")
+        email = os.getenv("INITIAL_ADMIN_EMAIL", "admin@clinictopics.com")
         password = os.getenv("INITIAL_ADMIN_PASSWORD", "AdminPass123!")
 
         if not email or not password:

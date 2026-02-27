@@ -5,7 +5,9 @@ from decimal import Decimal
 
 from core.models import TimeStampedUUIDModel
 from apps.accounts.models import User
-from apps.commerce.constants import ProductCategory, OrderStatus, PaymentStatus, PaymentGateway, PaymentMethod
+from apps.commerce.constants import (
+    ProductCategory, OrderStatus, PaymentStatus, PaymentGateway, PaymentMethod, RefundStatus
+)
 
 class Product(TimeStampedUUIDModel):
     name = models.CharField(max_length=255)
@@ -349,6 +351,33 @@ class Payment(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"Payment {self.razorpay_order_id} - {self.status}"
+
+class Refund(TimeStampedUUIDModel):
+    order = models.ForeignKey(
+        Order,
+        on_delete=models.CASCADE,
+        related_name="refunds"
+    )
+
+    payment = models.ForeignKey(
+        Payment,
+        on_delete=models.CASCADE,
+        related_name="refunds"
+    )
+
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reason = models.TextField(blank=True)
+
+    status = models.CharField(
+        max_length=20,
+        choices=RefundStatus.choices,
+        default=RefundStatus.REQUESTED
+    )
+
+    razorpay_refund_id = models.CharField(max_length=100, blank=True, null=True)
+    refund_meta = models.JSONField(null=True, blank=True)
+
+    is_partial = models.BooleanField(default=False)
 
 class ShopBanner(TimeStampedUUIDModel):
     title = models.CharField(max_length=255)

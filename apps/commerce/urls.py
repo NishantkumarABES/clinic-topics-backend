@@ -5,8 +5,9 @@ from apps.commerce.views import (
     ApplyCouponView, RemoveCouponView, AdminCouponListCreateView, AdminCouponUpdateDestroyView, WishlistDetailView, AddToWishlistView, 
     RemoveFromWishlistView, OrderHistoryView, OrderDetailView, ProductFilterOptionsAPIView, ShopLandingAPIView,
     AdminOrderListAPIView, AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView,
-    CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, CancelOrderView, RefundOrderView, RetryPaymentView,
-    AdminCreateShopBannerAPIView, AdminCreateShopCategoryAPIView
+    CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, CancelOrderView, RetryPaymentView,
+    AdminCreateShopBannerAPIView, AdminCreateShopCategoryAPIView, UserRefundListView, AdminRefundDecisionSerializer, CreateRefundRequestView,
+    AdminRefundListView
 )
 
 urlpatterns = [
@@ -35,14 +36,15 @@ urlpatterns = [
     path("orders/", OrderHistoryView.as_view()),
     path("orders/<uuid:order_id>/", OrderDetailView.as_view()),
     path("orders/<uuid:order_id>/cancel/", CancelOrderView.as_view()),
-    path("orders/<uuid:order_id>/refund/", RefundOrderView.as_view()),
+    path("orders/<uuid:order_id>/refund/", CreateRefundRequestView.as_view()),
     path("orders/<uuid:order_id>/retry-payment/", RetryPaymentView.as_view()),
+    path("orders/refunds/", UserRefundListView.as_view()),
 
     # Payment endpoints
     path("payment/create-order/", CreatePaymentOrderView.as_view(), name="payment-create-order"),
     path("payment/verify/", VerifyPaymentView.as_view(), name="payment-verify"),
     path("payment/webhook/", PaymentWebhookView.as_view(), name="payment-webhook"),
-
+    
     path("admin/products/", AdminProductListCreateAPIView.as_view()),
     path("admin/products/<uuid:product_id>/", AdminProductUpdateAPIView.as_view()),
     path("admin/coupons/", AdminCouponListCreateView.as_view()),
@@ -54,6 +56,8 @@ urlpatterns = [
     path("admin/orders/<uuid:order_id>/status/", AdminOrderUpdateStatusAPIView.as_view(), name="admin-order-status"),
     path("admin/banners/", AdminCreateShopBannerAPIView.as_view(), name="admin-create-banner"),
     path("admin/categories/", AdminCreateShopCategoryAPIView.as_view(), name="admin-create-category"),
+    path("admin/refunds/", AdminRefundListView.as_view(), name="admin-refund-list"),
+    path("admin/refunds/<uuid:refund_id>/decision/", AdminRefundDecisionSerializer.as_view(), name="admin-refund-decision"),
     
     # Admin user addresses endpoint
     path("admin/users/<uuid:user_id>/addresses/", AdminUserAddressListView.as_view(), name="admin-user-addresses"),

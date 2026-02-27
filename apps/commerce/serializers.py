@@ -1,10 +1,13 @@
 import uuid
+from decimal import Decimal
 from django.db import models
+from django.db.models import Sum
 from rest_framework import serializers
 from apps.commerce.models import (
     Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem, Order, OrderItem, Payment,
-    ShopBanner, ShopCategoryConfig
+    ShopBanner, ShopCategoryConfig, Refund
 )
+from apps.commerce.constants import OrderStatus, PaymentStatus, RefundStatus
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -416,6 +419,62 @@ class ShopCategorySerializer(serializers.ModelSerializer):
             is_active=True,
             stock_quantity__gt=0
         ).count()
+
+class RefundRequestSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
+    reason = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, attrs):
+        request = self.context["request"]
+        order = self.context["order"]
+        amount = attrs["amount"]
+
+        # Order must belong to user
+        if order.user != request.user:
+            raise serializers.ValidationError("Invalid order.")
+
+        # Must be paid
+        if order.status not in [OrderStatus.PAID, OrderStatus.DELIVERED]:
+            raise serializers.ValidationError("Refund not allowed for this order status.")
+
+        # Get successful payment
+        payment = order.payments.filter(status=PaymentStatus.CAPTURED).first()
+        if not payment:
+            raise serializers.ValidationError("No successful payment found.")
+
+        # Calculate already refunded
+        refunded_total = order.refunds.filter(
+            status=RefundStatus.PROCESSED
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+        refundable_balance = payment.amount - refunded_total
+
+        if amount <= 0:
+            raise serializers.ValidationError("Refund amount must be greater than zero.")
+
+        if amount > refundable_balance:
+            raise serializers.ValidationError("Refund exceeds available refundable amount.")
+
+        attrs["payment"] = payment
+        return attrs
+
+class RefundSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Refund
+        fields = [
+            "id",
+            "amount",
+            "reason",
+            "status",
+            "is_partial",
+            "razorpay_refund_id",
+            "created_at",
+            "updated_at",
+        ]
+
+class AdminRefundDecisionSerializer(serializers.Serializer):
+    action = serializers.ChoiceField(choices=["approve", "reject"])
+    admin_note = serializers.CharField(required=False, allow_blank=True)
 
 ########### ADMIN SERIALIZERS ###########
 class AdminProductImageSerializer(serializers.ModelSerializer):
