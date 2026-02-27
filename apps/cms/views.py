@@ -1,19 +1,14 @@
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
 from rest_framework.permissions import AllowAny
 from django.db.models import Q
 from drf_yasg.utils import swagger_auto_schema
 
 from apps.cms.models import StaticPage, StaticPageVersion, ContactUsSubmission, PageType, SiteConfiguration
 from apps.cms.serializers import (
-    StaticPageVersionSerializer, 
-    AdminStaticPageUpdateSerializer, 
-    ContactUsSubmissionSerializer,
-    AdminSettingSerializer,
-    AdminSettingVersionSerializer,
-    AdminContactSubmissionSerializer,
-    ContactSubmissionPagination,
+    StaticPageVersionSerializer, AdminStaticPageUpdateSerializer, ContactUsSubmissionSerializer,
+    AdminSettingVersionSerializer, AdminContactSubmissionSerializer, ContactSubmissionPagination,
     SiteConfigurationSerializer,
 )
 from core.permissions import IsAdmin
@@ -24,8 +19,6 @@ from core.permissions import IsAdmin
 class StaticPageView(APIView):
     """Public view to get published static page content."""
     permission_classes = [AllowAny]
-
-    @swagger_auto_schema(auto_schema=None)
     def get(self, request, page_type):
         try:
             page = StaticPage.objects.get(
@@ -51,7 +44,6 @@ class StaticPageView(APIView):
         serializer = StaticPageVersionSerializer(version)
         return Response({"detail": "Page retrieved successfully", "data": serializer.data, "success": True})
 
-
 class ContactUsSubmitView(APIView):
     """Public view to submit contact form."""
     permission_classes = [AllowAny]
@@ -66,7 +58,6 @@ class ContactUsSubmitView(APIView):
             {"detail": "Your message has been submitted successfully", "data": None, "success": True},
             status=status.HTTP_201_CREATED
         )
-
 
 # ========== ADMIN VIEWS ==========
 
@@ -112,7 +103,6 @@ class AdminSettingsListView(APIView):
                 })
         
         return Response({"detail": "Settings retrieved successfully", "data": settings_list, "success": True})
-
 
 class AdminSettingDetailView(APIView):
     """Admin view to get and update a single setting."""
@@ -185,7 +175,6 @@ class AdminSettingDetailView(APIView):
             "success": True
         })
 
-
 class AdminSettingVersionsView(APIView):
     """Admin view to list all versions of a setting."""
     permission_classes = [IsAdmin]
@@ -200,7 +189,6 @@ class AdminSettingVersionsView(APIView):
         versions = StaticPageVersion.objects.filter(page=page).order_by("-version")
         serializer = AdminSettingVersionSerializer(versions, many=True)
         return Response({"detail": "Versions retrieved successfully", "data": serializer.data, "success": True})
-
 
 class AdminPublishVersionView(APIView):
     """Admin view to publish a specific version."""
@@ -230,7 +218,6 @@ class AdminPublishVersionView(APIView):
             "data": {"version": version.version},
             "success": True
         })
-
 
 class AdminContactListView(APIView):
     """Admin view to list contact submissions."""
@@ -262,7 +249,6 @@ class AdminContactListView(APIView):
         response.data["success"] = True
         return response
 
-
 class AdminContactUpdateView(APIView):
     """Admin view to update contact submission (mark as resolved)."""
     permission_classes = [IsAdmin]
@@ -288,7 +274,6 @@ class AdminContactUpdateView(APIView):
             "data": serializer.data,
             "success": True
         })
-
 
 class AdminSiteConfigurationView(APIView):
     """Admin view to get and update site configuration."""

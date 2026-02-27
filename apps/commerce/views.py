@@ -1,38 +1,38 @@
 import json
+from decimal import Decimal
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
-from django.shortcuts import get_object_or_404
 from django.conf import settings
+from django.shortcuts import get_object_or_404
 from django.db import transaction, IntegrityError
 from django.db.models import Q, Sum, Min, Max
-from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from decimal import Decimal
-
+from drf_yasg.utils import swagger_auto_schema
 
 from core.permissions import IsAdmin
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404
 from apps.accounts.models import UserRole
-from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order, OrderItem, Payment
+from apps.commerce.models import Product, Cart, CartItem, Address, Coupon, ProductReview, Wishlist, WishlistItem, Order, OrderItem, Payment, Refund
 from apps.commerce.models import PaymentStatus, ShopCategoryConfig, ShopBanner
 from apps.commerce.serializers import (
     ProductListSerializer, ProductDetailSerializer, CartSerializer, AddToCartSerializer, AddressSerializer,
     AddressCreateSerializer, AddressUpdateSerializer, AdminProductReadSerializer, AdminProductWriteSerializer,
     ProductReviewSerializer, CreateUpdateReviewSerializer, ApplyCouponSerializer, CouponSerializer,
-    WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer,
+    WishlistSerializer, AddToWishlistSerializer, WishlistItem, OrderHistorySerializer, RefundSerializer,
     AdminOrderListSerializer, AdminOrderDetailSerializer, UpdateOrderStatusSerializer, AdminCreateOrderSerializer,
     CreatePaymentOrderSerializer, VerifyPaymentSerializer, CancelOrderSerializer, RefundRequestSerializer,
     ShopCategorySerializer, ShopBannerSerializer, AdminShopBannerWriteSerializer, AdminShopCategoryWriteSerializer,
+    AdminRefundDecisionSerializer,
     # Response serializers
     StandardResponseSerializer, ProductDetailResponseSerializer, ProductReviewListResponseSerializer,
     ProductReviewResponseSerializer, CartResponseSerializer, AddressListResponseSerializer,
     AddressResponseSerializer, WishlistResponseSerializer, OrderDetailResponseSerializer
 )
-from apps.commerce.constants import OrderStatus, ProductCategory
+from apps.commerce.constants import OrderStatus, ProductCategory, RefundStatus
 from apps.notifications.services import create_admin_notification
 from external.razorpay.service import razorpay_service
 
@@ -783,6 +783,42 @@ class OrderDetailView(APIView):
             "success": True
         })
 
+class CreateRefundRequestView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+
+        serializer = RefundRequestSerializer(
+            data=request.data,
+            context={"request": request, "order": order}
+        )
+        serializer.is_valid(raise_exception=True)
+
+        refund = Refund.objects.create(
+            order=order,
+            payment=serializer.validated_data["payment"],
+            amount=serializer.validated_data["amount"],
+            reason=serializer.validated_data.get("reason", ""),
+            status=RefundStatus.REQUESTED,
+            is_partial=True
+        )
+
+        return Response({
+            "success": True,
+            "detail": "Refund request submitted successfully.",
+            "data": RefundSerializer(refund).data
+        }, status=201)
+
+class UserRefundListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        refunds = Refund.objects.filter(order__user=request.user).order_by("-created_at")
+        return Response({
+            "success": True,
+            "data": RefundSerializer(refunds, many=True).data
+        })
 
 #### ADMIN APIS FOR PRODUCTS ####
 class AdminProductListPagination(PageNumberPagination):
@@ -978,6 +1014,93 @@ class AdminCreateShopBannerAPIView(APIView):
             ).data
         }, status=201)
 
+class AdminRefundListView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        refunds = Refund.objects.all().order_by("-created_at")
+        return Response({
+            "success": True,
+            "data": RefundSerializer(refunds, many=True).data
+        })
+
+class AdminRefundDecisionView(APIView):
+    permission_classes = [IsAdmin]
+
+    def patch(self, request, refund_id):
+        refund = get_object_or_404(
+            Refund.objects.select_for_update(),
+            id=refund_id
+        )
+
+        serializer = AdminRefundDecisionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        action = serializer.validated_data["action"]
+
+        if refund.status != RefundStatus.REQUESTED:
+            return Response({
+                "success": False,
+                "detail": "Refund already processed."
+            }, status=400)
+
+        with transaction.atomic():
+
+            if action == "reject":
+                refund.status = RefundStatus.REJECTED
+                refund.save(update_fields=["status", "updated_at"])
+                return Response({
+                    "success": True,
+                    "detail": "Refund rejected."
+                })
+
+            # APPROVE → PROCESS RAZORPAY REFUND
+            try:
+                razorpay_response = razorpay_service.refund_payment(
+                    payment_id=refund.payment.razorpay_payment_id,
+                    amount=int(refund.amount * 100),
+                    notes={
+                        "order_id": str(refund.order.id),
+                        "refund_id": str(refund.id)
+                    }
+                )
+
+                refund.status = RefundStatus.PROCESSED
+                refund.razorpay_refund_id = razorpay_response.get("id")
+                refund.refund_meta = razorpay_response
+                refund.save(update_fields=[
+                    "status",
+                    "razorpay_refund_id",
+                    "refund_meta",
+                    "updated_at"
+                ])
+
+            except Exception as e:
+                refund.status = RefundStatus.FAILED
+                refund.save(update_fields=["status", "updated_at"])
+
+                return Response({
+                    "success": False,
+                    "detail": f"Refund failed: {str(e)}"
+                }, status=400)
+
+            # CHECK IF FULLY REFUNDED
+            total_refunded = refund.order.refunds.filter(
+                status=Refund.RefundStatus.PROCESSED
+            ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+            if total_refunded >= refund.payment.amount:
+                refund.order.status = OrderStatus.REFUNDED
+                refund.order.save(update_fields=["status", "updated_at"])
+
+                refund.payment.status = PaymentStatus.REFUNDED
+                refund.payment.save(update_fields=["status", "updated_at"])
+
+        return Response({
+            "success": True,
+            "detail": "Refund processed successfully.",
+            "data": RefundSerializer(refund).data
+        })
 #### ADMIN APIS FOR ORDERS ####
 
 class AdminOrderPagination(PageNumberPagination):
@@ -1681,120 +1804,6 @@ class CancelOrderView(APIView):
         return Response({
             "detail": "Order cancelled successfully",
             "data": {"order_id": str(order.id), "status": order.status},
-            "success": True
-        })
-
-class RefundOrderView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    @swagger_auto_schema(
-        request_body=RefundRequestSerializer,
-        responses={200: StandardResponseSerializer()},
-        tags=["Commerce - Orders"],
-        operation_id="refund_order",
-        operation_description="Refund an order.",
-    )
-    def post(self, request, order_id):
-        serializer = RefundRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        reason = serializer.validated_data.get("reason", "")
-
-        # Fetch order
-        try:
-            order = Order.objects.get(id=order_id, user=request.user)
-        except Order.DoesNotExist:
-            return Response(
-                {"detail": "Order not found", "data": None, "success": False},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Disallow invalid states
-        if order.status in [OrderStatus.CANCELLED, OrderStatus.REFUNDED]:
-            return Response(
-                {"detail": "Order already closed", "data": None, "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if order.status not in [OrderStatus.PAID, OrderStatus.PROCESSING]:
-            return Response(
-                {"detail": "Order not eligible for refund", "data": None, "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Check payment record
-        try:
-            payment = order.payments.get(status=PaymentStatus.CAPTURED)
-        except Payment.DoesNotExist:
-            return Response(
-                {"detail": "No successful payment found", "data": None, "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Check refund eligibility per product
-        non_refundable_products = []
-        for item in order.items.select_related("product"):
-            if not item.product.is_refundable:
-                non_refundable_products.append(item.product.name)
-
-        if non_refundable_products:
-            return Response(
-                {
-                    "detail": "Some products in this order are non-refundable",
-                    "data": {"non_refundable": non_refundable_products},
-                    "success": False
-                },
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # All good → proceed refund
-        with transaction.atomic():
-            try:
-                # Razorpay refund (amount in paise)
-                refund = razorpay_service.refund_payment(
-                    payment.razorpay_payment_id,
-                    amount=int(payment.amount * 100),
-                    notes={
-                        "order_id": str(order.id),
-                        "reason": reason
-                    }
-                )
-            except Exception as e:
-                return Response(
-                    {"detail": "Refund initiation failed", "data": None, "success": False},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-
-            # Update payment
-            payment.status = PaymentStatus.REFUNDED
-            payment.save(update_fields=["status", "updated_at"])
-
-            # Update order
-            order.status = OrderStatus.REFUNDED
-            order.save(update_fields=["status", "updated_at"])
-
-            # Restore stock
-            for item in order.items.select_related("product"):
-                product = item.product
-                product.stock_quantity += item.quantity
-                product.save(update_fields=["stock_quantity"])
-
-            # Admin notification
-            create_admin_notification(
-                title="Order Refunded",
-                message=f"Order #{order.id} was refunded successfully.",
-                data={
-                    "order_id": str(order.id),
-                    "user_id": str(request.user.id),
-                    "refund_id": refund.get("id")
-                }
-            )
-
-        return Response({
-            "detail": "Refund completed successfully",
-            "data": {
-                "order_id": str(order.id),
-                "status": order.status
-            },
             "success": True
         })
 

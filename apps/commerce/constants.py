@@ -31,6 +31,12 @@ class PaymentMethod(models.TextChoices):
     WALLET = "wallet", "Wallet"
     COD = "cod", "Cash on Delivery"
 
+class RefundStatus(models.TextChoices):
+    REQUESTED = "requested", "Requested"
+    APPROVED = "approved", "Approved"
+    REJECTED = "rejected", "Rejected"
+    PROCESSED = "processed", "Processed"
+    FAILED = "failed", "Failed"
 
 
 class ProductCategory(models.TextChoices):
