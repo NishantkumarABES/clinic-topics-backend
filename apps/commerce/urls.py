@@ -6,7 +6,7 @@ from apps.commerce.views import (
     RemoveFromWishlistView, OrderHistoryView, OrderDetailView, ProductFilterOptionsAPIView, ShopLandingAPIView,
     AdminOrderListAPIView, AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView,
     CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, CancelOrderView, RetryPaymentView,
-    AdminCreateShopBannerAPIView, AdminCreateShopCategoryAPIView, UserRefundListView, AdminRefundDecisionSerializer, CreateRefundRequestView,
+    AdminCreateShopBannerAPIView, AdminCreateShopCategoryAPIView, UserRefundListView, CreateRefundRequestView, AdminRefundDecisionView,
     AdminRefundListView
 )
 
@@ -57,7 +57,7 @@ urlpatterns = [
     path("admin/banners/", AdminCreateShopBannerAPIView.as_view(), name="admin-create-banner"),
     path("admin/categories/", AdminCreateShopCategoryAPIView.as_view(), name="admin-create-category"),
     path("admin/refunds/", AdminRefundListView.as_view(), name="admin-refund-list"),
-    path("admin/refunds/<uuid:refund_id>/decision/", AdminRefundDecisionSerializer.as_view(), name="admin-refund-decision"),
+    path("admin/refunds/<uuid:refund_id>/decision/", AdminRefundDecisionView.as_view(), name="admin-refund-decision"),
     
     # Admin user addresses endpoint
     path("admin/users/<uuid:user_id>/addresses/", AdminUserAddressListView.as_view(), name="admin-user-addresses"),
