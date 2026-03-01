@@ -5,7 +5,7 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from apps.accounts.services import normalize_phone
-from apps.accounts.models import User, PasswordResetToken, EmailOTP, AuthProvider, UserDevice
+from apps.accounts.models import User, EmailOTP, AuthProvider, UserDevice
 from apps.accounts.constants import UserState, UserRole, UserState, DeviceType
 from apps.accounts.services import send_doctor_invitation_email, assert_identity_available, verify_phone_otp
 from apps.accounts.social_providers import social_provider_verification
@@ -313,32 +313,6 @@ class SocialLoginSerializer(serializers.Serializer):
     token = serializers.CharField()
     remember_me = serializers.BooleanField(required=False)
 
-class PasswordResetRequestSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-
-class PasswordResetConfirmSerializer(serializers.Serializer):
-    token = serializers.CharField()
-    new_password = serializers.CharField(write_only=True)
-
-    def validate_new_password(self, value):
-        validate_password(value)
-        return value
-
-    def validate(self, data):
-        try:
-            reset_token = PasswordResetToken.objects.get(
-                token=data["token"],
-                is_used=False
-            )
-        except PasswordResetToken.DoesNotExist:
-            raise ValidationError("Invalid or expired token")
-
-        if not reset_token.is_valid():
-            raise ValidationError("Token expired")
-
-        data["reset_token_obj"] = reset_token
-        return data
-
 class UserMeSerializer(serializers.ModelSerializer):
     onboarding_complete = serializers.SerializerMethodField()
 
@@ -561,6 +535,31 @@ class ForgotPasswordSetSerializer(serializers.Serializer):
             raise ValidationError("Email or phone is required")
         return data
 
+class AdminForgotPasswordRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class AdminForgotPasswordVerifySerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(max_length=6)
+    
+    def validate(self, data):
+        try:
+            otp_obj = EmailOTP.objects.filter(
+                email=data["email"],
+                is_used=False
+            ).latest("created_at")
+        except EmailOTP.DoesNotExist:
+            raise ValidationError("Invalid OTP")
+
+        if otp_obj.attempts >= otp_obj.MAX_ATTEMPTS:
+            raise ValidationError("OTP locked")
+
+        if not otp_obj.is_valid():
+            raise ValidationError("OTP expired")
+
+        data["otp_obj"] = otp_obj
+        return data
+
 #########################   Response Serializers    #########################
 
 class StandardResponseSerializer(serializers.Serializer):
@@ -681,7 +680,6 @@ class CommonErrorResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
     data = serializers.JSONField(allow_null=True)
     success = serializers.BooleanField()
-
 
 
 

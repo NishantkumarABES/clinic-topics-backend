@@ -1,9 +1,9 @@
 from django.urls import path
 from apps.accounts.views import (
-    LogoutView, PhoneOTPRequestView, PhoneOTPVerifyView, PasswordResetRequestView, PasswordResetConfirmView, DeactivateAccountView, 
-    ReactivateAccountView, DeleteAccountView, EmailOTPRequestView, EmailOTPVerifyView, RegisterView, UserMeView, AdminUserListView, 
-    EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView, AdminAllUserListView, ChangePasswordView, AdminChangePasswordView,
-    RegisterDeviceView, CustomTokenRefreshView, IdentityCheckView, ForgotPasswordRequestView, ForgotPasswordVerifyView, ForgotPasswordSetNewPasswordView
+    LogoutView, PhoneOTPRequestView, PhoneOTPVerifyView, DeactivateAccountView, ReactivateAccountView, DeleteAccountView, EmailOTPRequestView, 
+    EmailOTPVerifyView, RegisterView, UserMeView, AdminUserListView, EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView, AdminAllUserListView, 
+    ChangePasswordView, AdminChangePasswordView, RegisterDeviceView, CustomTokenRefreshView, IdentityCheckView, ForgotPasswordRequestView, 
+    ForgotPasswordVerifyView, ForgotPasswordSetNewPasswordView, adminForgotPasswordRequestView, adminForgotPasswordVerifyView
 )
 
 
@@ -25,8 +25,6 @@ urlpatterns = [
     path("update/<str:user_id>/", UpdateUserView.as_view(), name="update-user"),
 
     path("logout/", LogoutView.as_view()),
-    path("password/reset/", PasswordResetRequestView.as_view()),
-    path("password/reset/confirm/", PasswordResetConfirmView.as_view()),
 
     path("deactivate/", DeactivateAccountView.as_view()),
     path("reactivate/", ReactivateAccountView.as_view()),
@@ -42,4 +40,6 @@ urlpatterns = [
     path("admin/users/<str:role>", AdminUserListView.as_view(), name="admin-user-list"),
     path("admin/all-users/", AdminAllUserListView.as_view(), name="admin-all-user-list"),
     path("admin/change-password/", AdminChangePasswordView.as_view(), name="admin-change-password"),
+    path("admin/forgot-password/request/", adminForgotPasswordRequestView.as_view(), name="admin-forgot-password-request"),
+    path("admin/forgot-password/verify/", adminForgotPasswordVerifyView.as_view(), name="admin-forgot-password-verify"),
 ]
