@@ -1,14 +1,7 @@
 from django.urls import path
 from apps.cms.views import (
-    StaticPageView, 
-    ContactUsSubmitView,
-    AdminSettingsListView,
-    AdminSettingDetailView,
-    AdminSettingVersionsView,
-    AdminPublishVersionView,
-    AdminContactListView,
-    AdminContactUpdateView,
-    AdminSiteConfigurationView,
+    StaticPageView, ContactUsSubmitView, AdminSettingsListView, AdminSettingDetailView, AdminSettingVersionsView,
+    AdminPublishVersionView, AdminContactListView, AdminContactUpdateView, AdminSiteConfigurationView,
 )
 
 urlpatterns = [

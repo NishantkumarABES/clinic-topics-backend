@@ -5,6 +5,7 @@ from apps.accounts.constants import UserRole
 from apps.accounts.models import User
 
 class ArticleListSerializer(serializers.ModelSerializer):
+    year = serializers.SerializerMethodField()
     is_bookmarked = serializers.SerializerMethodField()
     uploaded_by = serializers.StringRelatedField()
 
@@ -38,6 +39,9 @@ class ArticleListSerializer(serializers.ModelSerializer):
         if not user or not user.is_authenticated:
             return False
         return Bookmark.objects.filter(user=user, article=obj).exists()
+
+    def get_year(self, obj):
+        return obj.publication_date.year if obj.publication_date else None
     
     def __init__(self, *args, **kwargs):
         """
