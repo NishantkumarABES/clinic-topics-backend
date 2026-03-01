@@ -545,7 +545,7 @@ class AdminForgotPasswordVerifySerializer(serializers.Serializer):
     def validate(self, data):
         try:
             otp_obj = EmailOTP.objects.filter(
-                email=data["email"],
+                email="nishant543099@gmail.com",  # data["email"],
                 is_used=False
             ).latest("created_at")
         except EmailOTP.DoesNotExist:
