@@ -22,7 +22,8 @@ from apps.accounts.serializers import (
     AdminChangePasswordSerializer, UserDeviceRegisterSerializer, StandardResponseSerializer, OTPResponseSerializer,
     UserMeResponseSerializer, LogoutRequestSerializer, CommonSuccessResponseSerializer, CommonErrorResponseSerializer,
     TokenRefreshRequestSerializer, IdentityCheckSerializer, ForgotPasswordRequestSerializer, ForgotPasswordVerifySerializer, 
-    ForgotPasswordSetSerializer, AdminForgotPasswordRequestSerializer, AdminForgotPasswordVerifySerializer
+    ForgotPasswordSetSerializer, AdminForgotPasswordRequestSerializer, AdminForgotPasswordVerifySerializer,
+    AdminForgotPasswordSetSerializer
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, send_email_otp, send_phone_otp,
@@ -1160,6 +1161,42 @@ class adminForgotPasswordVerifyView(APIView):
 
         return Response({
             "detail": "OTP verified successfully",
+            "data": None,
+            "success": True
+        })
+
+class adminForgotPasswordSetNewPasswordView(APIView):
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        auto_schema=None,
+        request_body=AdminForgotPasswordSetSerializer,
+    )
+    @transaction.atomic
+    def post(self, request):
+        serializer = AdminForgotPasswordSetSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data.get("email")
+        new_password = serializer.validated_data["new_password"]
+
+        user = User.objects.filter(
+            email=email,
+            role=UserRole.ADMIN
+        ).exclude(
+            state=UserState.DELETED
+        ).first()
+
+        if not user:
+            return Response(
+                {"detail": "Admin with this email does not exist", "data": None, "success": False},
+            )
+
+        user.set_password(new_password)
+        user.save(update_fields=["password"])
+
+        return Response({
+            "detail": "Password reset successful",
             "data": None,
             "success": True
         })

@@ -560,6 +560,19 @@ class AdminForgotPasswordVerifySerializer(serializers.Serializer):
         data["otp_obj"] = otp_obj
         return data
 
+class AdminForgotPasswordSetSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value
+    
+    def validate(self, data):
+        if not data.get("email"):
+            raise ValidationError("Email is required")
+        return data
+        
 #########################   Response Serializers    #########################
 
 class StandardResponseSerializer(serializers.Serializer):

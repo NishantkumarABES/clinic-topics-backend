@@ -3,7 +3,8 @@ from apps.accounts.views import (
     LogoutView, PhoneOTPRequestView, PhoneOTPVerifyView, DeactivateAccountView, ReactivateAccountView, DeleteAccountView, EmailOTPRequestView, 
     EmailOTPVerifyView, RegisterView, UserMeView, AdminUserListView, EmailLoginView, PhoneLoginView, SocialLoginView, UpdateUserView, AdminAllUserListView, 
     ChangePasswordView, AdminChangePasswordView, RegisterDeviceView, CustomTokenRefreshView, IdentityCheckView, ForgotPasswordRequestView, 
-    ForgotPasswordVerifyView, ForgotPasswordSetNewPasswordView, adminForgotPasswordRequestView, adminForgotPasswordVerifyView
+    ForgotPasswordVerifyView, ForgotPasswordSetNewPasswordView, adminForgotPasswordRequestView, adminForgotPasswordVerifyView,
+    adminForgotPasswordSetNewPasswordView
 )
 
 
@@ -42,4 +43,5 @@ urlpatterns = [
     path("admin/change-password/", AdminChangePasswordView.as_view(), name="admin-change-password"),
     path("admin/forgot-password/request/", adminForgotPasswordRequestView.as_view(), name="admin-forgot-password-request"),
     path("admin/forgot-password/verify/", adminForgotPasswordVerifyView.as_view(), name="admin-forgot-password-verify"),
+    path("admin/forgot-password/reset/", adminForgotPasswordSetNewPasswordView.as_view(), name="admin-forgot-password-set"),
 ]
