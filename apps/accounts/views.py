@@ -1111,7 +1111,7 @@ class CustomTokenRefreshView(TokenRefreshView):
             })
 
 class adminForgotPasswordRequestView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         auto_schema=None,
@@ -1145,7 +1145,7 @@ class adminForgotPasswordRequestView(APIView):
         return Response(response)
 
 class adminForgotPasswordVerifyView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         auto_schema=None,
