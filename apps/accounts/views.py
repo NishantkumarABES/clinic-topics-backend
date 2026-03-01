@@ -16,16 +16,16 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_spectacular.utils import extend_schema
 
 from apps.accounts.serializers import (
-    EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer, PasswordResetRequestSerializer,
-    PasswordResetConfirmSerializer, EmailOTPRequestSerializer, EmailOTPVerifySerializer, RegisterSerializer, UserMeSerializer,
+    EmailLoginSerializer, PhoneOTPRequestSerializer, PhoneOTPVerifySerializer, SocialLoginSerializer,
+    EmailOTPRequestSerializer, EmailOTPVerifySerializer, RegisterSerializer, UserMeSerializer,
     UserListSerializer, UserUpdateSerializer, LoginResponseSerializer, RegisterResponseSerializer, ChangePasswordSerializer,
     AdminChangePasswordSerializer, UserDeviceRegisterSerializer, StandardResponseSerializer, OTPResponseSerializer,
     UserMeResponseSerializer, LogoutRequestSerializer, CommonSuccessResponseSerializer, CommonErrorResponseSerializer,
     TokenRefreshRequestSerializer, IdentityCheckSerializer, ForgotPasswordRequestSerializer, ForgotPasswordVerifySerializer, 
-    ForgotPasswordSetSerializer
+    ForgotPasswordSetSerializer, AdminForgotPasswordRequestSerializer, AdminForgotPasswordVerifySerializer
 )
 from apps.accounts.services import (
-    activate_user_if_eligible, resolve_social_user, create_password_reset_token, send_email_otp, send_phone_otp,
+    activate_user_if_eligible, resolve_social_user, send_email_otp, send_phone_otp,
     get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, mark_user_login
 )
 from apps.accounts.social_providers import social_provider_verification
@@ -487,69 +487,6 @@ class PhoneLoginView(APIView):
             "success": True
         })
       
-class PasswordResetRequestView(APIView):
-    permission_classes = [AllowAny]
-
-    @extend_schema(exclude=True)
-    @swagger_auto_schema(
-        operation_description="Request password reset email",
-        request_body=PasswordResetRequestSerializer,
-        responses={
-            200: StandardResponseSerializer,
-        },
-    )
-    def post(self, request):
-        serializer = PasswordResetRequestSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        email = serializer.validated_data["email"]
-
-        try:
-            user = User.objects.get(email=email)
-            reset_token = create_password_reset_token(user)
-
-            # Stub email sender (replace later)
-            print(
-                f"[RESET PASSWORD] http://frontend/reset-password?token={reset_token.token}"
-            )
-        except User.DoesNotExist:
-            # IMPORTANT: do not reveal existence
-            pass
-
-        return Response({
-            "detail": "If the email exists, a password reset link has been sent.",
-            "data": None,
-            "success": True
-        })
-
-class PasswordResetConfirmView(APIView):
-    permission_classes = [AllowAny]
-    
-    @extend_schema(exclude=True)
-    @swagger_auto_schema(
-        operation_description="Confirm password reset with token",
-        request_body=PasswordResetConfirmSerializer,
-        responses={
-            200: StandardResponseSerializer,
-            400: BAD_REQUEST_400,
-        },
-    )
-    def post(self, request):
-        serializer = PasswordResetConfirmSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        reset_token = serializer.validated_data["reset_token_obj"]
-        new_password = serializer.validated_data["new_password"]
-
-        user = reset_token.user
-        user.set_password(new_password)
-        user.save(update_fields=["password"])
-
-        reset_token.is_used = True
-        reset_token.save(update_fields=["is_used"])
-
-        return Response({"detail": "Password reset successful", "data": None, "success": True})
-
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -1173,3 +1110,56 @@ class CustomTokenRefreshView(TokenRefreshView):
                 "detail": str(e), "data": None, "success": False
             })
 
+class adminForgotPasswordRequestView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(
+        auto_schema=None,
+        request_body=AdminForgotPasswordRequestSerializer,
+    )
+    def post(self, request):
+        email = request.data.get("email")
+        if not email:
+            return Response(
+                {"detail": "Email is required", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # for tesing purposes, we will allow admins to request OTP for any email
+        email = "nishant543099@gmail.com"
+
+        otp = send_email_otp(
+            email=email,
+            full_name="Admin",
+            forget_password=True,
+            otp_length=6
+        )
+
+        response = {
+            "detail": f"An OTP has been sent to your email: {email}",
+            "data": None, "success": True
+        }
+
+        if settings.DEBUG and otp:
+            response["data"] = {"testing_otp": otp}
+
+        return Response(response)
+
+class adminForgotPasswordVerifyView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(
+        auto_schema=None,
+        request_body=AdminForgotPasswordVerifySerializer,
+    )
+    def post(self, request):
+        serializer = AdminForgotPasswordVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        otp_obj = serializer.validated_data["otp_obj"]
+        otp_obj.mark_as_used() if hasattr(otp_obj, "mark_as_used") else None
+
+        return Response({
+            "detail": "OTP verified successfully",
+            "data": None,
+            "success": True
+        })

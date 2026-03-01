@@ -1,13 +1,13 @@
-import os, random, secrets, requests
+import os, secrets, requests
+from random import randint
 from django.db import transaction
 from django.utils import timezone
-from django.core.mail import send_mail
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.exceptions import ValidationError
 from datetime import timedelta
 
 from apps.accounts.constants import UserState
-from apps.accounts.models import User, AuthProvider, PhoneOTP, PasswordResetToken, EmailOTP
+from apps.accounts.models import User, AuthProvider, PhoneOTP, EmailOTP
 from apps.accounts.email_templates import otp_email_html, password_reset_html, doctor_invitation_html
 from external.aws_ses.service import EmailClient
 from config.settings import OTP_EXPIRY_MINUTES
@@ -60,9 +60,9 @@ def activate_user_if_eligible(user):
 
     return user
 
-def generate_otp():
-    return f"{random.randint(1000, 9999)}"
-
+def generate_otp(n = 4):
+    return ''.join([str(randint(0, 9)) for _ in range(n)])
+    
 def send_phone_otp(phone: str, forgot_password=False) -> dict:
     otp = generate_otp()
     expires_at = timezone.now() + timedelta(minutes=OTP_EXPIRY_MINUTES)
@@ -130,8 +130,8 @@ def verify_phone_otp(phone: str, otp: str) -> PhoneOTP:
         otp_obj.marks_as_used()
         return otp_obj
 
-def send_email_otp(email, full_name=None, forget_password=False):
-    otp = generate_otp()
+def send_email_otp(email, full_name=None, forget_password=False, otp_length=None):
+    otp = generate_otp(n=otp_length or 4)
     EmailOTP.objects.create(
         email=email, otp=otp,
         expires_at=timezone.now() + timedelta(minutes=5)
@@ -195,16 +195,6 @@ def resolve_social_user(social_user):
 
 def generate_reset_token():
     return secrets.token_urlsafe(32)
-
-def create_password_reset_token(user):
-    token = generate_reset_token()
-    expires_at = timezone.now() + timedelta(minutes=15)
-
-    return PasswordResetToken.objects.create(
-        user=user,
-        token=token,
-        expires_at=expires_at
-    )
 
 def get_tokens_for_user(user, remember_me=False):
     refresh = RefreshToken.for_user(user)

@@ -28,7 +28,7 @@ def otp_email_html(full_name: str | None, otp: str) -> str:
                 </span>
               </div>
               <p style="font-size:14px;color:#777;">
-                This code expires in 5 minutes.<br>
+                This code expires in 1 minutes.<br>
                 If you didn’t request this, please ignore this email.
               </p>
               <p style="font-size:13px;color:#aaa;margin-top:30px;">
@@ -43,7 +43,6 @@ def otp_email_html(full_name: str | None, otp: str) -> str:
 </body>
 </html>
 """
-
 
 def password_reset_html(full_name: str | None, otp: str) -> str:
     name = full_name or "User"
@@ -124,8 +123,6 @@ def password_reset_html(full_name: str | None, otp: str) -> str:
 </body>
 </html>
 """
-
-
 
 def doctor_invitation_html(full_name: str, email: str, temp_password: str) -> str:
     name = full_name or "Doctor"
