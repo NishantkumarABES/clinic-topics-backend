@@ -22,12 +22,10 @@ class StaticPageView(APIView):
     def get(self, request, page_type):
         try:
             page = StaticPage.objects.get(
-                page_type=page_type,
-                is_active=True
+                page_type=page_type, is_active=True
             )
             version = StaticPageVersion.objects.filter(
-                page=page,
-                is_published=True
+                page=page, is_published=True
             ).first()
             
             if not version:

@@ -50,7 +50,7 @@ class Article(TimeStampedUUIDModel):
     #     blank=True, null=True
     # )
 
-    year = models.PositiveIntegerField()
+    # year = models.PositiveIntegerField()
     publication_date = models.DateField()
 
     status = models.CharField(
@@ -83,8 +83,8 @@ class Article(TimeStampedUUIDModel):
     @property
     def citation(self):
         authors = self.authors
-        year = self.publication_date.year if self.publication_date else self.year
-        return f"{authors}. {self.title}. {self.journal_name}. {year}."
+        year = self.publication_date.year if self.publication_date else ""
+        return f"{authors}. {self.title}. {year}."
 
 
     def __str__(self):

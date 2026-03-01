@@ -1,3 +1,4 @@
+from datetime import datetime
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -97,7 +98,19 @@ class ArticleListView(APIView):
             queryset = queryset.filter(article_type=article_type)
 
         if year:
-            queryset = queryset.filter(year=year)
+            current_year = datetime.now().year
+            year = year.strip()
+
+            if year.lower() == "older":
+                threshold_year = current_year - 2
+                queryset = queryset.filter(
+                    publication_date__year__lt=threshold_year
+                )
+            else:
+                if year.isdigit():
+                    queryset = queryset.filter(
+                        publication_date__year=int(year)
+                    )
 
         if sort == "oldest":
             queryset = queryset.order_by("publication_date")
@@ -215,7 +228,19 @@ class MyArticlesView(APIView):
             queryset = queryset.filter(article_type=article_type)
         
         if year:
-            queryset = queryset.filter(year=year)
+            current_year = datetime.now().year
+            year = year.strip()
+
+            if year.lower() == "older":
+                threshold_year = current_year - 2
+                queryset = queryset.filter(
+                    publication_date__year__lt=threshold_year
+                )
+            else:
+                if year.isdigit():
+                    queryset = queryset.filter(
+                        publication_date__year=int(year)
+                    )
         
         if sort == "oldest":
             queryset = queryset.order_by("publication_date")
@@ -341,7 +366,19 @@ class BookmarkListView(APIView):
             queryset = queryset.filter(article_type=article_type)
 
         if year:
-            queryset = queryset.filter(year=year)
+            current_year = datetime.now().year
+            year = year.strip()
+
+            if year.lower() == "older":
+                threshold_year = current_year - 2
+                queryset = queryset.filter(
+                    publication_date__year__lt=threshold_year
+                )
+            else:
+                if year.isdigit():
+                    queryset = queryset.filter(
+                        publication_date__year=int(year)
+                    )
 
         # ---- Sorting ----
         if sort == "oldest":
