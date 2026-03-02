@@ -7,7 +7,7 @@ from apps.commerce.views import (
     AdminOrderListAPIView, AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView,
     CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, CancelOrderView, RetryPaymentView,
     AdminCreateShopBannerAPIView, AdminCreateShopCategoryAPIView, UserRefundListView, CreateRefundRequestView, AdminRefundDecisionView,
-    AdminRefundListView
+    AdminRefundListView, AdminBannerListView
 )
 
 urlpatterns = [
@@ -55,6 +55,7 @@ urlpatterns = [
     path("admin/orders/<uuid:order_id>/", AdminOrderDetailAPIView.as_view(), name="admin-order-detail"),
     path("admin/orders/<uuid:order_id>/status/", AdminOrderUpdateStatusAPIView.as_view(), name="admin-order-status"),
     path("admin/banners/", AdminCreateShopBannerAPIView.as_view(), name="admin-create-banner"),
+    path("admin/banners/", AdminBannerListView.as_view(), name="admin-banner-list"),
     path("admin/categories/", AdminCreateShopCategoryAPIView.as_view(), name="admin-create-category"),
     path("admin/refunds/", AdminRefundListView.as_view(), name="admin-refund-list"),
     path("admin/refunds/<uuid:refund_id>/decision/", AdminRefundDecisionView.as_view(), name="admin-refund-decision"),

@@ -1014,6 +1014,16 @@ class AdminCreateShopBannerAPIView(APIView):
             ).data
         }, status=201)
 
+class AdminBannerListView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        banners = ShopBanner.objects.all().order_by("-created_at")
+        return Response({
+            "success": True,
+            "data": ShopBannerSerializer(banners, many=True, context={"request": request}).data
+        })
+
 class AdminRefundListView(APIView):
     permission_classes = [IsAdmin]
 
@@ -1101,6 +1111,10 @@ class AdminRefundDecisionView(APIView):
             "detail": "Refund processed successfully.",
             "data": RefundSerializer(refund).data
         })
+
+# class AdminBannerListCreateView(APIView):
+
+
 #### ADMIN APIS FOR ORDERS ####
 
 class AdminOrderPagination(PageNumberPagination):
