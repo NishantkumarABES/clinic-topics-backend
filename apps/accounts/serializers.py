@@ -541,11 +541,14 @@ class AdminForgotPasswordRequestSerializer(serializers.Serializer):
 class AdminForgotPasswordVerifySerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.CharField(max_length=6)
-    
+
     def validate(self, data):
+        email = data["email"]
+        otp_input = data["otp"]
+
         try:
             otp_obj = EmailOTP.objects.filter(
-                email="nishant543099@gmail.com",  # data["email"],
+                email=email,
                 is_used=False
             ).latest("created_at")
         except EmailOTP.DoesNotExist:
@@ -557,21 +560,22 @@ class AdminForgotPasswordVerifySerializer(serializers.Serializer):
         if not otp_obj.is_valid():
             raise ValidationError("OTP expired")
 
+        if otp_obj.otp != otp_input:
+            otp_obj.register_failure()
+            raise ValidationError("Invalid OTP")
+
+        user = User.objects.filter(
+            email=email,
+            role=UserRole.ADMIN
+        ).exclude(state=UserState.DELETED).first()
+
+        if not user:
+            raise ValidationError("Admin with this email does not exist")
+
         data["otp_obj"] = otp_obj
+        data["user"] = user
         return data
 
-class AdminForgotPasswordSetSerializer(serializers.Serializer):
-    email = serializers.EmailField()
-    new_password = serializers.CharField(write_only=True)
-
-    def validate_new_password(self, value):
-        validate_password(value)
-        return value
-    
-    def validate(self, data):
-        if not data.get("email"):
-            raise ValidationError("Email is required")
-        return data
         
 #########################   Response Serializers    #########################
 

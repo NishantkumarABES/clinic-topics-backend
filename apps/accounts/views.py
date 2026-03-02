@@ -11,6 +11,7 @@ from django.utils import timezone
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
+from django.contrib.auth.password_validation import validate_password
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from drf_spectacular.utils import extend_schema
@@ -22,15 +23,14 @@ from apps.accounts.serializers import (
     AdminChangePasswordSerializer, UserDeviceRegisterSerializer, StandardResponseSerializer, OTPResponseSerializer,
     UserMeResponseSerializer, LogoutRequestSerializer, CommonSuccessResponseSerializer, CommonErrorResponseSerializer,
     TokenRefreshRequestSerializer, IdentityCheckSerializer, ForgotPasswordRequestSerializer, ForgotPasswordVerifySerializer, 
-    ForgotPasswordSetSerializer, AdminForgotPasswordRequestSerializer, AdminForgotPasswordVerifySerializer,
-    AdminForgotPasswordSetSerializer
+    ForgotPasswordSetSerializer, AdminForgotPasswordRequestSerializer, AdminForgotPasswordVerifySerializer
 )
 from apps.accounts.services import (
     activate_user_if_eligible, resolve_social_user, send_email_otp, send_phone_otp,
     get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, mark_user_login
 )
 from apps.accounts.social_providers import social_provider_verification
-from apps.accounts.models import User, UserDevice, AuthProvider
+from apps.accounts.models import User, UserDevice, AuthProvider, EmailOTP
 from apps.accounts.constants import UserState, UserRole
 from core.permissions import IsAdmin
 from core.api_responses import *
@@ -1114,33 +1114,38 @@ class CustomTokenRefreshView(TokenRefreshView):
 class adminForgotPasswordRequestView(APIView):
     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(
-        auto_schema=None,
-        request_body=AdminForgotPasswordRequestSerializer,
-    )
     def post(self, request):
-        email = request.data.get("email")
-        if not email:
+        serializer = AdminForgotPasswordRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        email = serializer.validated_data["email"]
+
+        user = User.objects.filter(
+            email=email,
+            role=UserRole.ADMIN
+        ).exclude(state=UserState.DELETED).first()
+
+        if not user:
             return Response(
-                {"detail": "Email is required", "data": None, "success": False},
+                {"detail": "Admin with this email does not exist",
+                 "data": None,
+                 "success": False},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        # for tesing purposes, we will allow admins to request OTP for any email
-        email = "nishant543099@gmail.com"
 
         otp = send_email_otp(
             email=email,
-            full_name="Admin",
-            forget_password=True,
-            otp_length=6
+            full_name=user.full_name,
+            forget_password=True
         )
 
         response = {
-            "detail": f"An OTP has been sent to your email: {email}",
-            "data": None, "success": True
+            "detail": "OTP sent to registered admin email",
+            "data": None,
+            "success": True
         }
 
-        if settings.DEBUG and otp:
+        if settings.DEBUG:
             response["data"] = {"testing_otp": otp}
 
         return Response(response)
@@ -1148,16 +1153,12 @@ class adminForgotPasswordRequestView(APIView):
 class adminForgotPasswordVerifyView(APIView):
     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(
-        auto_schema=None,
-        request_body=AdminForgotPasswordVerifySerializer,
-    )
     def post(self, request):
         serializer = AdminForgotPasswordVerifySerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         otp_obj = serializer.validated_data["otp_obj"]
-        otp_obj.mark_as_used() if hasattr(otp_obj, "mark_as_used") else None
+        otp_obj.mark_as_used()
 
         return Response({
             "detail": "OTP verified successfully",
@@ -1168,35 +1169,72 @@ class adminForgotPasswordVerifyView(APIView):
 class adminForgotPasswordSetNewPasswordView(APIView):
     permission_classes = [AllowAny]
 
-    @swagger_auto_schema(
-        auto_schema=None,
-        request_body=AdminForgotPasswordSetSerializer,
-    )
     @transaction.atomic
     def post(self, request):
-        serializer = AdminForgotPasswordSetSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        email = request.data.get("email")
+        otp = request.data.get("otp")
+        new_password = request.data.get("new_password")
 
-        email = serializer.validated_data.get("email")
-        new_password = serializer.validated_data["new_password"]
+        if not email or not otp or not new_password:
+            return Response(
+                {"detail": "Email, OTP and new_password are required",
+                 "data": None,
+                 "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        validate_password(new_password)
+
+        try:
+            otp_obj = EmailOTP.objects.filter(
+                email=email,
+                is_used=False
+            ).latest("created_at")
+        except EmailOTP.DoesNotExist:
+            return Response(
+                {"detail": "Invalid OTP",
+                 "data": None,
+                 "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if not otp_obj.is_valid():
+            return Response(
+                {"detail": "OTP expired",
+                 "data": None,
+                 "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if otp_obj.otp != otp:
+            otp_obj.register_failure()
+            return Response(
+                {"detail": "Invalid OTP",
+                 "data": None,
+                 "success": False},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         user = User.objects.filter(
             email=email,
             role=UserRole.ADMIN
-        ).exclude(
-            state=UserState.DELETED
-        ).first()
+        ).exclude(state=UserState.DELETED).first()
 
         if not user:
             return Response(
-                {"detail": "Admin with this email does not exist", "data": None, "success": False},
+                {"detail": "Admin not found",
+                 "data": None,
+                 "success": False},
+                status=status.HTTP_400_BAD_REQUEST
             )
 
         user.set_password(new_password)
         user.save(update_fields=["password"])
 
+        otp_obj.mark_as_used()
+
         return Response({
-            "detail": "Password reset successful",
+            "detail": "Admin password reset successful",
             "data": None,
             "success": True
         })
