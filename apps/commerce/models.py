@@ -225,7 +225,7 @@ class Order(TimeStampedUUIDModel):
         db_index=True
     )
 
-    status = models.CharField(max_length=20, choices=OrderStatus.CHOICES)
+    status = models.CharField(max_length=20, choices=OrderStatus.choices)
     total_amount = models.DecimalField(max_digits=10, decimal_places=2)
 
     payment_gateway = models.CharField(
@@ -284,21 +284,6 @@ class OrderItem(TimeStampedUUIDModel):
     quantity = models.PositiveIntegerField()
     price_at_purchase = models.DecimalField(max_digits=10, decimal_places=2)
 
-class Category(TimeStampedUUIDModel):
-    name = models.CharField(max_length=255)
-    slug = models.SlugField(unique=True)
-    is_active = models.BooleanField(default=True)
-    parent = models.ForeignKey(
-        "self",
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="children"
-    )
-
-    def __str__(self):
-        return self.name
-
 class Wishlist(TimeStampedUUIDModel):
     user = models.OneToOneField(
         User,
@@ -341,7 +326,7 @@ class Payment(TimeStampedUUIDModel):
     currency = models.CharField(max_length=10, default="INR")
     status = models.CharField(
         max_length=20,
-        choices=PaymentStatus.CHOICES,
+        choices=PaymentStatus.choices,
         default=PaymentStatus.CREATED
     )
     failure_reason = models.TextField(blank=True, null=True)
@@ -371,13 +356,19 @@ class Refund(TimeStampedUUIDModel):
     status = models.CharField(
         max_length=20,
         choices=RefundStatus.choices,
-        default=RefundStatus.REQUESTED
+        default=RefundStatus.REFUND_REQUESTED
     )
 
     razorpay_refund_id = models.CharField(max_length=100, blank=True, null=True)
     refund_meta = models.JSONField(null=True, blank=True)
 
     is_partial = models.BooleanField(default=False)
+    admin_note = models.TextField(blank=True)
+
+    case_type = models.CharField(
+        max_length=50,
+        blank=True
+    )
 
 class ShopBanner(TimeStampedUUIDModel):
     title = models.CharField(max_length=255)

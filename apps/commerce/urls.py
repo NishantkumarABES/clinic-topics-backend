@@ -3,11 +3,10 @@ from apps.commerce.views import (
     ProductListView, ProductDetailView, CartDetailView, AddToCartView, UpdateCartItemView, RemoveCartItemView, AddressListCreateView, 
     AddressDetailView, AdminProductListCreateAPIView, AdminProductUpdateAPIView, ProductReviewListView, CreateUpdateProductReviewView, 
     ApplyCouponView, RemoveCouponView, AdminCouponListCreateView, AdminCouponUpdateDestroyView, WishlistDetailView, AddToWishlistView, 
-    RemoveFromWishlistView, OrderHistoryView, OrderDetailView, ProductFilterOptionsAPIView, ShopLandingAPIView,
-    AdminOrderListAPIView, AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView,
-    CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, CancelOrderView, RetryPaymentView,
-    AdminCreateShopBannerAPIView, AdminCreateShopCategoryAPIView, UserRefundListView, CreateRefundRequestView, AdminRefundDecisionView,
-    AdminRefundListView, AdminBannerListView
+    RemoveFromWishlistView, OrderHistoryView, OrderDetailView, ProductFilterOptionsAPIView, ShopLandingAPIView, AdminOrderListAPIView, 
+    AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView, CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, 
+    CancelOrderView, RetryPaymentView, AdminCreateShopCategoryAPIView, UserRefundListView, CreateRefundRequestView, AdminRefundDecisionView,
+    AdminRefundListView, AdminBannerListCreateAPIView
 )
 
 urlpatterns = [
@@ -54,8 +53,7 @@ urlpatterns = [
     path("admin/orders/", AdminOrderListAPIView.as_view(), name="admin-order-list"),
     path("admin/orders/<uuid:order_id>/", AdminOrderDetailAPIView.as_view(), name="admin-order-detail"),
     path("admin/orders/<uuid:order_id>/status/", AdminOrderUpdateStatusAPIView.as_view(), name="admin-order-status"),
-    path("admin/banners/", AdminCreateShopBannerAPIView.as_view(), name="admin-create-banner"),
-    path("admin/banners/", AdminBannerListView.as_view(), name="admin-banner-list"),
+    path("admin/banners/", AdminBannerListCreateAPIView.as_view(), name="admin-create-banner"),
     path("admin/categories/", AdminCreateShopCategoryAPIView.as_view(), name="admin-create-category"),
     path("admin/refunds/", AdminRefundListView.as_view(), name="admin-refund-list"),
     path("admin/refunds/<uuid:refund_id>/decision/", AdminRefundDecisionView.as_view(), name="admin-refund-decision"),

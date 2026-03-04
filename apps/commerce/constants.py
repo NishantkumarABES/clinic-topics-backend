@@ -1,24 +1,13 @@
 from django.db import models
 
-class OrderStatus:
-    PENDING_PAYMENT = 'pending_payment'
-    PAID = 'paid'
-    PROCESSING = 'processing'
-    SHIPPED = 'shipped'
-    DELIVERED = 'delivered'
-    CANCELLED = 'cancelled'
-    REFUNDED = 'refunded'
-
-    CHOICES = [
-        (PENDING_PAYMENT, 'Pending Payment'),
-        (PAID, 'Paid'),
-        (PROCESSING, 'Processing'),
-        (SHIPPED, 'Shipped'),
-        (DELIVERED, 'Delivered'),
-        (CANCELLED, 'Cancelled'),
-        (REFUNDED, 'Refunded'),
-    ]
-
+class OrderStatus(models.TextChoices):
+    PENDING_PAYMENT = 'pending_payment', 'Pending Payment'
+    PAID = 'paid', 'Paid'
+    PROCESSING = 'processing', 'Processing'
+    SHIPPED = 'shipped', 'Shipped'
+    DELIVERED = 'delivered', 'Delivered'
+    CANCELLED = 'cancelled', 'Cancelled'
+    REFUNDED = 'refunded', 'Refunded'
 
 class PaymentGateway(models.TextChoices):
     RAZORPAY = "razorpay", "Razorpay"
@@ -32,12 +21,13 @@ class PaymentMethod(models.TextChoices):
     COD = "cod", "Cash on Delivery"
 
 class RefundStatus(models.TextChoices):
-    REQUESTED = "requested", "Requested"
+    REFUND_REQUESTED = "refund_requested", "Refund Requested"
+    UNDER_REVIEW = "under_review", "Under Review"
     APPROVED = "approved", "Approved"
     REJECTED = "rejected", "Rejected"
-    PROCESSED = "processed", "Processed"
+    REFUND_INITIATED = "refund_initiated", "Refund Initiated"
+    REFUND_COMPLETED = "refund_completed", "Refund Completed"
     FAILED = "failed", "Failed"
-
 
 class ProductCategory(models.TextChoices):
     DIAGNOSTICS = 'diagnostics', 'Diagnostics'
@@ -54,18 +44,10 @@ class ProductCategory(models.TextChoices):
     PERSONAL_CARE_HYGIENE = "personal_care_hygiene", 'Personal Care & Hygiene'
     FITNESS_WELLNESS_EQUIPMENT = "fitness_wellness_equipment", 'Fitness & Wellness Equipment'
     
+class PaymentStatus(models.TextChoices):
+    CREATED = 'created', 'Created'
+    AUTHORIZED = 'authorized', 'Authorized'
+    CAPTURED = 'captured', 'Captured'
+    FAILED = 'failed', 'Failed'
+    REFUNDED = 'refunded', 'Refunded'
 
-class PaymentStatus:
-    CREATED = 'created'
-    AUTHORIZED = 'authorized'
-    CAPTURED = 'captured'
-    FAILED = 'failed'
-    REFUNDED = 'refunded'
-
-    CHOICES = [
-        (CREATED, 'Created'),
-        (AUTHORIZED, 'Authorized'),
-        (CAPTURED, 'Captured'),
-        (FAILED, 'Failed'),
-        (REFUNDED, 'Refunded'),
-    ]
