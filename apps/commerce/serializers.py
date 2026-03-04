@@ -444,7 +444,7 @@ class RefundRequestSerializer(serializers.Serializer):
 
         # Calculate already refunded
         refunded_total = order.refunds.filter(
-            status=RefundStatus.PROCESSED
+            status=RefundStatus.REFUND_COMPLETED
         ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
 
         refundable_balance = payment.amount - refunded_total
