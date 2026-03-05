@@ -1143,9 +1143,6 @@ class AdminRefundDecisionView(APIView):
             "data": RefundSerializer(refund).data
         })
 
-# class AdminBannerListCreateView(APIView):
-
-
 #### ADMIN APIS FOR ORDERS ####
 
 class AdminOrderPagination(PageNumberPagination):
