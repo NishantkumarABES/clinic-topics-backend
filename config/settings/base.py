@@ -216,6 +216,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.accounts.tasks.mark_inactive_users",
         "schedule": crontab(hour=3, minute=0),  # every day at 3 AM
     },
+
+    "cleanup-expired-otps": {
+        "task": "apps.accounts.tasks.cleanup_expired_otps",
+        "schedule": crontab(hour=3, minute=30),  # once a day
+    },
     
     "update-event-statuses": {
         "task": "apps.events.tasks.update_event_statuses",

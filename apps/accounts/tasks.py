@@ -3,7 +3,7 @@ from django.utils import timezone
 from django.db.models import Q
 from datetime import timedelta
 
-from apps.accounts.models import User
+from apps.accounts.models import User, PhoneOTP, EmailOTP
 from apps.accounts.constants import UserState
 
 
@@ -21,3 +21,20 @@ def mark_inactive_users():
     count = inactive_users.update(state=UserState.INACTIVE)
 
     return f"{count} users marked inactive"
+
+@shared_task
+def cleanup_expired_otps():
+    now = timezone.now()
+
+    phone_deleted, _ = PhoneOTP.objects.filter(
+        Q(is_used=True) | Q(expires_at__lt=now)
+    ).delete()
+
+    email_deleted, _ = EmailOTP.objects.filter(
+        Q(is_used=True) | Q(expires_at__lt=now)
+    ).delete()
+
+    return {
+        "phone_otps_deleted": phone_deleted,
+        "email_otps_deleted": email_deleted,
+    }

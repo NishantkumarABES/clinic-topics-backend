@@ -58,7 +58,7 @@ class AdminTopicListCreateAPIView(APIView):
     def get(self, request):
         search_term = request.query_params.get("search")
         publish_status = request.query_params.get("status")
-        
+        topic_type = request.query_params.get("topic_type")
 
         queryset = Topic.objects.all()
 
@@ -71,6 +71,11 @@ class AdminTopicListCreateAPIView(APIView):
         if publish_status:
             queryset = queryset.filter(publish_status=(publish_status=='publish'))
 
+        if topic_type:
+            if topic_type == UserRole.ADMIN:
+                queryset = queryset.filter(author__role=UserRole.ADMIN)
+            elif topic_type == UserRole.DOCTOR:
+                queryset = queryset.filter(author__role=UserRole.DOCTOR)
 
         paginator = self.pagination_class()
         page = paginator.paginate_queryset(
