@@ -27,7 +27,19 @@ from external.razorpay.service import razorpay_service
 class BooksLandingView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                name="search",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                description="Search in category label or key (partial match)"
+            ),
+        ]
+    )
     def get(self, request):
+        search = request.query_params.get("search")
 
         book_counts = (
             Book.objects
@@ -43,6 +55,11 @@ class BooksLandingView(APIView):
         }
 
         categories = BookCategory.objects.filter(is_active=True)
+        if search:
+            categories = categories.filter(
+                models.Q(label__icontains=search) |
+                models.Q(key__icontains=search) 
+            )
 
         response_data = []
 

@@ -103,7 +103,6 @@ class BookDetailSerializer(BookListSerializer):
 
         return obj.uploaded_by == request.user
 
-
 class BookUploadSerializer(serializers.ModelSerializer):
     price = serializers.IntegerField(
         min_value=0,
