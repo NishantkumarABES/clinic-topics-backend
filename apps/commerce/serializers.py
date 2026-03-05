@@ -120,7 +120,9 @@ class CouponSerializer(serializers.ModelSerializer):
             "current_uses",
             "valid_from",
             "valid_until",
-            "is_active"
+            "is_active",
+            "created_at",
+            "updated_at",
         ]
 
 class ApplyCouponSerializer(serializers.Serializer):
