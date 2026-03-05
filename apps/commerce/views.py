@@ -798,10 +798,27 @@ class CreateRefundRequestView(APIView):
 
         with transaction.atomic():
 
-            order = Order.objects.select_for_update().get(
+            order = get_object_or_404(
+                Order.objects.select_for_update(),
                 id=order_id,
                 user=request.user
             )
+
+            # Prevent duplicate refund requests
+            if order.refunds.filter(
+                status__in=[
+                    RefundStatus.APPROVED,
+                    RefundStatus.UNDER_REVIEW,
+                    RefundStatus.REFUND_INITIATED
+                ]
+            ).exists():
+                return Response(
+                    {
+                        "success": False,
+                        "detail": "A refund request already exists for this order."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
             serializer = RefundRequestSerializer(
                 data=request.data,
@@ -819,7 +836,7 @@ class CreateRefundRequestView(APIView):
 
             case = classify_refund_case(order)
 
-            # COD orders are not refundable through gateway
+            # COD orders cannot be refunded
             if case == "cod":
                 return Response(
                     {
@@ -839,6 +856,10 @@ class CreateRefundRequestView(APIView):
                     reason=reason,
                     status=RefundStatus.APPROVED
                 )
+
+                # Update order state
+                order.status = OrderStatus.REFUNDED
+                order.save(update_fields=["status"])
 
             else:
 
@@ -1140,8 +1161,20 @@ class AdminRefundDecisionView(APIView):
                 refund.status = RefundStatus.REFUND_COMPLETED
                 refund.razorpay_refund_id = razorpay_response["id"]
                 refund.refund_meta = razorpay_response
-
                 refund.save()
+
+                refund.order.status = OrderStatus.REFUNDED
+                refund.order.save(update_fields=["status"])
+
+                payment = refund.payment
+                payment.status = PaymentStatus.REFUNDED
+                payment.save(update_fields=["status"])
+
+                return Response({
+                    "success": True,
+                    "detail": "Refund initiated"
+                })
+
 
             except Exception as e:
 
