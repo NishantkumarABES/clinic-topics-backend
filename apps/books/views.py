@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework.parsers import MultiPartParser, FormParser
@@ -8,19 +9,60 @@ from drf_yasg.utils import swagger_auto_schema
 from django.shortcuts import get_object_or_404
 from django.db import models, transaction
 from django.core.files.storage import default_storage
-from django.db.models import Q
+from django.db.models import Q, Count
 
-from apps.books.models import Book, BookPurchase
+
+from apps.books.models import Book, BookPurchase, BookCategory
 from apps.books.serializers import (
     BookListSerializer, BookUploadSerializer, BookDetailSerializer, BookReviewSerializer, PaginatedBookListResponseSerializer,
     CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer,
-    BookUpdateSerializer, BookRatingSerializer, BookRatingListSerializer, AdminBookCreateSerializer
+    BookUpdateSerializer, BookRatingSerializer, BookRatingListSerializer, AdminBookCreateSerializer, BookCategorySerializer
 )
 from apps.books.constants import Status, OrderStatus
 from core.permissions import IsDoctor, IsAdmin
 from core.api_responses import BAD_REQUEST_400, UNAUTHORIZE_401
 from external.razorpay.service import razorpay_service
 
+
+class BooksLandingView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+
+        book_counts = (
+            Book.objects
+            .filter(status=Status.APPROVED, is_deleted=False)
+            .exclude(speciality__isnull=True)
+            .values("speciality")
+            .annotate(count=Count("id"))
+        )
+
+        book_count_map = {
+            item["speciality"]: item["count"]
+            for item in book_counts
+        }
+
+        categories = BookCategory.objects.filter(is_active=True)
+
+        response_data = []
+
+        for category in categories:
+            image_url = None
+            if category.image:
+                image_url = request.build_absolute_uri(category.image.url)
+
+            response_data.append({
+                "key": category.key,
+                "label": category.label,
+                "image": image_url,
+                "book_count": book_count_map.get(category.key, 0)
+            })
+
+        return Response({
+            "detail": "Book categories retrieved successfully",
+            "data": {"categories": response_data},
+            "success": True
+        })
 
 # -------------------------
 # Pagination (Accounts-style)
@@ -843,4 +885,32 @@ class AdminBookCreateView(APIView):
                 "success": True,
             },
             status=status.HTTP_201_CREATED,
+        )
+
+class AdminBookCategoryCreateView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        request_body=BookCategorySerializer,
+        responses={201: StandardResponseSerializer},
+        operation_description="Create a book category with image",
+        auto_schema=None
+    )
+    def post(self, request):
+
+        serializer = BookCategorySerializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+        category = serializer.save()
+
+        return Response(
+            {
+                "detail": "Book category created successfully",
+                "data": {
+                    "category_id": category.id
+                },
+                "success": True
+            },
+            status=status.HTTP_201_CREATED
         )
