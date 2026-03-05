@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.books.models import Book, Collection, BookRating
+from apps.books.models import Book, Collection, BookRating, BookCategory
 from apps.books.constants import Status
 from apps.accounts.constants import UserRole
 from apps.accounts.models import User
@@ -277,6 +277,19 @@ class AdminBookCreateSerializer(serializers.ModelSerializer):
         )
 
         return book
+
+class BookCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookCategory
+        fields = (
+            "id",
+            "key",
+            "label",
+            "image",
+            "is_active",
+            "created_at"
+        )
+        read_only_fields = ("id", "created_at")
 ########### Response Serializers ####################
 
 class PaginatedBookListResponseSerializer(serializers.Serializer):

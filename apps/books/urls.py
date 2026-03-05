@@ -2,13 +2,15 @@ from django.urls import path
 from apps.books.views import (
     BookListView, BookDetailView, BookDownloadView, AdminBookListView, BookListView, BookReviewView, MyBooksView, BookUploadView,
     CreateBookPurchaseView, VerifyBookPurchaseView, MyBookDetailView, MoveBookToReviewView, MyBookUpdateView, BookRatingView,
-    MyBookDeleteView, BookRatingListView, MyBookDownloadView, AdminBookUpdateView, AdminBookCreateView
+    MyBookDeleteView, BookRatingListView, MyBookDownloadView, AdminBookUpdateView, AdminBookCreateView, BooksLandingView,
+    AdminBookCategoryCreateView
 )
 
 urlpatterns = [
     # -------------------------
     # Public / Authenticated APIs
     # -------------------------
+    path("landing/", BooksLandingView.as_view(), name="books-landing"),
     path("", BookListView.as_view(), name="book-list"),
     path("<uuid:pk>/", BookDetailView.as_view(), name="book-detail"),
     path("<uuid:pk>/download/", BookDownloadView.as_view(), name="book-download"),
@@ -36,4 +38,5 @@ urlpatterns = [
     path("admin/<uuid:pk>/move/", MoveBookToReviewView.as_view(), name="book-move"),
     path("admin/<uuid:pk>/update/", AdminBookUpdateView.as_view(), name="book-update"),
     path("admin/create/", AdminBookCreateView.as_view(), name="admin-book-create"),
+    path("admin/category/create/", AdminBookCategoryCreateView.as_view(), name="admin-book-category-create"),
 ]

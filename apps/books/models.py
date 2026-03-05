@@ -175,3 +175,16 @@ class BookRating(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"{self.user} → {self.book} ({self.rating})"
+
+class BookCategory(models.Model):
+    key = models.CharField(max_length=255, unique=True)
+    label = models.CharField(max_length=255)
+    image = models.ImageField(upload_to="books/categories/")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["key"]
+
+    def __str__(self):
+        return self.label
