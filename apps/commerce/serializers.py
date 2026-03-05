@@ -423,41 +423,53 @@ class ShopCategorySerializer(serializers.ModelSerializer):
         ).count()
 
 class RefundRequestSerializer(serializers.Serializer):
-    amount = serializers.DecimalField(max_digits=10, decimal_places=2)
     reason = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, attrs):
         request = self.context["request"]
         order = self.context["order"]
-        amount = attrs["amount"]
 
         # Order must belong to user
         if order.user != request.user:
             raise serializers.ValidationError("Invalid order.")
 
-        # Must be paid
-        if order.status not in [OrderStatus.PAID, OrderStatus.DELIVERED]:
-            raise serializers.ValidationError("Refund not allowed for this order status.")
+        # Order must be eligible for refund
+        if order.status not in [
+            OrderStatus.PAID,
+            OrderStatus.PROCESSING,
+            OrderStatus.SHIPPED,
+            OrderStatus.DELIVERED,
+            OrderStatus.CANCELLED,
+        ]:
+            raise serializers.ValidationError(
+                "Refund not allowed for this order status."
+            )
 
         # Get successful payment
-        payment = order.payments.filter(status=PaymentStatus.CAPTURED).first()
-        if not payment:
-            raise serializers.ValidationError("No successful payment found.")
+        payment = order.payments.filter(
+            status=PaymentStatus.CAPTURED
+        ).first()
 
-        # Calculate already refunded
+        if not payment:
+            raise serializers.ValidationError(
+                "No successful payment found for this order."
+            )
+
+        # Calculate already refunded amount
         refunded_total = order.refunds.filter(
             status=RefundStatus.REFUND_COMPLETED
         ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
 
         refundable_balance = payment.amount - refunded_total
 
-        if amount <= 0:
-            raise serializers.ValidationError("Refund amount must be greater than zero.")
-
-        if amount > refundable_balance:
-            raise serializers.ValidationError("Refund exceeds available refundable amount.")
+        if refundable_balance <= 0:
+            raise serializers.ValidationError(
+                "No refundable balance remaining for this order."
+            )
 
         attrs["payment"] = payment
+        attrs["refund_amount"] = refundable_balance
+
         return attrs
 
 class RefundSerializer(serializers.ModelSerializer):
@@ -946,5 +958,5 @@ class OrderDetailResponseSerializer(serializers.Serializer):
 class CancelOrderSerializer(serializers.Serializer):
     reason = serializers.CharField(required=False, allow_blank=True)
 
-class RefundRequestSerializer(serializers.Serializer):
-    reason = serializers.CharField(required=False, allow_blank=True)
+# class RefundRequestSerializer(serializers.Serializer):
+#     reason = serializers.CharField(required=False, allow_blank=True)

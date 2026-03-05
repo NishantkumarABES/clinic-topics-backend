@@ -789,6 +789,11 @@ class OrderDetailView(APIView):
 class CreateRefundRequestView(APIView):
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_id="create_refund_request",
+        operation_description="Create a refund request for an order. Automatically approves if order is cancelled before shipping.",
+        request_body=RefundRequestSerializer,
+    )
     def post(self, request, order_id):
 
         with transaction.atomic():
@@ -800,30 +805,38 @@ class CreateRefundRequestView(APIView):
 
             serializer = RefundRequestSerializer(
                 data=request.data,
-                context={"request": request, "order": order}
+                context={
+                    "request": request,
+                    "order": order
+                }
             )
+
             serializer.is_valid(raise_exception=True)
 
             payment = serializer.validated_data["payment"]
-            amount = serializer.validated_data["amount"]
+            refund_amount = serializer.validated_data["refund_amount"]
+            reason = serializer.validated_data.get("reason", "")
 
             case = classify_refund_case(order)
 
-            # COD
+            # COD orders are not refundable through gateway
             if case == "cod":
-                return Response({
-                    "success": False,
-                    "detail": "COD orders cannot be refunded."
-                }, status=400)
+                return Response(
+                    {
+                        "success": False,
+                        "detail": "COD orders cannot be refunded."
+                    },
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            # Automatic approval
+            # Auto approve if cancelled before shipping
             if case == "cancel_before_shipping":
 
                 refund = Refund.objects.create(
                     order=order,
                     payment=payment,
-                    amount=amount,
-                    reason=serializer.validated_data.get("reason", ""),
+                    amount=refund_amount,
+                    reason=reason,
                     status=RefundStatus.APPROVED
                 )
 
@@ -832,16 +845,19 @@ class CreateRefundRequestView(APIView):
                 refund = Refund.objects.create(
                     order=order,
                     payment=payment,
-                    amount=amount,
-                    reason=serializer.validated_data.get("reason", ""),
+                    amount=refund_amount,
+                    reason=reason,
                     status=RefundStatus.UNDER_REVIEW
                 )
 
-        return Response({
-            "success": True,
-            "detail": "Refund request created",
-            "data": RefundSerializer(refund).data
-        }, status=201)
+        return Response(
+            {
+                "success": True,
+                "detail": "Refund request created successfully.",
+                "data": RefundSerializer(refund).data
+            },
+            status=status.HTTP_201_CREATED
+        )
 
 class UserRefundListView(APIView):
     permission_classes = [IsAuthenticated]
