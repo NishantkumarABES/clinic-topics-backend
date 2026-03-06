@@ -15,6 +15,7 @@ class BookListSerializer(serializers.ModelSerializer):
     collections = CollectionSerializer(many=True, read_only=True)
     file_url = serializers.SerializerMethodField()
     is_deleted = serializers.BooleanField(read_only=True)
+    book_cover = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
@@ -39,6 +40,7 @@ class BookListSerializer(serializers.ModelSerializer):
             "is_editor_curated",
             "price",
             "collections",
+            "book_cover",
             "file_url",   # dynamically removed for non-admins
             "is_deleted", # dynamically removed for non-admins
             "created_at",
@@ -54,6 +56,14 @@ class BookListSerializer(serializers.ModelSerializer):
     def get_file_url(self, obj):
         if obj.file:
             return obj.file.url
+        return None
+
+    def get_book_cover(self, obj):
+        request = self.context.get("request")
+        if obj.book_cover:
+            if request:
+                return request.build_absolute_uri(obj.book_cover.url)
+            return obj.book_cover.url
         return None
 
 class BookDetailSerializer(BookListSerializer):
@@ -109,6 +119,7 @@ class BookUploadSerializer(serializers.ModelSerializer):
         required=False,
         default=0,
     )
+    book_cover = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Book
@@ -123,6 +134,7 @@ class BookUploadSerializer(serializers.ModelSerializer):
             "book_type",
             "description",
             "file",
+            "book_cover",
             "copyright_status",
             "access_level",
             "price",
@@ -233,6 +245,7 @@ class BookRatingListSerializer(serializers.ModelSerializer):
 
 class AdminBookCreateSerializer(serializers.ModelSerializer):
     user_id = serializers.UUIDField(write_only=True)
+    book_cover = serializers.ImageField(required=False, allow_null=True)
 
     class Meta:
         model = Book
@@ -248,6 +261,7 @@ class AdminBookCreateSerializer(serializers.ModelSerializer):
             "book_type",
             "description",
             "file",
+            "book_cover",
             "copyright_status",
             "access_level",
             "price",

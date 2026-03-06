@@ -50,6 +50,10 @@ class Book(TimeStampedUUIDModel):
     file = models.FileField(
         upload_to="books/files/",
     )
+    book_cover = models.ImageField(
+        upload_to="books/covers/",
+        blank=True, null=True
+    )
 
     # Legal & access
     copyright_status = models.CharField(

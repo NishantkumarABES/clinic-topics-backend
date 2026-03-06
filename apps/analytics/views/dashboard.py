@@ -11,6 +11,14 @@ from apps.commerce.models import Product, OrderItem, OrderStatus, Order
 from apps.accounts.models import User
 from apps.topics.models import Topic
 from apps.advertisements.models import Advertisement, AdvertisementStatus
+from apps.books.models import Book
+from apps.books.constants import Status as BookStatus
+from apps.articles.models import Article
+from apps.articles.constants import Status as ArticleStatus
+from apps.videos.models import Video
+from apps.videos.constants import Status as VideoStatus
+from apps.jobs.models import JobPost
+from apps.jobs.constants import JobPostStatus
 from core.permissions import IsAdmin
 
 
@@ -93,10 +101,27 @@ class AdminDashboardPendingActionAPIView(APIView):
         total_out_of_stock_products = Product.objects.filter(stock_quantity=0).count()
         total_unpublished_topics = Topic.objects.filter(publish_status=False).count()
         total_unpublished_advt = Advertisement.objects.filter(status=AdvertisementStatus.DISABLED).count()
+        total_pending_books = Book.objects.filter(status=BookStatus.PENDING).count()
+        total_inreview_books = Book.objects.filter(status=BookStatus.INREVIEW).count()
+        total_draft_articles = Article.objects.filter(status=ArticleStatus.DRAFT).count()
+        total_inreview_articles = Article.objects.filter(status=ArticleStatus.REVIEW).count()
+        total_pending_videos = Video.objects.filter(status=VideoStatus.PENDING).count()
+        total_inreview_videos = Video.objects.filter(status=VideoStatus.REVIEW).count()
+        total_draft_jobs = JobPost.objects.filter(status=JobPostStatus.DRAFT).count()
+        total_inreview_jobs = JobPost.objects.filter(status=JobPostStatus.IN_REVIEW).count()
+
         data = {
             "out_of_stock_products": total_out_of_stock_products,
             "unpublished_topics": total_unpublished_topics,
-            "unpublished_advt": total_unpublished_advt
+            "unpublished_advt": total_unpublished_advt,
+            "pending_books": total_pending_books,
+            "in_review_books": total_inreview_books,
+            "draft_articles": total_draft_articles,
+            "in_review_articles": total_inreview_articles,
+            "pending_videos": total_pending_videos,
+            "in_review_videos": total_inreview_videos,
+            "draft_jobs": total_draft_jobs,
+            "in_review_jobs": total_inreview_jobs,
         }
         return Response(data)
 
