@@ -1136,7 +1136,8 @@ class adminForgotPasswordRequestView(APIView):
         otp = send_email_otp(
             email=email,
             full_name=user.full_name,
-            forget_password=True
+            forget_password=True,
+            otp_length=6,
         )
 
         response = {
@@ -1201,15 +1202,6 @@ class adminForgotPasswordSetNewPasswordView(APIView):
         if not otp_obj.is_valid():
             return Response(
                 {"detail": "OTP expired",
-                 "data": None,
-                 "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if otp_obj.otp != otp:
-            otp_obj.register_failure()
-            return Response(
-                {"detail": "Invalid OTP",
                  "data": None,
                  "success": False},
                 status=status.HTTP_400_BAD_REQUEST
