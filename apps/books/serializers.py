@@ -36,6 +36,8 @@ class BookListSerializer(serializers.ModelSerializer):
             "views",
             "downloads",
             "status",
+            "copyright_status",
+            "access_level",
             "rejection_reason",
             "is_editor_curated",
             "price",
