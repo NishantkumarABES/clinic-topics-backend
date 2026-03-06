@@ -221,6 +221,11 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.accounts.tasks.cleanup_expired_otps",
         "schedule": crontab(hour=3, minute=30),  # once a day
     },
+
+    "deactivate-expired-coupons": {
+        "task": "apps.commerce.tasks.deactivate_expired_coupons",
+        "schedule": crontab(hour=4, minute=0),  # every day at 4 AM
+    },
     
     "update-event-statuses": {
         "task": "apps.events.tasks.update_event_statuses",
