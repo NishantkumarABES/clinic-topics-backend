@@ -1186,27 +1186,6 @@ class adminForgotPasswordSetNewPasswordView(APIView):
 
         validate_password(new_password)
 
-        try:
-            otp_obj = EmailOTP.objects.filter(
-                email=email,
-                is_used=False
-            ).latest("created_at")
-        except EmailOTP.DoesNotExist:
-            return Response(
-                {"detail": "Invalid OTP",
-                 "data": None,
-                 "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        if not otp_obj.is_valid():
-            return Response(
-                {"detail": "OTP expired",
-                 "data": None,
-                 "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
         user = User.objects.filter(
             email=email,
             role=UserRole.ADMIN
@@ -1222,8 +1201,6 @@ class adminForgotPasswordSetNewPasswordView(APIView):
 
         user.set_password(new_password)
         user.save(update_fields=["password"])
-
-        otp_obj.mark_as_used()
 
         return Response({
             "detail": "Admin password reset successful",
