@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+import attrs
 from django.db import models, transaction
 from django.db.models import Sum, F
 from rest_framework import serializers
@@ -587,6 +588,22 @@ class AdminShopBannerWriteSerializer(serializers.ModelSerializer):
             "is_active",
             "order",
         ]
+
+    def validate(self, attrs):
+        order = attrs.get("order")
+        is_active = attrs.get("is_active", True)
+
+        if is_active and order:
+            qs = ShopBanner.objects.filter(order=order, is_active=True)
+
+            if self.instance:
+                qs = qs.exclude(id=self.instance.id)
+
+            if qs.exists():
+                raise serializers.ValidationError(
+                    {"order": "Another active banner already uses this order."}
+                )
+        return attrs
     
     @transaction.atomic
     def create(self, validated_data):
