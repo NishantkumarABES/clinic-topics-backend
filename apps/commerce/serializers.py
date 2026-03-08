@@ -474,18 +474,171 @@ class RefundRequestSerializer(serializers.Serializer):
         return attrs
 
 class RefundSerializer(serializers.ModelSerializer):
+    order_id = serializers.UUIDField(source="order.id", read_only=True)
+    order_number = serializers.CharField(source="order.order_number", read_only=True)
+
+    # Order data
+    order_status = serializers.CharField(source="order.status", read_only=True)
+    order_total_amount = serializers.DecimalField(
+        source="order.total_amount",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+
+    payment_method = serializers.CharField(source="order.payment_method", read_only=True)
+    payment_reference = serializers.CharField(source="order.payment_reference", read_only=True)
+
+    # Payment
+    payment_gateway = serializers.CharField(source="order.payment_gateway", read_only=True)
+    payment_id = serializers.CharField(source="payment.razorpay_payment_id", read_only=True)
+
+    # User info
+    user = serializers.SerializerMethodField()
+
+    # Address
+    address = serializers.SerializerMethodField()
+
+    # Items
+    items = serializers.SerializerMethodField()
+
+    # Refund metadata
+    refund_amount = serializers.DecimalField(
+        source="amount",
+        max_digits=10,
+        decimal_places=2,
+        read_only=True
+    )
+
+    refund_type = serializers.SerializerMethodField()
+
+    payment_gateway_reference = serializers.CharField(
+        source="razorpay_refund_id",
+        read_only=True
+    )
+
+    requested_at = serializers.DateTimeField(source="created_at", read_only=True)
+    reviewed_at = serializers.DateTimeField(source="updated_at", read_only=True)
+
+    admin_notes = serializers.CharField(source="admin_note", read_only=True)
+
+    timeline = serializers.SerializerMethodField()
+
     class Meta:
         model = Refund
         fields = [
             "id",
-            "amount",
+
+            # Order
+            "order_id",
+            "order_number",
+            "order_status",
+            "order_total_amount",
+
+            # Payment
+            "payment_method",
+            "payment_gateway",
+            "payment_reference",
+            "payment_id",
+
+            # User
+            "user",
+
+            # Address
+            "address",
+
+            # Items
+            "items",
+
+            # Refund
+            "refund_type",
+            "refund_amount",
             "reason",
+            "admin_notes",
             "status",
             "is_partial",
-            "razorpay_refund_id",
-            "created_at",
-            "updated_at",
+
+            # Gateway
+            "payment_gateway_reference",
+
+            # Timestamps
+            "requested_at",
+            "reviewed_at",
+
+            # Meta
+            "timeline",
         ]
+
+    def get_user(self, obj):
+        user = obj.order.user
+        return {
+            "id": str(user.id),
+            "name": getattr(user, "full_name", None),
+            "email": getattr(user, "email", None),
+            "phone": getattr(user, "phone", None),
+        }
+
+    def get_address(self, obj):
+        addr = obj.order.address
+        if not addr:
+            return None
+
+        return {
+            "name": addr.name,
+            "phone": addr.phone,
+            "address_line": addr.address_line,
+            "city": addr.city,
+            "state": addr.state,
+            "postal_code": addr.postal_code,
+            "country": addr.country,
+        }
+
+    def get_items(self, obj):
+        items = obj.order.items.all()
+
+        return [
+            {
+                "id": str(item.id),
+                "product_id": str(item.product.id),
+                "product_name": item.product.name,
+                "quantity": item.quantity,
+                "price": item.price_at_purchase,
+                "total": round(item.price_at_purchase * item.quantity, 2),
+            }
+            for item in items
+        ]
+
+    def get_refund_type(self, obj):
+        return "partial" if obj.is_partial else "full"
+
+    def get_timeline(self, obj):
+
+        events = []
+
+        events.append({
+            "status": "refund_requested",
+            "timestamp": obj.created_at,
+        })
+
+        if obj.status in ["under_review", "approved", "rejected"]:
+            events.append({
+                "status": "under_review",
+                "timestamp": obj.updated_at,
+            })
+
+        if obj.status == "refund_completed":
+            events.append({
+                "status": "refund_completed",
+                "timestamp": obj.updated_at,
+            })
+
+        if obj.status == "failed":
+            events.append({
+                "status": "failed",
+                "timestamp": obj.updated_at,
+            })
+
+        return events
 
 class AdminRefundDecisionSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=["approve", "reject"])
