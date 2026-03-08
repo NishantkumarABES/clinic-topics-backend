@@ -9,7 +9,7 @@ from rest_framework.pagination import PageNumberPagination
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from django.db import transaction, IntegrityError
-from django.db.models import Q, Sum, Min, Max
+from django.db.models import Q, Min, Max, F
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
@@ -1072,7 +1072,7 @@ class AdminBannerListCreateAPIView(APIView):
     def get(self, request):
         is_active = request.query_params.get("is_active", None)
         if is_active:
-            banners = ShopBanner.objects.filter(is_active=is_active)
+            banners = ShopBanner.objects.filter(is_active=(is_active=="true"))
         else:
             banners = ShopBanner.objects.all()
         banners = banners.order_by("order", "-created_at")
@@ -1107,6 +1107,66 @@ class AdminBannerListCreateAPIView(APIView):
                 context={"request": request}
             ).data
         }, status=201)
+
+class AdminBannerUpdateAPIView(APIView):
+    permission_classes = [IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        operation_id="admin_update_banner",
+        tags=["Commerce - Admin Banners"],
+        request_body=AdminShopBannerWriteSerializer
+    )
+    def patch(self, request, banner_id):
+
+        banner = get_object_or_404(ShopBanner, id=banner_id)
+
+        serializer = AdminShopBannerWriteSerializer(
+            banner,
+            data=request.data,
+            partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+
+        banner = serializer.save()
+
+        return Response({
+            "success": True,
+            "detail": "Banner updated successfully",
+            "data": ShopBannerSerializer(
+                banner,
+                context={"request": request}
+            ).data
+        })
+
+class AdminBannerDeleteAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(
+        operation_id="admin_delete_banner",
+        tags=["Commerce - Admin Banners"],
+    )
+    @transaction.atomic
+    def delete(self, request, banner_id):
+
+        banner = get_object_or_404(ShopBanner, id=banner_id)
+
+        # Reorder remaining banners if the deleted banner was active
+        if banner.is_active:
+            ShopBanner.objects.filter(
+                order__gt=banner.order,
+                is_active=True
+            ).update(order=F("order") - 1)
+
+        banner.delete()
+
+        return Response(
+            {
+                "success": True,
+                "detail": "Banner deleted successfully"
+            },
+            status=status.HTTP_200_OK
+        )
 
 class AdminRefundListView(APIView):
     permission_classes = [IsAdmin]
