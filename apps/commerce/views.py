@@ -1168,15 +1168,26 @@ class AdminBannerDeleteAPIView(APIView):
             status=status.HTTP_200_OK
         )
 
+class AdminRefundPagination(PageNumberPagination):
+    page_size = 5
+    page_size_query_param = 'page_size'
+    max_page_size = 100
+
 class AdminRefundListView(APIView):
     permission_classes = [IsAdmin]
+    pagination_class = AdminRefundPagination
 
+    @swagger_auto_schema(
+        operation_id="admin_list_refunds",
+        tags=["Commerce - Admin Refunds"],
+        responses={200: RefundSerializer(many=True)}
+    )
     def get(self, request):
         refunds = Refund.objects.all().order_by("-created_at")
-        return Response({
-            "success": True,
-            "data": RefundSerializer(refunds, many=True).data
-        })
+        paginator = self.pagination_class()
+        paginated_refunds = paginator.paginate_queryset(refunds, request)
+        serializer = RefundSerializer(paginated_refunds, many=True)
+        return Response(serializer.data)
 
 class AdminRefundDecisionView(APIView):
     permission_classes = [IsAdmin]
