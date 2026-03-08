@@ -1,7 +1,7 @@
 import uuid
 from decimal import Decimal
-from django.db import models
-from django.db.models import Sum
+from django.db import models, transaction
+from django.db.models import Sum, F
 from rest_framework import serializers
 from apps.commerce.models import (
     Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem, Order, OrderItem, Payment,
@@ -587,6 +587,44 @@ class AdminShopBannerWriteSerializer(serializers.ModelSerializer):
             "is_active",
             "order",
         ]
+    
+    @transaction.atomic
+    def create(self, validated_data):
+        order = validated_data.get("order", 0)
+        is_active = validated_data.get("is_active", True)
+
+        if is_active and order:
+            ShopBanner.objects.filter(
+                order__gte=order,
+                is_active=True
+            ).update(order=F("order") + 1)
+
+        banner = ShopBanner.objects.create(**validated_data)
+        return banner
+    
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        new_order = validated_data.get("order", instance.order)
+        old_order = instance.order
+
+        if new_order != old_order:
+
+            if new_order < old_order:
+                ShopBanner.objects.filter(
+                    order__gte=new_order,
+                    order__lt=old_order,
+                    is_active=True
+                ).update(order=F("order") + 1)
+
+            else:
+                ShopBanner.objects.filter(
+                    order__gt=old_order,
+                    order__lte=new_order,
+                    is_active=True
+                ).update(order=F("order") - 1)
+
+        return super().update(instance, validated_data)
+
 ########### ADMIN ORDER SERIALIZERS ###########
 class AdminOrderItemSerializer(serializers.ModelSerializer):
     """Order item serializer for admin with full pricing details."""
