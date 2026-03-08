@@ -1,4 +1,5 @@
 from django.db import models, transaction
+from django.db.models import Deferrable
 from django.utils import timezone
 from django.core.validators import MinValueValidator
 from decimal import Decimal
@@ -385,13 +386,6 @@ class ShopBanner(TimeStampedUUIDModel):
 
     class Meta:
         ordering = ["order", "-created_at"]
-        constraints = [
-            models.UniqueConstraint(
-                fields=["order"],
-                condition=models.Q(is_active=True),
-                name="unique_active_banner_order"
-            )
-        ]
 
     def __str__(self):
         return self.title
