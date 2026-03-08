@@ -1187,7 +1187,8 @@ class AdminRefundListView(APIView):
         paginator = self.pagination_class()
         paginated_refunds = paginator.paginate_queryset(refunds, request)
         serializer = RefundSerializer(paginated_refunds, many=True)
-        return Response(serializer.data)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        return Response(response_data)
 
 class AdminRefundDecisionView(APIView):
     permission_classes = [IsAdmin]
