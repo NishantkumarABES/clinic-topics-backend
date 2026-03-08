@@ -199,3 +199,48 @@ class EventRetrieveUpdateAPIView(APIView):
             "success": True
         })
 
+class AdminEventListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Admin: List all events with pagination and filters",
+        manual_parameters=[
+            openapi.Parameter(
+                name="search",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                description="Search events by title, description, or agenda",
+            ),
+            openapi.Parameter(
+                name="status",
+                type=openapi.TYPE_STRING,
+                in_=openapi.IN_QUERY,
+                required=False,
+                enum=["upcoming", "ongoing", "completed", "cancelled"],
+            ),
+        ],
+        responses={
+            200: EventListResponseSerializer,
+        },
+    )
+    def get(self, request):
+        user_role = request.user.role
+        if user_role not in [UserRole.ADMIN]:
+            return Response(
+                {"detail": "You do not have permission to perform this action", "data": None, "success": False},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        queryset = Event.objects.all().order_by("-created_at")
+        queryset = EventFilterHelper.filter_queryset(request, queryset)
+        
+        paginator = EventPagination()
+        paginated_queryset = paginator.paginate_queryset(queryset, request)
+
+        serializer = EventSerializer(paginated_queryset, many=True)
+        response_data = paginator.get_paginated_response(serializer.data).data
+        return Response({
+            "detail": "Events retrieved successfully",
+            "data": response_data,
+            "success": True
+        })

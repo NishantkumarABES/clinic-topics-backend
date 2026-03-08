@@ -1070,9 +1070,12 @@ class AdminBannerListCreateAPIView(APIView):
         responses={200: ShopBannerSerializer(many=True)}
     )
     def get(self, request):
-
-        banners = ShopBanner.objects.all().order_by("-created_at")
-
+        is_active = request.query_params.get("is_active", None)
+        if is_active:
+            banners = ShopBanner.objects.filter(is_active=is_active)
+        else:
+            banners = ShopBanner.objects.all()
+        banners = banners.order_by("order", "-created_at")
         return Response({
             "success": True,
             "detail": "Banners fetched successfully",
