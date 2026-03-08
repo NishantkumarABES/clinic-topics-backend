@@ -4,7 +4,8 @@ from drf_yasg.utils import swagger_auto_schema
 from django.db.models import Sum
 
 from apps.commerce.models import Order
-from apps.commerce.constants import OrderStatus
+from apps.commerce.models import Refund
+from apps.commerce.constants import OrderStatus, RefundStatus
 from core.permissions import IsAdmin
 
 
@@ -52,4 +53,27 @@ class OrdersAnalyticsView(APIView):
             "total_revenue": float(total_revenue),
             "refund_amount": float(refund_amount),
             "net_revenue": float(net_revenue),
+        })
+
+class RefundsAnalyticsView(APIView):
+    """Admin endpoint to get refund analytics."""
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request):
+        all_refunds = Refund.objects.all()
+        total_refunds = all_refunds.count()
+        pending_refunds = all_refunds.filter(status=RefundStatus.UNDER_REVIEW).count()
+        approved_refunds = all_refunds.filter(status=RefundStatus.APPROVED).count()
+        rejected_refunds = all_refunds.filter(status=RefundStatus.REJECTED).count()
+
+        total_refund_amount = all_refunds.aggregate(total=Sum("amount"))["total"] or 0
+
+        return Response({
+            "success": True,
+            "total_refunds": total_refunds,
+            "pending_refunds": pending_refunds,
+            "approved_refunds": approved_refunds,
+            "rejected_refunds": rejected_refunds,
+            "total_refund_amount": float(total_refund_amount),
         })

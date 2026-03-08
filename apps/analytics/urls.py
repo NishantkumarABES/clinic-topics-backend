@@ -6,7 +6,7 @@ from apps.analytics.views.dashboard import (
 from apps.analytics.views.patient import PatientAnalyticsAPIView
 from apps.analytics.views.doctor import DoctorAnalyticsView
 from apps.analytics.views.products import ProductAnalyticsView
-from apps.analytics.views.commerce import OrdersAnalyticsView
+from apps.analytics.views.commerce import OrdersAnalyticsView, RefundsAnalyticsView
 from apps.analytics.views.topics import TopicsAnalyticsView
 from apps.analytics.views.events import EventsAnalyticsView
 from apps.analytics.views.advisory import AdvisoryAnalyticsView
@@ -35,6 +35,7 @@ urlpatterns = [
     path("admin/advisory/metrics/", AdvisoryAnalyticsView.as_view()),
     path("admin/idi/metrics/", IDIAnalyticsView.as_view()),
     path("admin/orders/metrics/", OrdersAnalyticsView.as_view()),
+    path("admin/refunds/metrics/", RefundsAnalyticsView.as_view()),
 
 
     path("admin/books/metrics/", BooksAnalyticsView.as_view()),
