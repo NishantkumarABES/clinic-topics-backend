@@ -16,7 +16,8 @@ from apps.books.models import Book, BookPurchase, BookCategory
 from apps.books.serializers import (
     BookListSerializer, BookUploadSerializer, BookDetailSerializer, BookReviewSerializer, PaginatedBookListResponseSerializer,
     CreateBookPurchaseSerializer, VerifyBookPurchaseSerializer, StandardResponseSerializer, BookDownloadResponseSerializer,
-    BookUpdateSerializer, BookRatingSerializer, BookRatingListSerializer, AdminBookCreateSerializer, BookCategorySerializer
+    BookUpdateSerializer, BookRatingSerializer, BookRatingListSerializer, AdminBookCreateSerializer, BookCategorySerializer,
+    AdminBookPurchaseSerializer
 )
 from apps.books.constants import Status, OrderStatus
 from core.permissions import IsDoctor, IsAdmin
@@ -297,10 +298,15 @@ class VerifyBookPurchaseView(APIView):
                 {"detail": "Payment verification failed", "success": False},
                 status=400
             )
-
-        purchase.razorpay_payment_id = data["razorpay_payment_id"]
+        razorpay_payment_id = data["razorpay_payment_id"]
+        purchase.razorpay_payment_id = razorpay_payment_id
+        purchase.razorpay_signature = data["razorpay_signature"]
+        payment_details = razorpay_service.fetch_payment(razorpay_payment_id)
+        purchase.payment_method = payment_details.get("method", "unknown")
         purchase.is_paid = True
-        purchase.save(update_fields=["razorpay_payment_id", "is_paid"])
+        purchase.save(update_fields=[
+            "razorpay_payment_id", "is_paid", "payment_method", "razorpay_signature"
+        ])
 
         return Response(
             {
@@ -931,3 +937,52 @@ class AdminBookCategoryCreateView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+class AdminBookPurchaseListView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsAdmin]
+    pagination_class = BookPagination
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request):
+
+        queryset = (
+            BookPurchase.objects
+            .select_related("user", "book")
+            .order_by("-created_at")
+        )
+
+        # -------- Filters --------
+        search = request.GET.get("search")
+        status_filter = request.GET.get("status")
+        payment_method = request.GET.get("payment_method")
+
+        if search:
+            queryset = queryset.filter(
+                Q(user__email__icontains=search) |
+                Q(user__first_name__icontains=search) |
+                Q(book__title__icontains=search) |
+                Q(razorpay_payment_id__icontains=search)
+            )
+
+        if status_filter:
+            if status_filter == "paid":
+                queryset = queryset.filter(is_paid=True)
+            elif status_filter == "pending":
+                queryset = queryset.filter(is_paid=False)
+            
+        if payment_method:
+            queryset = queryset.filter(payment_method=payment_method)
+            
+        # -------- Pagination --------
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
+        serializer = AdminBookPurchaseSerializer(page, many=True)
+
+        paginated_response = paginator.get_paginated_response(serializer.data)
+
+        return Response({
+            "detail": "Book purchases fetched successfully",
+            "data": paginated_response.data,
+            "success": True
+        })

@@ -3,7 +3,7 @@ from apps.books.views import (
     BookListView, BookDetailView, BookDownloadView, AdminBookListView, BookListView, BookReviewView, MyBooksView, BookUploadView,
     CreateBookPurchaseView, VerifyBookPurchaseView, MyBookDetailView, MoveBookToReviewView, MyBookUpdateView, BookRatingView,
     MyBookDeleteView, BookRatingListView, MyBookDownloadView, AdminBookUpdateView, AdminBookCreateView, BooksLandingView,
-    AdminBookCategoryCreateView
+    AdminBookCategoryCreateView, AdminBookPurchaseListView
 )
 
 urlpatterns = [
@@ -39,4 +39,5 @@ urlpatterns = [
     path("admin/<uuid:pk>/update/", AdminBookUpdateView.as_view(), name="book-update"),
     path("admin/create/", AdminBookCreateView.as_view(), name="admin-book-create"),
     path("admin/category/create/", AdminBookCategoryCreateView.as_view(), name="admin-book-category-create"),
+    path("admin/purchases/", AdminBookPurchaseListView.as_view(), name="admin-book-purchase-list"),
 ]

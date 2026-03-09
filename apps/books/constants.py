@@ -6,6 +6,13 @@ class OrderStatus:
     CANCELLED = 'cancelled'
     REFUNDED = 'refunded'
 
+class PaymentMethod(models.TextChoices):
+    CARD = "card", "Credit/Debit Card"
+    UPI = "upi", "UPI"
+    NETBANKING = "netbanking", "Net Banking"
+    WALLET = "wallet", "Wallet"
+    COD = "cod", "Cash on Delivery"
+
 class Status(models.TextChoices):
     PENDING = "pending", "Pending Review"
     INREVIEW = "in_review", "Under Review"
