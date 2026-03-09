@@ -1,10 +1,10 @@
 from django.db import models
 
-class OrderStatus:
-    PENDING_PAYMENT = 'pending_payment'
-    PAID = 'paid'
-    CANCELLED = 'cancelled'
-    REFUNDED = 'refunded'
+class OrderStatus(models.TextChoices):
+    PENDING_PAYMENT = 'pending_payment', 'Pending Payment'
+    PAID = 'paid', 'Paid'
+    CANCELLED = 'cancelled', 'Cancelled'
+    REFUNDED = 'refunded', 'Refunded'
 
 class PaymentMethod(models.TextChoices):
     CARD = "card", "Credit/Debit Card"
