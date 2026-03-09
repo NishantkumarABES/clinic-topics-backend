@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import Avg
 from django.core.validators import MinValueValidator, MaxValueValidator
 
-from apps.books.constants import BookType, CopyrightStatus, AccessLevel, Status
+from apps.books.constants import BookType, CopyrightStatus, AccessLevel, Status, PaymentMethod
 from apps.accounts.models import User
 from core.models import TimeStampedUUIDModel
 
@@ -140,6 +140,13 @@ class BookPurchase(TimeStampedUUIDModel):
     # Razorpay
     razorpay_order_id = models.CharField(max_length=100, unique=True)
     razorpay_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    razorpay_signature = models.CharField(max_length=100, blank=True, null=True)
+
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PaymentMethod.choices,
+        default=PaymentMethod.CARD
+    )
 
     amount = models.PositiveIntegerField()  # in paise
     currency = models.CharField(max_length=10, default="INR")

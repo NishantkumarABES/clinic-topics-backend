@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from apps.books.models import Book, Collection, BookRating, BookCategory
+from apps.books.models import Book, Collection, BookRating, BookCategory, BookPurchase
 from apps.books.constants import Status
 from apps.accounts.constants import UserRole
 from apps.accounts.models import User
@@ -305,6 +305,38 @@ class BookCategorySerializer(serializers.ModelSerializer):
             "created_at"
         )
         read_only_fields = ("id", "created_at")
+
+class AdminBookPurchaseSerializer(serializers.ModelSerializer):
+    buyer_name = serializers.CharField(source="user.get_full_name", read_only=True)
+    buyer_email = serializers.EmailField(source="user.email", read_only=True)
+
+    book_title = serializers.CharField(source="book.title", read_only=True)
+    book_author = serializers.CharField(source="book.authors", read_only=True)
+
+    transaction_id = serializers.CharField(source="razorpay_payment_id", read_only=True)
+    purchase_date = serializers.DateTimeField(source="created_at", read_only=True)
+
+    payment_method = serializers.SerializerMethodField(read_only=True)
+    status = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BookPurchase
+        fields = (
+            "id",
+            "buyer_name",
+            "buyer_email",
+            "book_title",
+            "book_author",
+            "amount",
+            "payment_method",
+            "transaction_id",
+            "purchase_date",
+            "status",
+        )
+
+    def get_status(self, obj):
+        return "paid" if obj.is_paid else "pending"
+
 ########### Response Serializers ####################
 
 class PaginatedBookListResponseSerializer(serializers.Serializer):
