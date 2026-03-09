@@ -32,11 +32,11 @@ class BookPurchasesAnalyticsView(APIView):
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         total_purchases = BookPurchase.objects.count()
-        total_revenue = BookPurchase.objects.filter(is_paid=True).aggregate(
+        total_revenue = BookPurchase.objects.filter(order_status=OrderStatus.PAID).aggregate(
             total_revenue=models.Sum("book__price"))["total_revenue"] or 0
-        active_buyers = BookPurchase.objects.filter(is_paid=True).values("user").distinct().count()
+        active_buyers = BookPurchase.objects.filter(order_status=OrderStatus.PAID).values("user").distinct().count()
         refunded_purchases = BookPurchase.objects.filter(order_status=OrderStatus.REFUNDED).count()
-        avg_order_value = BookPurchase.objects.filter(is_paid=True).aggregate(
+        avg_order_value = BookPurchase.objects.filter(order_status=OrderStatus.PAID).aggregate(
             avg_order_value=models.Avg("book__price"))["avg_order_value"] or 0
         data = {
             "totalPurchases": total_purchases,

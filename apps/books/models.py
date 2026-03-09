@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import Avg
 from django.core.validators import MinValueValidator, MaxValueValidator
 
-from apps.books.constants import BookType, CopyrightStatus, AccessLevel, Status, PaymentMethod
+from apps.books.constants import BookType, CopyrightStatus, AccessLevel, Status, PaymentMethod, OrderStatus
 from apps.accounts.models import User
 from core.models import TimeStampedUUIDModel
 
@@ -147,7 +147,11 @@ class BookPurchase(TimeStampedUUIDModel):
         choices=PaymentMethod.choices,
         default=PaymentMethod.CARD
     )
-
+    order_status = models.CharField(
+        max_length=20,
+        choices=OrderStatus.choices,
+        default=OrderStatus.PENDING_PAYMENT
+    )
     amount = models.PositiveIntegerField()  # in paise
     currency = models.CharField(max_length=10, default="INR")
 
