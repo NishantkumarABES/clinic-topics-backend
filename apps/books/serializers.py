@@ -307,7 +307,7 @@ class BookCategorySerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at")
 
 class AdminBookPurchaseSerializer(serializers.ModelSerializer):
-    buyer_name = serializers.CharField(source="user.get_full_name", read_only=True)
+    buyer_name = serializers.CharField(source="user.full_name", read_only=True)
     buyer_email = serializers.EmailField(source="user.email", read_only=True)
 
     book_title = serializers.CharField(source="book.title", read_only=True)
@@ -315,8 +315,7 @@ class AdminBookPurchaseSerializer(serializers.ModelSerializer):
 
     transaction_id = serializers.CharField(source="razorpay_payment_id", read_only=True)
     purchase_date = serializers.DateTimeField(source="created_at", read_only=True)
-
-    payment_method = serializers.SerializerMethodField(read_only=True)
+    # payment_method = serializers.SerializerMethodField(read_only=True)
     status = serializers.SerializerMethodField()
 
     class Meta:

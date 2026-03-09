@@ -12,7 +12,7 @@ from apps.analytics.views.events import EventsAnalyticsView
 from apps.analytics.views.advisory import AdvisoryAnalyticsView
 from apps.analytics.views.idi import IDIAnalyticsView
 
-from apps.analytics.views.my_reposit.books import BooksAnalyticsView
+from apps.analytics.views.my_reposit.books import BooksAnalyticsView, BookPurchasesAnalyticsView
 from apps.analytics.views.my_reposit.articles import ArticlesAnalyticsView
 from apps.analytics.views.my_reposit.jobs import JobsAnalyticsView
 from apps.analytics.views.my_reposit.videos import VideosAnalyticsView
@@ -39,6 +39,7 @@ urlpatterns = [
 
 
     path("admin/books/metrics/", BooksAnalyticsView.as_view()),
+    path("admin/book-purchases/metrics/", BookPurchasesAnalyticsView.as_view()),
     path("admin/articles/metrics/", ArticlesAnalyticsView.as_view()),
     path("admin/jobs/metrics/", JobsAnalyticsView.as_view()),
     path("admin/videos/metrics/", VideosAnalyticsView.as_view())
