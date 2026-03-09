@@ -315,9 +315,7 @@ class AdminBookPurchaseSerializer(serializers.ModelSerializer):
 
     transaction_id = serializers.CharField(source="razorpay_payment_id", read_only=True)
     purchase_date = serializers.DateTimeField(source="created_at", read_only=True)
-    # payment_method = serializers.SerializerMethodField(read_only=True)
-    status = serializers.SerializerMethodField()
-
+    
     class Meta:
         model = BookPurchase
         fields = (
@@ -330,11 +328,8 @@ class AdminBookPurchaseSerializer(serializers.ModelSerializer):
             "payment_method",
             "transaction_id",
             "purchase_date",
-            "status",
+            "order_status",
         )
-
-    def get_status(self, obj):
-        return "paid" if obj.is_paid else "pending"
 
 ########### Response Serializers ####################
 
