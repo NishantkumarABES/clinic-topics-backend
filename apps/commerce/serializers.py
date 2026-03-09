@@ -612,33 +612,47 @@ class RefundSerializer(serializers.ModelSerializer):
         return "partial" if obj.is_partial else "full"
 
     def get_timeline(self, obj):
+        timeline = []
 
-        events = []
-
-        events.append({
-            "status": "refund_requested",
-            "timestamp": obj.created_at,
-        })
-
-        if obj.status in ["under_review", "approved", "rejected"]:
-            events.append({
-                "status": "under_review",
-                "timestamp": obj.updated_at,
+        def add(status, timestamp):
+            timeline.append({
+                "status": status,
+                "timestamp": timestamp
             })
 
-        if obj.status == "refund_completed":
-            events.append({
-                "status": "refund_completed",
-                "timestamp": obj.updated_at,
-            })
+        # Always first event
+        add("refund_requested", obj.created_at)
 
-        if obj.status == "failed":
-            events.append({
-                "status": "failed",
-                "timestamp": obj.updated_at,
-            })
+        # Direct approval case (cancel before shipping)
+        if obj.status == "approved":
+            add("approved", obj.updated_at)
 
-        return events
+        # Under review flow
+        elif obj.status == "under_review":
+            add("under_review", obj.updated_at)
+
+        elif obj.status == "rejected":
+            add("under_review", obj.updated_at)
+            add("rejected", obj.updated_at)
+
+        elif obj.status == "refund_initiated":
+            add("under_review", obj.updated_at)
+            add("approved", obj.updated_at)
+            add("refund_initiated", obj.updated_at)
+
+        elif obj.status == "refund_completed":
+            add("under_review", obj.updated_at)
+            add("approved", obj.updated_at)
+            add("refund_initiated", obj.updated_at)
+            add("refund_completed", obj.updated_at)
+
+        elif obj.status == "failed":
+            add("under_review", obj.updated_at)
+            add("approved", obj.updated_at)
+            add("refund_initiated", obj.updated_at)
+            add("failed", obj.updated_at)
+
+        return timeline
 
 class AdminRefundDecisionSerializer(serializers.Serializer):
     action = serializers.ChoiceField(choices=["approve", "reject"])
