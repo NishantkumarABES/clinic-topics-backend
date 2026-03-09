@@ -234,7 +234,8 @@ class CreateBookPurchaseView(APIView):
             defaults={
                 "amount": book.price * 100,
                 "currency": "INR",
-                "razorpay_order_id": ""
+                "razorpay_order_id": "",
+                "order_status": OrderStatus.PENDING_PAYMENT
             }
         )
 
@@ -304,8 +305,9 @@ class VerifyBookPurchaseView(APIView):
         payment_details = razorpay_service.fetch_payment(razorpay_payment_id)
         purchase.payment_method = payment_details.get("method", "unknown")
         purchase.is_paid = True
+        purchase.order_status = OrderStatus.PAID
         purchase.save(update_fields=[
-            "razorpay_payment_id", "is_paid", "payment_method", "razorpay_signature"
+            "razorpay_payment_id", "is_paid", "payment_method", "razorpay_signature", "order_status"
         ])
 
         return Response(
@@ -965,10 +967,7 @@ class AdminBookPurchaseListView(APIView):
             )
 
         if status_filter:
-            if status_filter == "paid":
-                queryset = queryset.filter(is_paid=True)
-            elif status_filter == "pending":
-                queryset = queryset.filter(is_paid=False)
+            queryset = queryset.filter(order_status=status_filter)
             
         if payment_method:
             queryset = queryset.filter(payment_method=payment_method)
