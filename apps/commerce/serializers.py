@@ -666,15 +666,20 @@ class AdminProductImageSerializer(serializers.ModelSerializer):
 
 class AdminProductReadSerializer(serializers.ModelSerializer):
     images = AdminProductImageSerializer(many=True, read_only=True)
+    final_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             "id", "name", "sku", "category", "brand",
-            "description", "price", "tax_percentage", "discount_percentage",
+            "description", "price", "tax_percentage", "discount_percentage", "final_price",
             "is_active", "stock_quantity", "images", "created_at", "updated_at",
             "for_patients", "for_doctors"
         ]
+    
+    def get_final_price(self, obj):
+        return obj.get_unit_final_price()
+
 
 class AdminProductWriteSerializer(serializers.ModelSerializer):
     images = serializers.ListField(
