@@ -25,68 +25,93 @@ from core.permissions import IsAdmin
 class AdminDashboardMetricsAPIView(APIView):
     permission_classes = [IsAdmin]
 
-    def calculate_growth_percentage(self, new_count, previous_total):
-        if previous_total <= 0:
-            return 100 if new_count > 0 else 0
-        return round((new_count / previous_total) * 100, 2)
+    def calculate_growth_percentage(self, current, previous):
+        if previous == 0:
+            return 100 if current > 0 else 0
+        return round(((current - previous) / previous) * 100, 2)
 
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
         now_time = now()
-        last_month = now_time - timedelta(days=30)
+
+        current_month_start = now_time - timedelta(days=30)
+        previous_month_start = now_time - timedelta(days=60)
 
         # Doctors
-        total_doctors = User.objects.filter(role="doctor").count()
-        new_doctors = User.objects.filter(
+        current_doctors = User.objects.filter(
             role="doctor",
-            created_at__gte=last_month
+            created_at__gte=current_month_start
         ).count()
-        previous_doctors = total_doctors - new_doctors
+
+        previous_doctors = User.objects.filter(
+            role="doctor",
+            created_at__gte=previous_month_start,
+            created_at__lt=current_month_start
+        ).count()
+
+        total_doctors = User.objects.filter(role="doctor").count()
 
         # Patients
-        total_patients = User.objects.filter(role="patient").count()
-        new_patients = User.objects.filter(
+        current_patients = User.objects.filter(
             role="patient",
-            created_at__gte=last_month
+            created_at__gte=current_month_start
         ).count()
-        previous_patients = total_patients - new_patients
+
+        previous_patients = User.objects.filter(
+            role="patient",
+            created_at__gte=previous_month_start,
+            created_at__lt=current_month_start
+        ).count()
+
+        total_patients = User.objects.filter(role="patient").count()
 
         # Topics
-        total_topics = Topic.objects.count()
-        new_topics = Topic.objects.filter(
-            created_at__gte=last_month
+        current_topics = Topic.objects.filter(
+            created_at__gte=current_month_start
         ).count()
-        previous_topics = total_topics - new_topics
+
+        previous_topics = Topic.objects.filter(
+            created_at__gte=previous_month_start,
+            created_at__lt=current_month_start
+        ).count()
+
+        total_topics = Topic.objects.count()
 
         # Products
-        total_products = Product.objects.count()
-        new_products = Product.objects.filter(
-            created_at__gte=last_month
+        current_products = Product.objects.filter(
+            created_at__gte=current_month_start
         ).count()
-        previous_products = total_products - new_products
+
+        previous_products = Product.objects.filter(
+            created_at__gte=previous_month_start,
+            created_at__lt=current_month_start
+        ).count()
+
+        total_products = Product.objects.count()
+
         data = {
             "doctors": {
                 "total": total_doctors,
                 "growth_percent": self.calculate_growth_percentage(
-                    new_doctors, previous_doctors
+                    current_doctors, previous_doctors
                 ),
             },
             "patients": {
                 "total": total_patients,
                 "growth_percent": self.calculate_growth_percentage(
-                    new_patients, previous_patients
+                    current_patients, previous_patients
                 ),
             },
             "topics": {
                 "total": total_topics,
                 "growth_percent": self.calculate_growth_percentage(
-                    new_topics, previous_topics
+                    current_topics, previous_topics
                 ),
             },
             "products": {
                 "total": total_products,
                 "growth_percent": self.calculate_growth_percentage(
-                    new_products, previous_products
+                    current_products, previous_products
                 ),
             }
         }
