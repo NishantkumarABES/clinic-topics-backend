@@ -232,7 +232,7 @@ class CreateBookPurchaseView(APIView):
             user=request.user,
             book=book,
             defaults={
-                "amount": book.price * 100,
+                "amount": book.price,
                 "currency": "INR",
                 "razorpay_order_id": "",
                 "order_status": OrderStatus.PENDING_PAYMENT
