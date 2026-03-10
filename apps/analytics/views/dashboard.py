@@ -5,7 +5,7 @@ from django.db.models import Sum, F, DecimalField, ExpressionWrapper, Count, Val
 from django.db.models.functions import Coalesce, TruncDate
 
 from drf_yasg.utils import swagger_auto_schema
-from datetime import timedelta
+from dateutil.relativedelta import relativedelta
 
 from apps.commerce.models import Product, OrderItem, OrderStatus, Order
 from apps.accounts.models import User
@@ -32,21 +32,23 @@ class AdminDashboardMetricsAPIView(APIView):
 
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
-        now_time = now()
+        current_time = now()
 
-        current_month_start = now_time - timedelta(days=30)
-        previous_month_start = now_time - timedelta(days=60)
+        # Month boundaries
+        start_current_month = current_time.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        start_previous_month = start_current_month - relativedelta(months=1)
+        start_two_months_ago = start_current_month - relativedelta(months=2)
 
         # Doctors
         current_doctors = User.objects.filter(
             role="doctor",
-            created_at__gte=current_month_start
+            created_at__gte=start_current_month
         ).count()
 
         previous_doctors = User.objects.filter(
             role="doctor",
-            created_at__gte=previous_month_start,
-            created_at__lt=current_month_start
+            created_at__gte=start_previous_month,
+            created_at__lt=start_current_month
         ).count()
 
         total_doctors = User.objects.filter(role="doctor").count()
@@ -54,37 +56,37 @@ class AdminDashboardMetricsAPIView(APIView):
         # Patients
         current_patients = User.objects.filter(
             role="patient",
-            created_at__gte=current_month_start
+            created_at__gte=start_current_month
         ).count()
 
         previous_patients = User.objects.filter(
             role="patient",
-            created_at__gte=previous_month_start,
-            created_at__lt=current_month_start
+            created_at__gte=start_previous_month,
+            created_at__lt=start_current_month
         ).count()
 
         total_patients = User.objects.filter(role="patient").count()
 
         # Topics
         current_topics = Topic.objects.filter(
-            created_at__gte=current_month_start
+            created_at__gte=start_current_month
         ).count()
 
         previous_topics = Topic.objects.filter(
-            created_at__gte=previous_month_start,
-            created_at__lt=current_month_start
+            created_at__gte=start_previous_month,
+            created_at__lt=start_current_month
         ).count()
 
         total_topics = Topic.objects.count()
 
         # Products
         current_products = Product.objects.filter(
-            created_at__gte=current_month_start
+            created_at__gte=start_current_month
         ).count()
 
         previous_products = Product.objects.filter(
-            created_at__gte=previous_month_start,
-            created_at__lt=current_month_start
+            created_at__gte=start_previous_month,
+            created_at__lt=start_current_month
         ).count()
 
         total_products = Product.objects.count()
