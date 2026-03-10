@@ -4,16 +4,18 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 from drf_yasg.utils import swagger_auto_schema
+from django.shortcuts import get_object_or_404
 
-from apps.profiles.models import DoctorProfile, PatientProfile
+from apps.profiles.models import DoctorProfile, PatientProfile, AdminProfile
 from apps.profiles.serializers import (
     DoctorProfileSerializer, PatientProfileSerializer,
     StandardResponseSerializer, DoctorProfileResponseSerializer,
     PatientProfileResponseSerializer, RatingCreateResponseSerializer,
     RatingsListResponseSerializer, DoctorRatingSerializer,
-    DoctorRatingCreateSerializer, SimpleDoctorReviewCreateSerializer
+    DoctorRatingCreateSerializer, SimpleDoctorReviewCreateSerializer,
 )
 from apps.accounts.constants import UserRole
+from core.permissions import IsAdmin
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
 
 
@@ -322,3 +324,59 @@ class LeaveDoctorReviewView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+class AdminProfileView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    @swagger_auto_schema(
+        operation_description="Get admin profile photo",
+        auto_schema=None,
+    )
+    def get(self, request):
+        profile = AdminProfile.objects.filter(user=request.user).first()
+
+        return Response(
+            {
+                "profile_photo": (
+                    profile.profile_photo.url
+                    if profile and profile.profile_photo
+                    else None
+                )
+            },
+            status=status.HTTP_200_OK
+        )
+
+    @swagger_auto_schema(
+        operation_description="Upload or update admin profile photo",
+        auto_schema=None,
+    )
+    def patch(self, request):
+        user = request.user
+        image = request.FILES.get("profile_photo")
+
+        if not image:
+            return Response(
+                {"detail": "profile_photo is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        profile, created = AdminProfile.objects.get_or_create(user=user)
+
+        # Optional: delete old file to prevent orphan files
+        if profile.profile_photo:
+            profile.profile_photo.delete(save=False)
+
+        profile.profile_photo = image
+        profile.save(update_fields=["profile_photo"])
+
+        return Response(
+            {
+                "message": "Admin profile image uploaded successfully"
+                if created
+                else "Admin profile image updated successfully",
+                "profile_photo": profile.profile_photo.url,
+            },
+            status=status.HTTP_200_OK
+        )
+
