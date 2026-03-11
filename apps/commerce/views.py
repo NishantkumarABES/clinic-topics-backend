@@ -1746,7 +1746,7 @@ class VerifyPaymentView(APIView):
         return Response({
             "detail": "Payment verified successfully",
             "data": {
-                "order_id": str(order.id),
+                "order_id": str(order.order_number),
                 "payment_id": str(payment.id),
                 "status": order.status
             },
