@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
+from django.utils import timezone
 from decimal import Decimal
 
 from apps.second_opinion.models import SecondOpinionRequest, SecondOpinionDoctorRequest, SecondOpinionDocument, SecondOpinionPayment, Coupon
@@ -702,3 +703,111 @@ class ApplyCouponSerializer(serializers.Serializer):
         self._second_request = second_request
 
         return data
+
+    class Meta:
+        ref_name = "SecondOpinionApplyCouponSerializer"
+
+class AdminCouponListSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Coupon
+        fields = [
+            "id",
+            "code",
+            "description",
+            "discount_type",
+            "discount_value",
+            "minimum_order_amount",
+            "usage_limit",
+            "used_count",
+            "valid_from",
+            "valid_until",
+            "is_active",
+            "created_at"
+        ]
+
+class AdminCouponResponseSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Coupon
+        fields = [
+            "id",
+            "code",
+            "description",
+            "discount_type",
+            "discount_value",
+            "max_discount_amount",
+            "minimum_order_amount",
+            "usage_limit",
+            "used_count",
+            "valid_from",
+            "valid_until",
+            "is_active",
+            "created_at",
+            "updated_at"
+        ]
+
+class AdminCouponCreateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Coupon
+        fields = [
+            "id",
+            "code",
+            "description",
+            "discount_type",
+            "discount_value",
+            "max_discount_amount",
+            "minimum_order_amount",
+            "usage_limit",
+            "valid_from",
+            "valid_until",
+            "is_active"
+        ]
+        read_only_fields = ["id"]
+
+    def validate(self, data):
+
+        valid_from = data.get("valid_from")
+        valid_until = data.get("valid_until")
+
+        if valid_from and valid_until and valid_until <= valid_from:
+            raise serializers.ValidationError(
+                "valid_until must be greater than valid_from"
+            )
+
+        if valid_until and valid_until < timezone.now():
+            raise serializers.ValidationError(
+                "Coupon expiry must be in the future"
+            )
+
+        return data
+
+class AdminCouponUpdateSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Coupon
+        fields = [
+            "description",
+            "discount_type",
+            "discount_value",
+            "max_discount_amount",
+            "minimum_order_amount",
+            "usage_limit",
+            "valid_from",
+            "valid_until",
+            "is_active"
+        ]
+
+class AdminCouponListDataSerializer(serializers.Serializer):
+
+    count = serializers.IntegerField()
+    next = serializers.URLField(allow_null=True)
+    previous = serializers.URLField(allow_null=True)
+    results = AdminCouponListSerializer(many=True)
+
+class AdminCouponListResponseSerializer(serializers.Serializer):
+
+    detail = serializers.CharField()
+    data = AdminCouponListDataSerializer()
+    success = serializers.BooleanField()
