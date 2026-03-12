@@ -51,3 +51,4 @@ class PaymentStatus(models.TextChoices):
     FAILED = 'failed', 'Failed'
     REFUNDED = 'refunded', 'Refunded'
 
+MAX_PRODUCT_ADD_LIMIT = 5

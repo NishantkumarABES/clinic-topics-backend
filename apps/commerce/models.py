@@ -31,6 +31,12 @@ class Product(TimeStampedUUIDModel):
     for_patients = models.BooleanField(default=True)
     for_doctors = models.BooleanField(default=True)
     is_refundable = models.BooleanField(default=True)
+
+    max_user_quantity = models.PositiveIntegerField(
+        default=5,
+        help_text="Maximum quantity a single user can add to cart"
+    )
+
     class Meta:
         constraints = [
             models.UniqueConstraint(

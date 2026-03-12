@@ -432,8 +432,31 @@ class AddToCartView(APIView):
         )
 
         if not created:
-            item.quantity += quantity
+            new_quantity = item.quantity + quantity
+
+            if new_quantity > product.max_user_quantity:
+                return Response(
+                    {
+                        "success": False,
+                        "detail": f"Maximum allowed quantity for this product is {product.max_user_quantity}",
+                        "data": None
+                    },
+                    status=400
+                )
+
+            item.quantity = new_quantity
             item.save(update_fields=["quantity"])
+
+        else:
+            if quantity > product.max_user_quantity:
+                return Response(
+                    {
+                        "success": False,
+                        "detail": f"Maximum allowed quantity for this product is {product.max_user_quantity}",
+                        "data": None
+                    },
+                    status=400
+                )
 
         return Response({"detail": "Item added to cart", "data": None, "success": True}, status=201)
 
@@ -447,8 +470,14 @@ class UpdateCartItemView(APIView):
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'quantity': openapi.Schema(type=openapi.TYPE_INTEGER, description='New quantity (0 or less removes item)'),
-                'saved_for_later': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Save item for later')
+                'quantity': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='New quantity (0 or less removes item)'
+                ),
+                'saved_for_later': openapi.Schema(
+                    type=openapi.TYPE_BOOLEAN,
+                    description='Save item for later'
+                )
             }
         ),
         responses={
@@ -457,25 +486,62 @@ class UpdateCartItemView(APIView):
         }
     )
     def patch(self, request, item_id):
+
         try:
-            item = CartItem.objects.get(id=item_id, cart__user=request.user)
+            item = CartItem.objects.get(
+                id=item_id,
+                cart__user=request.user
+            )
         except CartItem.DoesNotExist:
-            return Response({"detail": "Item not found", "data": None, "success": False}, status=404)
+            return Response(
+                {"detail": "Item not found", "data": None, "success": False},
+                status=404
+            )
 
         quantity = request.data.get("quantity")
         saved_for_later = request.data.get("saved_for_later")
 
+        product = item.product
+        max_limit = product.max_user_quantity
+
+        # -----------------------------
+        # Quantity update logic
+        # -----------------------------
         if quantity is not None:
+
+            quantity = int(quantity)
+
+            # Remove item if <= 0
             if quantity <= 0:
                 item.delete()
-                return Response({"detail": "Item removed", "data": None, "success": True})
+                return Response(
+                    {"detail": "Item removed", "data": None, "success": True}
+                )
+
+            # Enforce max product limit
+            if quantity > max_limit:
+                return Response(
+                    {
+                        "detail": f"Maximum allowed quantity for this product is {max_limit}",
+                        "data": None,
+                        "success": False
+                    },
+                    status=400
+                )
+
             item.quantity = quantity
 
+        # -----------------------------
+        # Save for later toggle
+        # -----------------------------
         if saved_for_later is not None:
             item.saved_for_later = saved_for_later
 
         item.save()
-        return Response({"detail": "Cart updated", "data": None, "success": True})
+
+        return Response(
+            {"detail": "Cart updated", "data": None, "success": True}
+        )
 
 class RemoveCartItemView(APIView):
     permission_classes = [IsAuthenticated]

@@ -21,13 +21,14 @@ class ProductListSerializer(serializers.ModelSerializer):
     base_price = serializers.DecimalField(source="price", max_digits=10, decimal_places=2, read_only=True)
     tax_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
     discount_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
+    max_user_quantity = serializers.IntegerField(read_only=True)
     final_price = serializers.SerializerMethodField()
 
     class Meta:
         model = Product
         fields = [
             "id", "name", "base_price", "tax_percentage", "discount_percentage", "final_price",
-            "images", "category", "brand", "description", "for_patients", "for_doctors"
+            "images", "category", "brand", "description", "for_patients", "for_doctors", "max_user_quantity"
         ]
     def get_final_price(self, obj):
         return obj.get_unit_final_price()
@@ -699,7 +700,7 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
             "name", "category", "brand", "description",
             "price", "tax_percentage", "discount_percentage",
             "is_active", "stock_quantity", "images", "deleted_image_ids",
-            "for_patients", "for_doctors"
+            "for_patients", "for_doctors", "max_user_quantity"
         ]
 
     def create(self, validated_data):
