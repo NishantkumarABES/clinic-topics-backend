@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
-from django.db.models import Q, Avg, Count
+from django.db.models import Q, Avg, Count, F
 
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -356,7 +356,7 @@ class VerifySecondOpinionPaymentView(APIView):
         coupon = second_opinion_request.coupon
 
         if coupon:
-            coupon.used_count += 1
+            coupon.used_count = F("used_count") + 1
             coupon.save(update_fields=["used_count"])
             CouponUsage.objects.create(
                 coupon=coupon,
@@ -608,8 +608,6 @@ class DoctorStartReviewView(APIView):
 class DoctorSubmitResponseView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
 
-    permission_classes = [IsAuthenticated, IsDoctor]
-
     @swagger_auto_schema(
         operation_summary="Submit final second opinion",
         tags=["Second Opinion - Doctor"],
@@ -731,45 +729,33 @@ class ApplyCouponView(APIView):
     permission_classes = [IsAuthenticated, IsPatient]
 
     @swagger_auto_schema(
-        operation_summary="Apply coupon",
+        operation_summary="Apply coupon to calculate discounted price",
         tags=["Second Opinion - Patient"],
         request_body=ApplyCouponSerializer,
         responses={
             200: StandardResponseSerializer,
             400: BAD_REQUEST_400,
             401: UNAUTHORIZE_401,
-        }
+        },
     )
     def post(self, request):
-        serializer = ApplyCouponSerializer(
-            data=request.data,
-            context={"request": request}
-        )
 
+        serializer = ApplyCouponSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        coupon = serializer._coupon
-        second_request = serializer._second_request
-
-        discount = coupon.calculate_discount(second_request.total_amount)
-
-        final_amount = second_request.total_amount - discount
-
-        second_request.coupon = coupon
-        second_request.discount_amount = discount
-        second_request.final_amount = final_amount
-        second_request.save(update_fields=[
-            "coupon",
-            "discount_amount",
-            "final_amount"
-        ])
+        coupon = serializer.validated_data["coupon"]
+        order_amount = serializer.validated_data["order_amount"]
+        discount_amount = serializer.validated_data["discount_amount"]
+        final_amount = serializer.validated_data["final_amount"]
 
         return Response({
             "detail": "Coupon applied successfully",
             "data": {
-                "original_amount": str(second_request.total_amount),
-                "discount": str(discount),
-                "final_amount": str(final_amount)
+                "coupon_code": coupon.code,
+                "original_amount": str(order_amount),
+                "discount_amount": str(discount_amount),
+                "final_amount": str(final_amount),
+                "currency": "INR"
             },
             "success": True
         })
