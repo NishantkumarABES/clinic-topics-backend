@@ -16,7 +16,7 @@ from core.permissions import IsPatient, IsDoctor, IsAdmin
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
 from apps.second_opinion.constants import SecondOpinionStatus
 from apps.second_opinion.models import (
-    CouponUsage, SecondOpinionRequest, SecondOpinionPayment, SecondOpinionDoctorRequest
+    CouponUsage, SecondOpinionRequest, SecondOpinionPayment, SecondOpinionDoctorRequest, Coupon
 )
 from apps.second_opinion.serializers import (
     CalculateChargesSerializer, CreateSecondOpinionRequestSerializer,
@@ -25,7 +25,7 @@ from apps.second_opinion.serializers import (
     DoctorStartReviewSerializer, DoctorSubmitResponseSerializer, DoctorRatingSerializer, ApplyCouponSerializer,
     AdminCouponCreateSerializer, AdminCouponResponseSerializer, AdminCouponListSerializer, AdminCouponUpdateSerializer,
     # Response serializers
-    SecondOpinionRequestListResponseSerializer, CalculateChargesResponseSerializer,
+    AdminCouponListResponseSerializer, SecondOpinionRequestListResponseSerializer, CalculateChargesResponseSerializer,
     SecondOpinionRequestDetailResponseSerializer, PaymentOrderResponseSerializer, PaymentVerificationResponseSerializer,
     DoctorBasicInfoListResponseSerializer, DoctorSecondOpinionListResponseSerializer,
     DoctorSecondOpinionDetailResponseSerializer, StandardResponseSerializer, DoctorRatingResponseSerializer
