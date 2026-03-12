@@ -492,6 +492,7 @@ class PhoneLoginView(APIView):
       
 class LogoutView(APIView):
     permission_classes = [AllowAny]
+
     @swagger_auto_schema(
         operation_description="Logout and blacklist refresh token",
         request_body=LogoutRequestSerializer,
@@ -502,37 +503,45 @@ class LogoutView(APIView):
         },
     )
     def post(self, request):
-        refresh_token = request.data.get("refresh")
-        if not refresh_token:
-            return Response({"detail": "Refresh token required", "data": None, "success": False}, status=400)
+        print("LOGOUT REQUEST DATA", request.data)
 
+        refresh_token = request.data.get("refresh")
+
+        if not refresh_token:
+            return Response(
+                {"detail": "Refresh token required", "data": None, "success": False},
+                status=400
+            )
         try:
             with transaction.atomic():
-                # 1️⃣ Blacklist refresh token
+                # 1️⃣ Parse refresh token
                 token = RefreshToken(refresh_token)
+                user_id = token["user_id"]
+                user = User.objects.get(id=user_id)
+                # 3️⃣ Blacklist token
                 token.blacklist()
-
-                UserDevice.objects.filter(user=request.user).update(is_active=False)
-                # 3️⃣ Clear cart
-                print("Cart items before delete:", CartItem.objects.filter(cart__user=request.user).count())
-                cart = Cart.objects.filter(user=request.user).first()
+                # 4️⃣ Deactivate user devices
+                UserDevice.objects.filter(user=user).update(is_active=False)
+                # 5️⃣ Clear cart
+                print("Cart items before delete:", CartItem.objects.filter(cart__user=user).count())
+                cart = Cart.objects.filter(user=user).first()
                 if cart:
                     CartItem.objects.filter(cart=cart).delete()
                     cart.coupon = None
                     cart.save(update_fields=["coupon"])
-                print("Cart items after delete:", CartItem.objects.filter(cart__user=request.user).count())
-                # 4️⃣ End ongoing call
+                print("Cart items after delete:", CartItem.objects.filter(cart__user=user).count())
+                # 6️⃣ End ongoing call
                 active_call = VideoCallSession.objects.filter(
-                    Q(doctor=request.user) | Q(patient=request.user),
+                    Q(doctor=user) | Q(patient=user),
                     status__in=[CallStatus.INITIATED, CallStatus.ACTIVE]
                 ).first()
-
                 if active_call:
                     active_call.status = CallStatus.ENDED
                     active_call.ended_at = timezone.now()
                     active_call.save(update_fields=["status", "ended_at"])
 
         except Exception as e:
+            print("Logout error:", str(e))
             return Response(
                 {"detail": str(e), "data": None, "success": False},
                 status=400
