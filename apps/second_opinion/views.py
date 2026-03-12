@@ -12,7 +12,7 @@ from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from decimal import Decimal
 
-from core.permissions import IsPatient, IsDoctor
+from core.permissions import IsPatient, IsDoctor, IsAdmin
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
 from apps.second_opinion.constants import SecondOpinionStatus
 from apps.second_opinion.models import (
@@ -23,6 +23,7 @@ from apps.second_opinion.serializers import (
     SecondOpinionRequestListSerializer, SecondOpinionRequestDetailSerializer, CreatePaymentOrderSerializer,
     VerifyPaymentSerializer, DoctorBasicInfoSerializer, DoctorSecondOpinionListSerializer, DoctorSecondOpinionDetailSerializer, 
     DoctorStartReviewSerializer, DoctorSubmitResponseSerializer, DoctorRatingSerializer, ApplyCouponSerializer,
+    AdminCouponCreateSerializer, AdminCouponResponseSerializer, AdminCouponListSerializer, AdminCouponUpdateSerializer,
     # Response serializers
     SecondOpinionRequestListResponseSerializer, CalculateChargesResponseSerializer,
     SecondOpinionRequestDetailResponseSerializer, PaymentOrderResponseSerializer, PaymentVerificationResponseSerializer,
@@ -759,5 +760,145 @@ class ApplyCouponView(APIView):
                 "discount": str(discount),
                 "final_amount": str(final_amount)
             },
+            "success": True
+        })
+
+class AdminCouponPagination(PageNumberPagination):
+    page_size = 10
+    page_size_query_param = "page_size"
+    max_page_size = 50
+
+class AdminCouponListView(APIView):
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = AdminCouponPagination
+
+    @swagger_auto_schema(
+        operation_summary="List all coupons",
+        tags=["Admin - Coupons"],
+        responses={200: AdminCouponListResponseSerializer},
+        manual_parameters=[
+            openapi.Parameter(
+                "search",
+                openapi.IN_QUERY,
+                description="Search by coupon code",
+                type=openapi.TYPE_STRING
+            ),
+            openapi.Parameter(
+                "is_active",
+                openapi.IN_QUERY,
+                description="Filter by active status",
+                type=openapi.TYPE_BOOLEAN
+            ),
+            openapi.Parameter(
+                "page",
+                openapi.IN_QUERY,
+                description="Page number",
+                type=openapi.TYPE_INTEGER
+            ),
+            openapi.Parameter(
+                "page_size",
+                openapi.IN_QUERY,
+                description="Items per page (max 50)",
+                type=openapi.TYPE_INTEGER
+            ),
+        ],
+    )
+    def get(self, request):
+
+        coupons = Coupon.objects.all().order_by("-created_at")
+
+        search = request.query_params.get("search")
+        is_active = request.query_params.get("is_active")
+
+        if search:
+            coupons = coupons.filter(code__icontains=search)
+
+        if is_active is not None:
+            coupons = coupons.filter(is_active=is_active.lower() == "true")
+
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(coupons, request)
+
+        serializer = AdminCouponListSerializer(page, many=True)
+
+        paginated_response = paginator.get_paginated_response(serializer.data).data
+
+        return Response({
+            "detail": "Coupons retrieved successfully",
+            "data": paginated_response,
+            "success": True
+        })
+
+class AdminCreateCouponView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(
+        operation_summary="Create coupon",
+        tags=["Admin - Coupons"],
+        request_body=AdminCouponCreateSerializer,
+        responses={201: AdminCouponResponseSerializer}
+    )
+    def post(self, request):
+
+        serializer = AdminCouponCreateSerializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({
+                "detail": str(e),
+                "data": None,
+                "success": False
+            })
+
+        coupon = serializer.save()
+
+        return Response({
+            "detail": "Coupon created successfully",
+            "data": AdminCouponResponseSerializer(coupon).data,
+            "success": True
+        }, status=status.HTTP_201_CREATED)
+
+class AdminUpdateCouponView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(
+        operation_summary="Update coupon",
+        tags=["Admin - Coupons"],
+        request_body=AdminCouponUpdateSerializer,
+        responses={200: AdminCouponResponseSerializer}
+    )
+    def patch(self, request, coupon_id):
+
+        try:
+            coupon = Coupon.objects.get(id=coupon_id)
+        except Coupon.DoesNotExist:
+            return Response({
+                "detail": "Coupon not found",
+                "data": None,
+                "success": False
+            }, status=404)
+
+        serializer = AdminCouponUpdateSerializer(
+            coupon,
+            data=request.data,
+            partial=True
+        )
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception as e:
+            return Response({
+                "detail": str(e),
+                "data": None,
+                "success": False
+            })
+
+        serializer.save()
+
+        return Response({
+            "detail": "Coupon updated successfully",
+            "data": AdminCouponResponseSerializer(coupon).data,
             "success": True
         })
