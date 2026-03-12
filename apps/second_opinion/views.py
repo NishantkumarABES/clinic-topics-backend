@@ -831,6 +831,7 @@ class AdminCouponListView(APIView):
         })
 
 class AdminCreateCouponView(APIView):
+    parser_classes = [FormParser, MultiPartParser]
     permission_classes = [IsAuthenticated, IsAdmin]
 
     @swagger_auto_schema(
