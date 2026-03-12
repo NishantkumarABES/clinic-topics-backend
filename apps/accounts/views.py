@@ -491,7 +491,7 @@ class PhoneLoginView(APIView):
         })
       
 class LogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         operation_description="Logout and blacklist refresh token",
@@ -522,12 +522,13 @@ class LogoutView(APIView):
                     ).update(is_active=False)
 
                 # 3️⃣ Clear cart
+                print("Cart items before delete:", CartItem.objects.filter(cart__user=request.user).count())
                 cart = Cart.objects.filter(user=request.user).first()
                 if cart:
                     CartItem.objects.filter(cart=cart).delete()
                     cart.coupon = None
                     cart.save(update_fields=["coupon"])
-
+                print("Cart items after delete:", CartItem.objects.filter(cart__user=request.user).count())
                 # 4️⃣ End ongoing call
                 active_call = VideoCallSession.objects.filter(
                     Q(doctor=request.user) | Q(patient=request.user),
