@@ -30,7 +30,9 @@ from apps.accounts.services import (
     get_tokens_for_user, can_resend_otp, get_object_or_404, verify_phone_otp, mark_user_login
 )
 from apps.accounts.social_providers import social_provider_verification
-from apps.accounts.models import User, UserDevice, AuthProvider, EmailOTP
+from apps.accounts.models import User, UserDevice, AuthProvider
+from apps.commerce.models import Cart, CartItem
+from apps.video_calls.models import VideoCallSession, CallStatus
 from apps.accounts.constants import UserState, UserRole
 from core.permissions import IsAdmin
 from core.api_responses import *
@@ -502,13 +504,50 @@ class LogoutView(APIView):
     )
     def post(self, request):
         refresh_token = request.data.get("refresh")
+        device_token = request.data.get("device_token")
         if not refresh_token:
             return Response({"detail": "Refresh token required", "data": None, "success": False}, status=400)
 
-        token = RefreshToken(refresh_token)
-        token.blacklist()
+        try:
+            with transaction.atomic():
 
-        return Response({"detail": "Logged out successfully", "data": None, "success": True})
+                # 1️⃣ Blacklist refresh token
+                token = RefreshToken(refresh_token)
+                token.blacklist()
+
+                # 2️⃣ Deactivate device token
+                if device_token:
+                    UserDevice.objects.filter(
+                        device_token=device_token
+                    ).update(is_active=False)
+
+                # 3️⃣ Clear cart
+                cart = Cart.objects.filter(user=request.user).first()
+                if cart:
+                    CartItem.objects.filter(cart=cart).delete()
+                    cart.coupon = None
+                    cart.save(update_fields=["coupon"])
+
+                # 4️⃣ End ongoing call
+                active_call = VideoCallSession.objects.filter(
+                    Q(doctor=request.user) | Q(patient=request.user),
+                    status__in=[CallStatus.INITIATED, CallStatus.ACTIVE]
+                ).first()
+
+                if active_call:
+                    active_call.status = CallStatus.ENDED
+                    active_call.ended_at = timezone.now()
+                    active_call.save(update_fields=["status", "ended_at"])
+
+        except Exception as e:
+            return Response(
+                {"detail": str(e), "data": None, "success": False},
+                status=400
+            )
+
+        return Response(
+            {"detail": "Logged out successfully", "data": None, "success": True}
+        )
 
 class DeactivateAccountView(APIView):
     permission_classes = [IsAuthenticated]

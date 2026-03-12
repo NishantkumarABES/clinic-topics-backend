@@ -2,7 +2,6 @@ import uuid
 from django.db import models
 from django.utils import timezone
 from apps.accounts.models import User
-from core.models import TimeStampedUUIDModel
 
 class Notification(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)

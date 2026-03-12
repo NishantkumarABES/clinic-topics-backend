@@ -624,6 +624,7 @@ class UserMeResponseSerializer(serializers.Serializer):
 class LogoutRequestSerializer(serializers.Serializer):
     """Request body for logout endpoint."""
     refresh = serializers.CharField(help_text="Refresh token to blacklist")
+    device_token = serializers.CharField(required=False)
 
 
 ##################  Change password serializers ###################
