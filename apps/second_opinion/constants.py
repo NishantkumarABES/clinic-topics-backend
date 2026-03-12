@@ -1,3 +1,5 @@
+from django.db import models
+
 class SecondOpinionStatus:
     """Status of an individual doctor's second opinion request."""
     SUBMITTED = "submitted"      # Request sent to doctor
@@ -12,7 +14,6 @@ class SecondOpinionStatus:
         (CANCELLED, "Cancelled"),
     ]
 
-
 class SecondOpinionPaymentStatus:
     """Payment status for second opinion requests."""
     PENDING = "pending"
@@ -26,7 +27,6 @@ class SecondOpinionPaymentStatus:
         (FAILED, "Failed"),
         (REFUNDED, "Refunded"),
     ]
-
 
 class DocumentType:
     """Types of documents that can be uploaded for second opinion."""
@@ -43,3 +43,7 @@ class DocumentType:
         (PRESCRIPTION, "Prescription"),
         (OTHER, "Other"),
     ]
+
+class DiscountType(models.TextChoices):
+    PERCENTAGE = "percentage", "Percentage"
+    FIXED = "fixed", "Fixed"

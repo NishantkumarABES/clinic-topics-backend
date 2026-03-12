@@ -1,5 +1,4 @@
 from django.db import models, transaction
-from django.db.models import Deferrable
 from django.utils import timezone
 from django.core.validators import MinValueValidator
 from decimal import Decimal
@@ -7,7 +6,7 @@ from decimal import Decimal
 from core.models import TimeStampedUUIDModel
 from apps.accounts.models import User
 from apps.commerce.constants import (
-    ProductCategory, OrderStatus, PaymentStatus, PaymentGateway, PaymentMethod, RefundStatus
+    ProductCategory, OrderStatus, PaymentStatus, PaymentGateway, PaymentMethod, RefundStatus, DiscountType
 )
 
 class Product(TimeStampedUUIDModel):
@@ -88,11 +87,6 @@ class ProductReview(TimeStampedUUIDModel):
         unique_together = ("product", "user")
 
 class Coupon(TimeStampedUUIDModel):
-
-    class DiscountType(models.TextChoices):
-        PERCENTAGE = "percentage", "Percentage"
-        FIXED = "fixed", "Fixed"
-
     code = models.CharField(max_length=50, unique=True)
     description = models.TextField(blank=True)
 

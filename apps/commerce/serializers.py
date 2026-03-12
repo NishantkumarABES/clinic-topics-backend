@@ -47,7 +47,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         fields = [
             "id", "name", "base_price", "tax_percentage", "discount_percentage", "final_price",
             "images", "category", "brand", "description", "average_rating", "total_reviews", "for_patients", 
-            "for_doctors"
+            "for_doctors", "max_user_quantity"
         ]
     
     def get_final_price(self, obj):
@@ -156,6 +156,7 @@ class CartItemSerializer(serializers.ModelSerializer):
     base_price = serializers.DecimalField(source="product.price", max_digits=10, decimal_places=2, read_only=True)
     tax_percentage = serializers.DecimalField(source="product.tax_percentage", max_digits=5, decimal_places=2, read_only=True)
     discount_percentage = serializers.DecimalField(source="product.discount_percentage", max_digits=5, decimal_places=2, read_only=True)
+    max_user_quantity = serializers.IntegerField(source="product.max_user_quantity", read_only=True)
     final_price = serializers.SerializerMethodField()
     final_total = serializers.SerializerMethodField()
 
@@ -176,6 +177,7 @@ class CartItemSerializer(serializers.ModelSerializer):
             "quantity",
             "final_total",
             "saved_for_later",
+            "max_user_quantity",
         ]
     
     def get_product_image(self, obj):
@@ -324,6 +326,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
     base_price = serializers.DecimalField(source="product.price", max_digits=10, decimal_places=2, read_only=True)
     tax_percentage = serializers.DecimalField(source="product.tax_percentage", max_digits=5, decimal_places=2, read_only=True)
     discount_percentage = serializers.DecimalField(source="product.discount_percentage", max_digits=5, decimal_places=2, read_only=True)
+    max_user_quantity = serializers.IntegerField(source="product.max_user_quantity", read_only=True)
 
     final_price = serializers.DecimalField(source="price_at_purchase", max_digits=10, decimal_places=2, read_only=True)
     final_total = serializers.SerializerMethodField()
@@ -340,7 +343,8 @@ class OrderItemSerializer(serializers.ModelSerializer):
             "discount_percentage",
             "final_price",
             "quantity",
-            "final_total"
+            "final_total",
+            "max_user_quantity",
         ]
     
     def get_final_total(self, obj):

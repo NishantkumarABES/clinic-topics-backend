@@ -16,13 +16,13 @@ from core.permissions import IsPatient, IsDoctor
 from core.api_responses import BAD_REQUEST_400, NOT_FOUND_404, UNAUTHORIZE_401
 from apps.second_opinion.constants import SecondOpinionStatus
 from apps.second_opinion.models import (
-    SecondOpinionRequest, SecondOpinionPayment, SecondOpinionDoctorRequest
+    CouponUsage, SecondOpinionRequest, SecondOpinionPayment, SecondOpinionDoctorRequest
 )
 from apps.second_opinion.serializers import (
     CalculateChargesSerializer, CreateSecondOpinionRequestSerializer,
     SecondOpinionRequestListSerializer, SecondOpinionRequestDetailSerializer, CreatePaymentOrderSerializer,
     VerifyPaymentSerializer, DoctorBasicInfoSerializer, DoctorSecondOpinionListSerializer, DoctorSecondOpinionDetailSerializer, 
-    DoctorStartReviewSerializer, DoctorSubmitResponseSerializer, DoctorRatingSerializer,
+    DoctorStartReviewSerializer, DoctorSubmitResponseSerializer, DoctorRatingSerializer, ApplyCouponSerializer,
     # Response serializers
     SecondOpinionRequestListResponseSerializer, CalculateChargesResponseSerializer,
     SecondOpinionRequestDetailResponseSerializer, PaymentOrderResponseSerializer, PaymentVerificationResponseSerializer,
@@ -245,7 +245,8 @@ class CreateSecondOpinionPaymentView(APIView):
         second_opinion_request = serializer.validated_data["_second_opinion_request"]
 
         # Convert amount to paise (smallest currency unit)
-        amount_paise = int(second_opinion_request.total_amount * 100)
+        amount = second_opinion_request.final_amount or second_opinion_request.total_amount
+        amount_paise = int(amount * 100)
 
         # Create Razorpay order
         razorpay_order = razorpay_service.create_order(
@@ -263,7 +264,7 @@ class CreateSecondOpinionPaymentView(APIView):
             second_opinion_request=second_opinion_request,
             defaults={
                 "razorpay_order_id": razorpay_order["id"],
-                "amount": second_opinion_request.total_amount,
+                "amount": amount,
                 "currency": "INR",
                 "status": SecondOpinionPaymentStatus.PENDING
             }
@@ -341,6 +342,18 @@ class VerifySecondOpinionPaymentView(APIView):
         second_opinion_request = payment.second_opinion_request
         second_opinion_request.payment_status = SecondOpinionPaymentStatus.COMPLETED
         second_opinion_request.save(update_fields=["payment_status"])
+
+        coupon = second_opinion_request.coupon
+
+        if coupon:
+            coupon.used_count += 1
+            coupon.save(update_fields=["used_count"])
+            CouponUsage.objects.create(
+                coupon=coupon,
+                user=request.user,
+                second_opinion_request=second_opinion_request,
+                discount_amount=second_opinion_request.discount_amount
+            )
 
         return Response({
             "detail": "Payment verified successfully",
@@ -701,3 +714,50 @@ class SubmitDoctorRatingView(APIView):
             },
             status=status.HTTP_201_CREATED
         )
+
+class ApplyCouponView(APIView):
+    permission_classes = [IsAuthenticated, IsPatient]
+
+    @swagger_auto_schema(
+        operation_summary="Apply coupon",
+        tags=["Second Opinion - Patient"],
+        request_body=ApplyCouponSerializer,
+        responses={
+            200: StandardResponseSerializer,
+            400: BAD_REQUEST_400,
+            401: UNAUTHORIZE_401,
+        }
+    )
+    def post(self, request):
+        serializer = ApplyCouponSerializer(
+            data=request.data,
+            context={"request": request}
+        )
+
+        serializer.is_valid(raise_exception=True)
+
+        coupon = serializer._coupon
+        second_request = serializer._second_request
+
+        discount = coupon.calculate_discount(second_request.total_amount)
+
+        final_amount = second_request.total_amount - discount
+
+        second_request.coupon = coupon
+        second_request.discount_amount = discount
+        second_request.final_amount = final_amount
+        second_request.save(update_fields=[
+            "coupon",
+            "discount_amount",
+            "final_amount"
+        ])
+
+        return Response({
+            "detail": "Coupon applied successfully",
+            "data": {
+                "original_amount": str(second_request.total_amount),
+                "discount": str(discount),
+                "final_amount": str(final_amount)
+            },
+            "success": True
+        })
