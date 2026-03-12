@@ -491,8 +491,7 @@ class PhoneLoginView(APIView):
         })
       
 class LogoutView(APIView):
-    # permission_classes = [IsAuthenticated]
-
+    permission_classes = [AllowAny]
     @swagger_auto_schema(
         operation_description="Logout and blacklist refresh token",
         request_body=LogoutRequestSerializer,
@@ -504,23 +503,16 @@ class LogoutView(APIView):
     )
     def post(self, request):
         refresh_token = request.data.get("refresh")
-        device_token = request.data.get("device_token")
         if not refresh_token:
             return Response({"detail": "Refresh token required", "data": None, "success": False}, status=400)
 
         try:
             with transaction.atomic():
-
                 # 1️⃣ Blacklist refresh token
                 token = RefreshToken(refresh_token)
                 token.blacklist()
 
-                # 2️⃣ Deactivate device token
-                if device_token:
-                    UserDevice.objects.filter(
-                        device_token=device_token
-                    ).update(is_active=False)
-
+                UserDevice.objects.filter(user=request.user).update(is_active=False)
                 # 3️⃣ Clear cart
                 print("Cart items before delete:", CartItem.objects.filter(cart__user=request.user).count())
                 cart = Cart.objects.filter(user=request.user).first()
