@@ -399,7 +399,9 @@ class AvailableDoctorsListView(APIView):
     )
     def get(self, request):
         doctors = User.objects.filter(
-            role=UserRole.DOCTOR, state = UserState.ACTIVE
+            role=UserRole.DOCTOR, state = UserState.ACTIVE,
+            doctor_profile__consultation_fee__gt=0,
+            doctor_profile__premium_online_fee__gt=0
         ).select_related(
             "doctor_profile"
         ).annotate(
