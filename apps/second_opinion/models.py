@@ -343,7 +343,6 @@ class Coupon(TimeStampedUUIDModel):
         return min(discount, amount)
 
 class CouponUsage(TimeStampedUUIDModel):
-
     coupon = models.ForeignKey(
         Coupon,
         on_delete=models.CASCADE,

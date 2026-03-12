@@ -675,45 +675,62 @@ class DoctorRatingResponseSerializer(serializers.Serializer):
     class Meta:
         ref_name = "SecondOpinionDoctorRatingResponseSerializer"
 
+
+# ---------- Coupon Management ----------
+
 class ApplyCouponSerializer(serializers.Serializer):
-    second_opinion_request_id = serializers.UUIDField()
-    coupon_code = serializers.CharField()
+    coupon_code = serializers.CharField(max_length=50)
+    doctor_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        min_length=1
+    )
 
-    def validate(self, data):
-
-        request = self.context["request"]
+    def validate_coupon_code(self, value):
         try:
-            second_request = SecondOpinionRequest.objects.get(
-                id=data["second_opinion_request_id"],
-                patient=request.user
-            )
-        except SecondOpinionRequest.DoesNotExist:
-            raise serializers.ValidationError("Request not found")
-
-        try:
-            coupon = Coupon.objects.get(code=data["coupon_code"])
+            coupon = Coupon.objects.get(code__iexact=value.strip())
         except Coupon.DoesNotExist:
             raise serializers.ValidationError("Invalid coupon code")
 
-        if not coupon.is_valid(second_request.total_amount):
-            raise serializers.ValidationError("Coupon not valid")
-
-        if second_request.payment_status == SecondOpinionPaymentStatus.COMPLETED:
-            raise serializers.ValidationError("Cannot apply coupon after payment")
-        
-        if second_request.coupon:
-            raise serializers.ValidationError("Coupon already applied")
-
         self._coupon = coupon
-        self._second_request = second_request
+        return value
+
+    def validate_doctor_ids(self, value):
+        doctors = User.objects.filter(
+            id__in=value,
+            role=UserRole.DOCTOR
+        ).select_related("doctor_profile")
+
+        if len(doctors) != len(value):
+            raise serializers.ValidationError(
+                "One or more doctor IDs are invalid"
+            )
+
+        self._doctors = doctors
+        return value
+
+    def validate(self, data):
+        coupon = self._coupon
+        doctors = self._doctors
+        total_amount = Decimal("0.00")
+        for doctor in doctors:
+            fee = doctor.doctor_profile.premium_online_fee or Decimal("0.00")
+            total_amount += fee
+
+        if not coupon.is_valid(total_amount):
+            raise serializers.ValidationError(
+                "Coupon is not valid for this order"
+            )
+
+        discount = coupon.calculate_discount(total_amount)
+
+        data["coupon"] = coupon
+        data["total_amount"] = total_amount
+        data["discount_amount"] = discount
+        data["final_amount"] = total_amount - discount
 
         return data
 
-    class Meta:
-        ref_name = "SecondOpinionApplyCouponSerializer"
-
 class AdminCouponListSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Coupon
         fields = [

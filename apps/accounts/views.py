@@ -503,8 +503,7 @@ class LogoutView(APIView):
         },
     )
     def post(self, request):
-        print("LOGOUT REQUEST DATA", request.data)
-
+        # print("LOGOUT REQUEST DATA", request.data)
         refresh_token = request.data.get("refresh")
 
         if not refresh_token:
@@ -523,13 +522,13 @@ class LogoutView(APIView):
                 # 4️⃣ Deactivate user devices
                 UserDevice.objects.filter(user=user).update(is_active=False)
                 # 5️⃣ Clear cart
-                print("Cart items before delete:", CartItem.objects.filter(cart__user=user).count())
+                # print("Cart items before delete:", CartItem.objects.filter(cart__user=user).count())
                 cart = Cart.objects.filter(user=user).first()
                 if cart:
                     CartItem.objects.filter(cart=cart).delete()
                     cart.coupon = None
                     cart.save(update_fields=["coupon"])
-                print("Cart items after delete:", CartItem.objects.filter(cart__user=user).count())
+                # print("Cart items after delete:", CartItem.objects.filter(cart__user=user).count())
                 # 6️⃣ End ongoing call
                 active_call = VideoCallSession.objects.filter(
                     Q(doctor=user) | Q(patient=user),
