@@ -729,6 +729,9 @@ class ApplyCouponSerializer(serializers.Serializer):
         data["final_amount"] = total_amount - discount
 
         return data
+    
+    class Meta:
+        ref_name = "SecondOpinionApplyCouponSerializer"
 
 class AdminCouponListSerializer(serializers.ModelSerializer):
     class Meta:
