@@ -744,7 +744,7 @@ class ApplyCouponView(APIView):
         serializer.is_valid(raise_exception=True)
 
         coupon = serializer.validated_data["coupon"]
-        order_amount = serializer.validated_data["order_amount"]
+        total_amount = serializer.validated_data["total_amount"]
         discount_amount = serializer.validated_data["discount_amount"]
         final_amount = serializer.validated_data["final_amount"]
 
@@ -752,7 +752,7 @@ class ApplyCouponView(APIView):
             "detail": "Coupon applied successfully",
             "data": {
                 "coupon_code": coupon.code,
-                "original_amount": str(order_amount),
+                "original_amount": str(total_amount),
                 "discount_amount": str(discount_amount),
                 "final_amount": str(final_amount),
                 "currency": "INR"
