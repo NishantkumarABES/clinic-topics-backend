@@ -52,6 +52,27 @@ class SecondOpinionRequest(TimeStampedUUIDModel):
         default=SecondOpinionStatus.SUBMITTED
     )
 
+    coupon = models.ForeignKey(
+        "second_opinion.Coupon",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="second_opinion_requests"
+    )
+
+    discount_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00")
+    )
+
+    final_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
     class Meta:
         ordering = ["-created_at"]
         verbose_name = "Second Opinion Request"
