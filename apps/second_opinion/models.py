@@ -1,13 +1,13 @@
 from django.db import models
 from django.utils import timezone
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator
 from decimal import Decimal
 
 from core.models import TimeStampedUUIDModel
 from apps.accounts.constants import UserRole
 from apps.accounts.models import User
 from apps.second_opinion.constants import (
-    SecondOpinionStatus, SecondOpinionPaymentStatus, DocumentType
+    SecondOpinionStatus, SecondOpinionPaymentStatus, DocumentType, DiscountType
 )
 
 
@@ -233,3 +233,110 @@ class SecondOpinionPayment(TimeStampedUUIDModel):
 
     def __str__(self):
         return f"Payment {self.razorpay_order_id} - {self.status}"
+
+class Coupon(TimeStampedUUIDModel):
+    code = models.CharField(
+        max_length=50,
+        unique=True
+    )
+
+    description = models.CharField(
+        max_length=255,
+        blank=True
+    )
+
+    discount_type = models.CharField(
+        max_length=20,
+        choices=DiscountType.choices,
+        default=DiscountType.PERCENTAGE
+    )
+
+    discount_value = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal("0.00"))]
+    )
+
+    max_discount_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    minimum_order_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        default=Decimal("0.00")
+    )
+
+    usage_limit = models.IntegerField(
+        null=True,
+        blank=True
+    )
+
+    used_count = models.IntegerField(
+        default=0
+    )
+
+    valid_from = models.DateTimeField()
+
+    valid_until = models.DateTimeField()
+
+    is_active = models.BooleanField(default=True)
+
+    def is_valid(self, order_amount):
+
+        if not self.is_active:
+            return False
+
+        now = timezone.now()
+
+        if now < self.valid_from or now > self.valid_until:
+            return False
+
+        if order_amount < self.minimum_order_amount:
+            return False
+
+        if self.usage_limit and self.used_count >= self.usage_limit:
+            return False
+
+        return True
+
+    def calculate_discount(self, amount):
+
+        if self.discount_type == self.DISCOUNT_TYPE_PERCENTAGE:
+
+            discount = (amount * self.discount_value) / Decimal("100")
+
+            if self.max_discount_amount:
+                discount = min(discount, self.max_discount_amount)
+
+        else:
+            discount = self.discount_value
+
+        return min(discount, amount)
+
+class CouponUsage(TimeStampedUUIDModel):
+
+    coupon = models.ForeignKey(
+        Coupon,
+        on_delete=models.CASCADE,
+        related_name="usages"
+    )
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE
+    )
+
+    second_opinion_request = models.OneToOneField(
+        "second_opinion.SecondOpinionRequest",
+        on_delete=models.CASCADE,
+        related_name="coupon_usage"
+    )
+
+    discount_amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2
+    )

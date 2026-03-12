@@ -2,7 +2,7 @@ from django.urls import path
 from apps.second_opinion.views import (
     CalculateChargesView, SecondOpinionRequestListCreateView, SecondOpinionRequestDetailView, CreateSecondOpinionPaymentView,
     VerifySecondOpinionPaymentView, AvailableDoctorsListView, DoctorSecondOpinionListView, DoctorSecondOpinionDetailView,
-    DoctorStartReviewView, DoctorSubmitResponseView, SubmitDoctorRatingView
+    DoctorStartReviewView, DoctorSubmitResponseView, SubmitDoctorRatingView, ApplyCouponView
 )
 
 urlpatterns = [
@@ -15,6 +15,7 @@ urlpatterns = [
     # Second opinion requests
     path("requests/", SecondOpinionRequestListCreateView.as_view(), name="request-list-create"),
     path("requests/<uuid:request_id>/", SecondOpinionRequestDetailView.as_view(), name="request-detail"),
+    path("apply-coupon/", ApplyCouponView.as_view(), name="apply-coupon"),
 
     # Payment
     path("payment/create-order/", CreateSecondOpinionPaymentView.as_view(), name="payment-create-order"),

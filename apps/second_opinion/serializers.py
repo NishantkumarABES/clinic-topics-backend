@@ -1,9 +1,8 @@
 from rest_framework import serializers
 from django.db import transaction
-from django.db import models
 from decimal import Decimal
 
-from apps.second_opinion.models import SecondOpinionRequest, SecondOpinionDoctorRequest, SecondOpinionDocument, SecondOpinionPayment
+from apps.second_opinion.models import SecondOpinionRequest, SecondOpinionDoctorRequest, SecondOpinionDocument, SecondOpinionPayment, Coupon
 from apps.second_opinion.constants import SecondOpinionStatus, SecondOpinionPaymentStatus, DocumentType
 from apps.accounts.models import User
 from apps.accounts.constants import UserRole
@@ -573,7 +572,6 @@ class SecondOpinionRequestListDataSerializer(serializers.Serializer):
     previous = serializers.URLField(allow_null=True)
     results = SecondOpinionRequestListSerializer(many=True)
 
-
 class SecondOpinionRequestListResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
     data = SecondOpinionRequestListDataSerializer()
@@ -593,7 +591,6 @@ class SecondOpinionRequestDetailResponseSerializer(serializers.Serializer):
     class Meta:
         ref_name = "SecondOpinionRequestDetailResponseSerializer"
 
-
 # ---------- Payment Order ----------
 
 class PaymentOrderDataSerializer(serializers.Serializer):
@@ -602,7 +599,6 @@ class PaymentOrderDataSerializer(serializers.Serializer):
     currency = serializers.CharField(default="INR")
     key_id = serializers.CharField()
     payment_id = serializers.UUIDField()
-
 
 class PaymentOrderResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
@@ -617,7 +613,6 @@ class PaymentOrderResponseSerializer(serializers.Serializer):
 
 class PaymentVerificationDataSerializer(serializers.Serializer):
     second_opinion_request_id = serializers.UUIDField()
-
 
 class PaymentVerificationResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
@@ -636,7 +631,6 @@ class DoctorBasicInfoListDataSerializer(serializers.Serializer):
     previous = serializers.URLField(allow_null=True)
     results = DoctorBasicInfoSerializer(many=True)
 
-
 class DoctorBasicInfoListResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
     data = DoctorBasicInfoListDataSerializer()
@@ -654,7 +648,6 @@ class DoctorSecondOpinionListDataSerializer(serializers.Serializer):
     previous = serializers.URLField(allow_null=True)
     results = DoctorSecondOpinionListSerializer(many=True)
 
-
 class DoctorSecondOpinionListResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
     data = DoctorSecondOpinionListDataSerializer()
@@ -663,7 +656,6 @@ class DoctorSecondOpinionListResponseSerializer(serializers.Serializer):
     class Meta:
         ref_name = "SecondOpinionDoctorSecondOpinionListResponseSerializer"
 
-
 class DoctorSecondOpinionDetailResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
     data = DoctorSecondOpinionDetailSerializer()
@@ -671,7 +663,6 @@ class DoctorSecondOpinionDetailResponseSerializer(serializers.Serializer):
 
     class Meta:
         ref_name = "SecondOpinionDoctorSecondOpinionDetailResponseSerializer"
-
 
 # ---------- Doctor Rating ----------
 
@@ -683,3 +674,31 @@ class DoctorRatingResponseSerializer(serializers.Serializer):
     class Meta:
         ref_name = "SecondOpinionDoctorRatingResponseSerializer"
 
+class ApplyCouponSerializer(serializers.Serializer):
+    second_opinion_request_id = serializers.UUIDField()
+    coupon_code = serializers.CharField()
+
+    def validate(self, data):
+
+        request = self.context["request"]
+
+        try:
+            second_request = SecondOpinionRequest.objects.get(
+                id=data["second_opinion_request_id"],
+                patient=request.user
+            )
+        except SecondOpinionRequest.DoesNotExist:
+            raise serializers.ValidationError("Request not found")
+
+        try:
+            coupon = Coupon.objects.get(code=data["coupon_code"])
+        except Coupon.DoesNotExist:
+            raise serializers.ValidationError("Invalid coupon code")
+
+        if not coupon.is_valid(second_request.total_amount):
+            raise serializers.ValidationError("Coupon not valid")
+
+        self._coupon = coupon
+        self._second_request = second_request
+
+        return data
