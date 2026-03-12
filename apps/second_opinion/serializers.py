@@ -682,7 +682,6 @@ class ApplyCouponSerializer(serializers.Serializer):
     def validate(self, data):
 
         request = self.context["request"]
-
         try:
             second_request = SecondOpinionRequest.objects.get(
                 id=data["second_opinion_request_id"],
@@ -698,6 +697,12 @@ class ApplyCouponSerializer(serializers.Serializer):
 
         if not coupon.is_valid(second_request.total_amount):
             raise serializers.ValidationError("Coupon not valid")
+
+        if second_request.payment_status == SecondOpinionPaymentStatus.COMPLETED:
+            raise serializers.ValidationError("Cannot apply coupon after payment")
+        
+        if second_request.coupon:
+            raise serializers.ValidationError("Coupon already applied")
 
         self._coupon = coupon
         self._second_request = second_request

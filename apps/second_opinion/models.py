@@ -96,6 +96,10 @@ class SecondOpinionRequest(TimeStampedUUIDModel):
         ).count()
     
     @property
+    def payable_amount(self):
+        return self.final_amount if self.final_amount else self.total_amount
+    
+    @property
     def documents_count(self):
         return self.documents.count()
 
@@ -326,7 +330,7 @@ class Coupon(TimeStampedUUIDModel):
 
     def calculate_discount(self, amount):
 
-        if self.discount_type == self.DISCOUNT_TYPE_PERCENTAGE:
+        if self.discount_type == DiscountType.PERCENTAGE:
 
             discount = (amount * self.discount_value) / Decimal("100")
 

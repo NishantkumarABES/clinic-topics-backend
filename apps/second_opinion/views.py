@@ -177,6 +177,7 @@ class SecondOpinionRequestListCreateView(APIView):
         second_opinion_request = serializer.save()
 
         response_serializer = SecondOpinionRequestDetailSerializer(second_opinion_request)
+        print("Created second opinion request with ID:", second_opinion_request.id)
         return Response({
             "detail": "Second opinion request created successfully",
             "data": response_serializer.data, "success": True
@@ -246,8 +247,16 @@ class CreateSecondOpinionPaymentView(APIView):
         second_opinion_request = serializer.validated_data["_second_opinion_request"]
 
         # Convert amount to paise (smallest currency unit)
-        amount = second_opinion_request.final_amount or second_opinion_request.total_amount
+        amount = second_opinion_request.payable_amount
         amount_paise = int(amount * 100)
+
+        coupon = second_opinion_request.coupon
+        if coupon and not coupon.is_valid(second_opinion_request.total_amount):
+            return Response({
+                "detail": "Coupon is no longer valid",
+                "data": None,
+                "success": False
+            }, status=400)
 
         # Create Razorpay order
         razorpay_order = razorpay_service.create_order(
