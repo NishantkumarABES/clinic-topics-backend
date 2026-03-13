@@ -311,8 +311,7 @@ class CreatePaymentOrderSerializer(serializers.Serializer):
 
         try:
             request = SecondOpinionRequest.objects.get(
-                id=value,
-                patient=user
+                id=value, patient=user
             )
         except SecondOpinionRequest.DoesNotExist:
             raise serializers.ValidationError(
@@ -732,6 +731,38 @@ class ApplyCouponSerializer(serializers.Serializer):
     
     class Meta:
         ref_name = "SecondOpinionApplyCouponSerializer"
+
+class RemoveCouponSerializer(serializers.Serializer):
+    second_opinion_request_id = serializers.UUIDField()
+
+    def validate_second_opinion_request_id(self, value):
+        request = self.context["request"]
+
+        try:
+            so_request = SecondOpinionRequest.objects.get(
+                id=value,
+                patient=request.user
+            )
+        except SecondOpinionRequest.DoesNotExist:
+            raise serializers.ValidationError("Second opinion request not found")
+
+        if so_request.payment_status == SecondOpinionPaymentStatus.COMPLETED:
+            raise serializers.ValidationError(
+                "Coupon cannot be removed after payment is completed"
+            )
+
+        if not so_request.coupon:
+            raise serializers.ValidationError("No coupon applied to this request")
+
+        self._second_opinion_request = so_request
+        return value
+
+    def validate(self, data):
+        data["_second_opinion_request"] = self._second_opinion_request
+        return data
+
+    class Meta:
+        ref_name = "SecondOpinionRemoveCouponSerializer"
 
 class AdminCouponListSerializer(serializers.ModelSerializer):
     class Meta:

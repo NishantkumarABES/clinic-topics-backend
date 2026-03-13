@@ -8,7 +8,7 @@ from apps.commerce.models import (
     Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem, Order, OrderItem, Payment,
     ShopBanner, ShopCategoryConfig, Refund
 )
-from apps.commerce.constants import OrderStatus, PaymentStatus, RefundStatus
+from apps.commerce.constants import OrderStatus, PaymentStatus, RefundStatus, DiscountType
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -233,7 +233,7 @@ class CartSerializer(serializers.ModelSerializer):
             return 0
 
         # Calculate discount
-        if coupon.discount_type == Coupon.DiscountType.PERCENTAGE:
+        if coupon.discount_type == DiscountType.PERCENTAGE:
             discount = total * (coupon.discount_value / 100)
         else:
             discount = coupon.discount_value
