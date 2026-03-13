@@ -46,7 +46,7 @@ urlpatterns = [
     
     path("admin/products/", AdminProductListCreateAPIView.as_view()),
     path("admin/products/<uuid:product_id>/", AdminProductUpdateAPIView.as_view()),
-    path("admin/products/<uuid:product_id>/", AdminProductDetailAPIView.as_view()),
+    path("admin/products/<uuid:product_id>/details/", AdminProductDetailAPIView.as_view()),
     path("admin/coupons/", AdminCouponListCreateView.as_view()),
     path("admin/coupons/<uuid:coupon_id>/", AdminCouponUpdateDestroyView.as_view()),
 
