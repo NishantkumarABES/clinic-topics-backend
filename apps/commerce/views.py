@@ -1017,6 +1017,18 @@ class AdminProductListCreateAPIView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+class AdminProductDetailAPIView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request, product_id):
+        product = get_object_or_404(Product, id=product_id)
+        return Response(
+            AdminProductReadSerializer(product).data,
+            status=status.HTTP_200_OK
+        )
+    
+
 class AdminProductUpdateAPIView(APIView):
     permission_classes = [IsAdmin]
     parser_classes = [MultiPartParser, FormParser]
