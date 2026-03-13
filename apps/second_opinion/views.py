@@ -37,9 +37,6 @@ from apps.report_template.models import ReportTemplate
 from apps.notifications.services import create_user_notification
 from external.razorpay.service import razorpay_service
 
-
-
-
 class SecondOpinionPagination(PageNumberPagination):
     page_size = 10
     page_size_query_param = "page_size"
