@@ -679,7 +679,7 @@ class AdminProductReadSerializer(serializers.ModelSerializer):
             "id", "name", "sku", "category", "brand",
             "description", "price", "tax_percentage", "discount_percentage", "final_price",
             "is_active", "stock_quantity", "images", "created_at", "updated_at",
-            "for_patients", "for_doctors"
+            "for_patients", "for_doctors", "max_user_quantity", "is_refundable"
         ]
     
     def get_final_price(self, obj):
