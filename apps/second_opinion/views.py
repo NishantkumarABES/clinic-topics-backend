@@ -245,7 +245,17 @@ class CreateSecondOpinionPaymentView(APIView):
             })
 
         second_opinion_request = serializer.validated_data["_second_opinion_request"]
+        coupon = serializer.validated_data.get("coupon")
+        discount_amount = serializer.validated_data.get("discount_amount")
+        final_amount = serializer.validated_data.get("final_amount")
 
+        if coupon:
+            second_opinion_request.coupon = coupon
+            second_opinion_request.discount_amount = discount_amount
+            second_opinion_request.final_amount = final_amount
+            second_opinion_request.save(
+                update_fields=["coupon", "discount_amount", "final_amount"]
+            )
         # Convert amount to paise (smallest currency unit)
         amount = second_opinion_request.payable_amount
         amount_paise = int(amount * 100)
