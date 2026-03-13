@@ -303,8 +303,8 @@ class SecondOpinionPaymentSerializer(serializers.ModelSerializer):
 # ===================== Payment Serializers =====================
 
 class CreatePaymentOrderSerializer(serializers.Serializer):
-    """Serializer for creating a payment order."""
     second_opinion_request_id = serializers.UUIDField()
+    coupon_code = serializers.CharField(required=False, allow_blank=True)
 
     def validate_second_opinion_request_id(self, value):
         user = self.context["request"].user
@@ -326,12 +326,35 @@ class CreatePaymentOrderSerializer(serializers.Serializer):
         self._second_opinion_request = request
         return value
 
+    def validate_coupon_code(self, value):
+        if not value:
+            return None
+
+        try:
+            coupon = Coupon.objects.get(code__iexact=value.strip())
+        except Coupon.DoesNotExist:
+            raise serializers.ValidationError("Invalid coupon code")
+
+        return coupon
+
     def validate(self, data):
-        data["_second_opinion_request"] = self._second_opinion_request
+        request_obj = self._second_opinion_request
+        coupon = data.get("coupon_code")
+
+        if coupon:
+            if not coupon.is_valid(request_obj.total_amount):
+                raise serializers.ValidationError(
+                    "Coupon is not valid for this order"
+                )
+
+            discount = coupon.calculate_discount(request_obj.total_amount)
+
+            data["coupon"] = coupon
+            data["discount_amount"] = discount
+            data["final_amount"] = request_obj.total_amount - discount
+
+        data["_second_opinion_request"] = request_obj
         return data
-    
-    class Meta:
-        ref_name = "SecondOpinionCreatePaymentOrderSerializer"
 
 class VerifyPaymentSerializer(serializers.Serializer):
     """Serializer for verifying payment."""
@@ -731,38 +754,6 @@ class ApplyCouponSerializer(serializers.Serializer):
     
     class Meta:
         ref_name = "SecondOpinionApplyCouponSerializer"
-
-class RemoveCouponSerializer(serializers.Serializer):
-    second_opinion_request_id = serializers.UUIDField()
-
-    def validate_second_opinion_request_id(self, value):
-        request = self.context["request"]
-
-        try:
-            so_request = SecondOpinionRequest.objects.get(
-                id=value,
-                patient=request.user
-            )
-        except SecondOpinionRequest.DoesNotExist:
-            raise serializers.ValidationError("Second opinion request not found")
-
-        if so_request.payment_status == SecondOpinionPaymentStatus.COMPLETED:
-            raise serializers.ValidationError(
-                "Coupon cannot be removed after payment is completed"
-            )
-
-        if not so_request.coupon:
-            raise serializers.ValidationError("No coupon applied to this request")
-
-        self._second_opinion_request = so_request
-        return value
-
-    def validate(self, data):
-        data["_second_opinion_request"] = self._second_opinion_request
-        return data
-
-    class Meta:
-        ref_name = "SecondOpinionRemoveCouponSerializer"
 
 class AdminCouponListSerializer(serializers.ModelSerializer):
     class Meta:
