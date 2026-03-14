@@ -367,6 +367,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class OrderHistorySerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
     address_summary = serializers.SerializerMethodField()
+    payment_method = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -483,7 +484,6 @@ class RefundRequestSerializer(serializers.Serializer):
 class RefundSerializer(serializers.ModelSerializer):
     order_id = serializers.UUIDField(source="order.id", read_only=True)
     order_number = serializers.CharField(source="order.order_number", read_only=True)
-
     # Order data
     order_status = serializers.CharField(source="order.status", read_only=True)
     order_total_amount = serializers.DecimalField(
@@ -492,8 +492,7 @@ class RefundSerializer(serializers.ModelSerializer):
         decimal_places=2,
         read_only=True
     )
-
-    payment_method = serializers.CharField(source="order.payment_method", read_only=True)
+    payment_method = serializers.SerializerMethodField()
     payment_reference = serializers.CharField(source="order.payment_reference", read_only=True)
 
     # Payment
@@ -620,7 +619,7 @@ class RefundSerializer(serializers.ModelSerializer):
         return "partial" if obj.is_partial else "full"
     
     def get_payment_method(self, obj):
-        return payment_method_display(obj.payment_method)
+        return payment_method_display(obj.order.payment_method)
 
     def get_timeline(self, obj):
         timeline = []
@@ -935,6 +934,7 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
         decimal_places=2,
         read_only=True
     )
+    payment_method = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
