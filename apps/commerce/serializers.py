@@ -704,7 +704,7 @@ class AdminProductWriteSerializer(serializers.ModelSerializer):
             "name", "category", "brand", "description",
             "price", "tax_percentage", "discount_percentage",
             "is_active", "stock_quantity", "images", "deleted_image_ids",
-            "for_patients", "for_doctors", "max_user_quantity"
+            "for_patients", "for_doctors", "max_user_quantity", "is_refundable"
         ]
 
     def create(self, validated_data):

@@ -5,7 +5,7 @@ from apps.commerce.views import (
     ApplyCouponView, RemoveCouponView, AdminCouponListCreateView, AdminCouponUpdateDestroyView, WishlistDetailView, AddToWishlistView, 
     RemoveFromWishlistView, OrderHistoryView, OrderDetailView, ProductFilterOptionsAPIView, ShopLandingAPIView, AdminOrderListAPIView, 
     AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView, CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, 
-    CancelOrderView, RetryPaymentView, AdminCreateShopCategoryAPIView, UserRefundListView, CreateRefundRequestView, AdminRefundDecisionView,
+    CancelOrderAPIView, RetryPaymentView, AdminCreateShopCategoryAPIView, UserRefundListView, CreateRefundRequestView, AdminRefundDecisionView,
     AdminRefundListView, AdminBannerListCreateAPIView, AdminBannerUpdateAPIView, AdminBannerDeleteAPIView, AdminProductDetailAPIView
 )
 
@@ -34,7 +34,7 @@ urlpatterns = [
 
     path("orders/", OrderHistoryView.as_view()),
     path("orders/<uuid:order_id>/", OrderDetailView.as_view()),
-    path("orders/<uuid:order_id>/cancel/", CancelOrderView.as_view()),
+    path("orders/<uuid:order_id>/cancel/", CancelOrderAPIView.as_view()),
     path("orders/<uuid:order_id>/refund/", CreateRefundRequestView.as_view()),
     path("orders/<uuid:order_id>/retry-payment/", RetryPaymentView.as_view()),
     path("orders/refunds/", UserRefundListView.as_view()),

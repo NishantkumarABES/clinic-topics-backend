@@ -34,7 +34,7 @@ from apps.commerce.serializers import (
     ProductReviewResponseSerializer, CartResponseSerializer, AddressListResponseSerializer,
     AddressResponseSerializer, WishlistResponseSerializer, OrderDetailResponseSerializer
 )
-from apps.commerce.constants import OrderStatus, ProductCategory, RefundStatus
+from apps.commerce.constants import OrderStatus, ProductCategory, RefundStatus, PaymentMethod
 from apps.commerce.services import classify_refund_case
 from apps.notifications.services import create_admin_notification
 from external.razorpay.service import razorpay_service
@@ -1991,64 +1991,99 @@ class RetryPaymentView(APIView):
             "success": True
         }, status=status.HTTP_201_CREATED)
 
-class CancelOrderView(APIView):
+class CancelOrderAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        request_body=CancelOrderSerializer,
-        responses={200: StandardResponseSerializer()},
-        tags=["Commerce - Orders"],
         operation_id="cancel_order",
-        operation_description="Cancel an order.",
+        operation_description="Cancel order and initiate refund if payment was captured",
+        tags=["Commerce - Orders"],
+        request_body=CancelOrderSerializer,
     )
-    def patch(self, request, order_id):
-        try:
-            order = Order.objects.get(id=order_id, user=request.user)
-        except Order.DoesNotExist:
-            return Response(
-                {"detail": "Order not found", "data": None, "success": False},
-                status=status.HTTP_404_NOT_FOUND
-            )
-
-        # Disallow invalid transitions
-        if order.status in [OrderStatus.SHIPPED, OrderStatus.DELIVERED, 
-                            OrderStatus.CANCELLED, OrderStatus.REFUNDED]:
-            return Response(
-                {"detail": "Order cannot be cancelled at this stage", "data": None, "success": False},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        serializer = CancelOrderSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        reason = serializer.validated_data.get("reason", "")
+    def post(self, request, order_id):
 
         with transaction.atomic():
-            previous_status = order.status
+
+            order = get_object_or_404(
+                Order.objects.select_for_update(),
+                id=order_id,
+                user=request.user
+            )
+
+            if order.status in [
+                OrderStatus.CANCELLED,
+                OrderStatus.REFUNDED
+            ]:
+                return Response(
+                    {
+                        "success": False,
+                        "detail": "Order already cancelled",
+                        "data": None
+                    },
+                    status=400
+                )
+
+            if order.status in [OrderStatus.SHIPPED, OrderStatus.DELIVERED]:
+                return Response(
+                    {
+                        "success": False,
+                        "detail": "Cannot cancel order that has been shipped or delivered",
+                        "data": None
+                    },
+                    status=400
+                )
+    
             order.status = OrderStatus.CANCELLED
-            order.save(update_fields=["status", "updated_at"])
+            order.save(update_fields=["status"])
 
-            # If stock was already reduced, restore it
-            if previous_status in [OrderStatus.PAID, OrderStatus.PROCESSING]:
-                for item in order.items.select_related("product"):
-                    product = item.product
-                    product.stock_quantity += item.quantity
-                    product.save(update_fields=["stock_quantity"])
+            refund_data = None
 
-            # Optional: admin notification
-            # create_admin_notification(
-            #     title="Order Cancelled",
-            #     message=f"Order #{order.id} was cancelled by user.",
-            #     data={
-            #         "order_id": str(order.id),
-            #         "user_id": str(request.user.id),
-            #         "reason": reason
-            #     }
-            # )
+            payment = order.payments.filter(
+                status=PaymentStatus.CAPTURED
+            ).first()
+
+            if payment and order.payment_method != PaymentMethod.COD:
+
+                refund_amount = payment.amount
+
+                refund = Refund.objects.create(
+                    order=order,
+                    payment=payment,
+                    amount=refund_amount,
+                    status=RefundStatus.REFUND_INITIATED
+                )
+
+                try:
+
+                    razorpay_refund = razorpay_service.create_refund(
+                        payment_id=payment.razorpay_payment_id,
+                        amount=int(refund_amount * 100)
+                    )
+
+                    refund.razorpay_refund_id = razorpay_refund["id"]
+                    refund.refund_meta = razorpay_refund
+                    refund.status = RefundStatus.REFUND_COMPLETED
+                    refund.save()
+
+                    order.status = OrderStatus.REFUNDED
+                    order.save(update_fields=["status"])
+
+                except Exception as e:
+
+                    refund.status = RefundStatus.FAILED
+                    refund.refund_meta = {"error": str(e)}
+                    refund.save()
+
+                refund_data = RefundSerializer(refund).data
 
         return Response({
+            "success": True,
             "detail": "Order cancelled successfully",
-            "data": {"order_id": str(order.id), "status": order.status},
-            "success": True
+            "data": {
+                "order_id": str(order.id),
+                "order_status": order.status,
+                "refund": refund_data
+            }
         })
 
 
