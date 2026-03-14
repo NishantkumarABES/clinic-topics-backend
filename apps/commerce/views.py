@@ -2003,7 +2003,9 @@ class CancelOrderAPIView(APIView):
     def post(self, request, order_id):
 
         with transaction.atomic():
-
+            serializer = CancelOrderSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            reason = serializer.validated_data.get("reason", "")
             order = get_object_or_404(
                 Order.objects.select_for_update(),
                 id=order_id,
@@ -2032,6 +2034,8 @@ class CancelOrderAPIView(APIView):
                     },
                     status=400
                 )
+            
+            
     
             order.status = OrderStatus.CANCELLED
             order.save(update_fields=["status"])
@@ -2055,9 +2059,10 @@ class CancelOrderAPIView(APIView):
 
                 try:
 
-                    razorpay_refund = razorpay_service.create_refund(
+                    razorpay_refund = razorpay_service.refund_payment(
                         payment_id=payment.razorpay_payment_id,
-                        amount=int(refund_amount * 100)
+                        amount=int(refund_amount * 100),
+                        notes={"refund_id": str(refund.id), "reason": reason}
                     )
 
                     refund.razorpay_refund_id = razorpay_refund["id"]

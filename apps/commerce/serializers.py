@@ -1,6 +1,5 @@
 import uuid
 from decimal import Decimal
-import attrs
 from django.db import models, transaction
 from django.db.models import Sum, F
 from rest_framework import serializers
@@ -9,7 +8,7 @@ from apps.commerce.models import (
     ShopBanner, ShopCategoryConfig, Refund
 )
 from apps.commerce.constants import OrderStatus, PaymentStatus, RefundStatus, DiscountType
-
+from apps.commerce.services import payment_method_display
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -386,6 +385,9 @@ class OrderHistorySerializer(serializers.ModelSerializer):
     def get_address_summary(self, obj):
         addr = obj.address
         return f"{addr.address_line}, {addr.city}, {addr.state}, {addr.postal_code}"
+    
+    def get_payment_method(self, obj):
+        return payment_method_display(obj.payment_method)
 
 class ShopBannerSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
@@ -557,6 +559,7 @@ class RefundSerializer(serializers.ModelSerializer):
 
             # Refund
             "refund_type",
+            "refund_meta",
             "refund_amount",
             "reason",
             "admin_notes",
@@ -615,6 +618,9 @@ class RefundSerializer(serializers.ModelSerializer):
 
     def get_refund_type(self, obj):
         return "partial" if obj.is_partial else "full"
+    
+    def get_payment_method(self, obj):
+        return payment_method_display(obj.payment_method)
 
     def get_timeline(self, obj):
         timeline = []
@@ -961,6 +967,9 @@ class AdminOrderListSerializer(serializers.ModelSerializer):
         for item in obj.items.all():
             subtotal += item.price_at_purchase * item.quantity
         return round(subtotal, 2)
+
+    def get_payment_method(self, obj):
+        return payment_method_display(obj.payment_method)
 
     def get_coupon_discount(self, obj):
         if not obj.coupon:
