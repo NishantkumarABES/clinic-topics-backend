@@ -2091,4 +2091,50 @@ class CancelOrderAPIView(APIView):
             }
         })
 
+    @swagger_auto_schema(
+        operation_id="mark_order_cancelled",
+        operation_description="Mark order as cancelled without initiating refund",
+        tags=["Commerce - Orders"],
+    )
+    def patch(self, request, order_id):
+
+        with transaction.atomic():
+
+            order = get_object_or_404(
+                Order.objects.select_for_update(),
+                id=order_id,
+                user=request.user
+            )
+
+            if order.status in [OrderStatus.CANCELLED, OrderStatus.REFUNDED]:
+                return Response(
+                    {
+                        "success": False,
+                        "detail": "Order already cancelled",
+                        "data": None
+                    },
+                    status=400
+                )
+
+            if order.status in [OrderStatus.SHIPPED, OrderStatus.DELIVERED]:
+                return Response(
+                    {
+                        "success": False,
+                        "detail": "Cannot cancel shipped or delivered order",
+                        "data": None
+                    },
+                    status=400
+                )
+
+            order.status = OrderStatus.CANCELLED
+            order.save(update_fields=["status"])
+
+        return Response({
+            "success": True,
+            "detail": "Order marked as cancelled",
+            "data": {
+                "order_id": str(order.id),
+                "order_status": order.status
+            }
+        })
 
