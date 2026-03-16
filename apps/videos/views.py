@@ -483,8 +483,6 @@ class SoftDeleteVideoView(APIView):
             "success": True
         })
 
-
-
 class AdminVideoCreateView(APIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated, IsAdmin]
@@ -535,6 +533,7 @@ class AdminVideoUpdateView(APIView):
 
 class AdminVideoListView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
+    pagination_class = VideoPagination
 
     @swagger_auto_schema(responses={200: VideoListSerializer(many=True)}, auto_schema=None)
     def get(self, request):
@@ -563,15 +562,17 @@ class AdminVideoListView(APIView):
                 is_deleted=is_deleted.lower() == "true"
             )
 
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(queryset, request)
+
         serializer = VideoListSerializer(
-            queryset,
-            many=True,
+            page, many=True,
             context={"request": request}
         )
 
         return Response({
             "detail": "Admin videos fetched successfully",
-            "data": serializer.data,
+            "data": paginator.get_paginated_response(serializer.data).data,
             "success": True
         })
 
