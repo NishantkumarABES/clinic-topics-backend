@@ -10,6 +10,7 @@ from apps.analytics.views.commerce import OrdersAnalyticsView, RefundsAnalyticsV
 from apps.analytics.views.topics import TopicsAnalyticsView
 from apps.analytics.views.events import EventsAnalyticsView
 from apps.analytics.views.advisory import AdvisoryAnalyticsView
+from apps.analytics.views.advertisements import AdvertisementAnalyticsView
 from apps.analytics.views.idi import IDIAnalyticsView
 
 from apps.analytics.views.my_reposit.books import BooksAnalyticsView, BookPurchasesAnalyticsView
@@ -33,6 +34,7 @@ urlpatterns = [
     path("admin/topics/metrics/", TopicsAnalyticsView.as_view()),
     path("admin/events/metrics/", EventsAnalyticsView.as_view()),
     path("admin/advisory/metrics/", AdvisoryAnalyticsView.as_view()),
+    path("admin/advertisements/metrics/", AdvertisementAnalyticsView.as_view()),
     path("admin/idi/metrics/", IDIAnalyticsView.as_view()),
     path("admin/orders/metrics/", OrdersAnalyticsView.as_view()),
     path("admin/refunds/metrics/", RefundsAnalyticsView.as_view()),
