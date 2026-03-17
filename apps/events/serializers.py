@@ -11,7 +11,7 @@ class EventSpeakerSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     class Meta:
         model = EventSpeaker
-        fields = ["id", "name", "title", "bio", "image"]
+        fields = ["id", "name", "title", "bio", "image_url"]
     
     def get_image_url(self, obj):
         request = self.context.get("request")
@@ -28,7 +28,7 @@ class EventImageSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     class Meta:
         model = EventImage
-        fields = ["id", "image", "created_at"]
+        fields = ["id", "image_url", "created_at"]
     def get_image_url(self, obj):
         request = self.context.get("request")
         if obj.image and request:
