@@ -115,7 +115,7 @@ class EventListCreateAPIView(APIView):
         auto_schema=None
     )
     def post(self, request):
-        serializer = EventCreateUpdateSerializer(data=request.data)
+        serializer = EventCreateUpdateSerializer(data=request.data, context={"request": request})
         if not serializer.is_valid():
             first_error = next(iter(serializer.errors.values()))[0]
             return Response(

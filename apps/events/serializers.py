@@ -6,7 +6,6 @@ from apps.events.models import Event, EventSpeaker, EventImage
 # ---------------------------
 # Speaker Serializer
 # ---------------------------
-
 class EventSpeakerSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     class Meta:
@@ -19,11 +18,9 @@ class EventSpeakerSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.image.url)
         return obj.image.url if obj.image else None
 
-
 # ---------------------------
 # Event Image Serializer
 # ---------------------------
-
 class EventImageSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     class Meta:
@@ -38,9 +35,6 @@ class EventImageSerializer(serializers.ModelSerializer):
 # ---------------------------
 # Main Event Serializer (Read)
 # ---------------------------
-
-
-
 class EventSerializer(serializers.ModelSerializer):
     speakers = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
@@ -63,9 +57,6 @@ class EventSerializer(serializers.ModelSerializer):
             images, many=True, context={"request": request}
         ).data
 
-   
-
-
 # ---------------------------
 # Event Create / Update Serializer
 # ---------------------------
@@ -74,7 +65,6 @@ class EventSpeakerInputSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventSpeaker
         fields = ["name", "title", "bio", "image"]
-
 
 class EventCreateUpdateSerializer(serializers.ModelSerializer):
     speakers = EventSpeakerInputSerializer(many=True, required=False)
@@ -110,18 +100,12 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         request = self.context.get("request")
 
-        speakers_raw = validated_data.pop("speakers", "[]")
+        speakers_data = validated_data.pop("speakers", [])
         images_data = validated_data.pop("images", [])
-
-        # ✅ Parse speakers JSON
-        try:
-            speakers_data = json.loads(speakers_raw)
-        except Exception:
-            raise serializers.ValidationError({"speakers": "Invalid JSON"})
 
         event = Event.objects.create(**validated_data)
 
-        # ✅ Attach speaker images using index
+        # ✅ Correct: speakers_data is already a list
         for index, speaker in enumerate(speakers_data):
             image = request.FILES.get(f"speaker_images_{index}")
 
@@ -130,10 +114,9 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
                 name=speaker.get("name"),
                 title=speaker.get("title"),
                 bio=speaker.get("bio"),
-                image=image  # ← correctly mapped
+                image=image
             )
 
-        # ✅ Event images
         for img in images_data:
             EventImage.objects.create(event=event, image=img)
 
@@ -157,7 +140,6 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
                 EventImage.objects.create(event=instance, image=img)
 
         return instance
-
 
 # ---------------------------
 # Response Serializers
