@@ -1,5 +1,6 @@
-from rest_framework.views import APIView
 from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.pagination import PageNumberPagination
@@ -67,8 +68,9 @@ class EventPagination(PageNumberPagination):
     max_page_size = 50
 
 class EventListCreateAPIView(APIView):
-    pagination_class = EventPagination
+    parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
+    pagination_class = EventPagination
 
     @swagger_auto_schema(
         operation_description="List all events with pagination and filters",

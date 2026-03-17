@@ -49,11 +49,10 @@ class EventSpeakerInputSerializer(serializers.ModelSerializer):
 
 
 class EventCreateUpdateSerializer(serializers.ModelSerializer):
-    speakers = serializers.CharField(required=False, write_only=True)
+    speakers = EventSpeakerInputSerializer(many=True, required=False)
     images = serializers.ListField(
         child=serializers.ImageField(),
-        required=False,
-        write_only=True
+        required=False
     )
 
     class Meta:
@@ -79,27 +78,6 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
             "speakers",
             "images",
         ]
-        
-    def validate(self, data):
-        start_time = data.get("start_time")
-        end_time = data.get("end_time")
-
-        # ---- Time validation ----
-        if start_time and end_time and start_time > end_time:
-            raise serializers.ValidationError({
-                "end_time": "Event end time must be later than or equal to start time."
-            })
-
-        return data
-    
-    def validate_speakers(self, value):
-        try:
-            data = json.loads(value)
-            if not isinstance(data, list):
-                raise serializers.ValidationError("Speakers must be a list")
-            return data
-        except json.JSONDecodeError:
-            raise serializers.ValidationError("Invalid JSON format for speakers")
 
     def create(self, validated_data):
         speakers_data = validated_data.pop("speakers", [])
@@ -107,9 +85,11 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
 
         event = Event.objects.create(**validated_data)
 
+        # Create speakers
         for speaker in speakers_data:
             EventSpeaker.objects.create(event=event, **speaker)
 
+        # Create images
         for img in images_data:
             EventImage.objects.create(event=event, image=img)
 
