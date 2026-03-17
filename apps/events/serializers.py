@@ -80,16 +80,32 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def create(self, validated_data):
-        speakers_data = validated_data.pop("speakers", [])
+        request = self.context.get("request")
+
+        speakers_raw = validated_data.pop("speakers", "[]")
         images_data = validated_data.pop("images", [])
+
+        # ✅ Parse speakers JSON
+        try:
+            speakers_data = json.loads(speakers_raw)
+        except Exception:
+            raise serializers.ValidationError({"speakers": "Invalid JSON"})
 
         event = Event.objects.create(**validated_data)
 
-        # Create speakers
-        for speaker in speakers_data:
-            EventSpeaker.objects.create(event=event, **speaker)
+        # ✅ Attach speaker images using index
+        for index, speaker in enumerate(speakers_data):
+            image = request.FILES.get(f"speaker_images_{index}")
 
-        # Create images
+            EventSpeaker.objects.create(
+                event=event,
+                name=speaker.get("name"),
+                title=speaker.get("title"),
+                bio=speaker.get("bio"),
+                image=image  # ← correctly mapped
+            )
+
+        # ✅ Event images
         for img in images_data:
             EventImage.objects.create(event=event, image=img)
 
