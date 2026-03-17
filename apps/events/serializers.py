@@ -1,11 +1,7 @@
-import json
+from django.db import transaction
 from rest_framework import serializers
 from apps.events.models import Event, EventSpeaker, EventImage
 
-
-# ---------------------------
-# Speaker Serializer
-# ---------------------------
 class EventSpeakerSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     class Meta:
@@ -18,9 +14,6 @@ class EventSpeakerSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.image.url)
         return obj.image.url if obj.image else None
 
-# ---------------------------
-# Event Image Serializer
-# ---------------------------
 class EventImageSerializer(serializers.ModelSerializer):
     image_url = serializers.SerializerMethodField()
     class Meta:
@@ -32,9 +25,6 @@ class EventImageSerializer(serializers.ModelSerializer):
             return request.build_absolute_uri(obj.image.url)
         return obj.image.url if obj.image else None
 
-# ---------------------------
-# Main Event Serializer (Read)
-# ---------------------------
 class EventSerializer(serializers.ModelSerializer):
     speakers = serializers.SerializerMethodField()
     images = serializers.SerializerMethodField()
@@ -57,14 +47,35 @@ class EventSerializer(serializers.ModelSerializer):
             images, many=True, context={"request": request}
         ).data
 
-# ---------------------------
-# Event Create / Update Serializer
-# ---------------------------
-
 class EventSpeakerInputSerializer(serializers.ModelSerializer):
     class Meta:
         model = EventSpeaker
         fields = ["name", "title", "bio", "image"]
+
+def extract_speakers_from_request(request):
+    speakers = []
+    data = request.data
+
+    index = 0
+    while True:
+        name = data.get(f"speakers[{index}][name]")
+        title = data.get(f"speakers[{index}][title]")
+        bio = data.get(f"speakers[{index}][bio]")
+        image = request.FILES.get(f"speakers[{index}][image]")
+
+        if name is None and title is None and bio is None and image is None:
+            break
+
+        speakers.append({
+            "name": name,
+            "title": title,
+            "bio": bio,
+            "image": image
+        })
+
+        index += 1
+
+    return speakers
 
 class EventCreateUpdateSerializer(serializers.ModelSerializer):
     speakers = EventSpeakerInputSerializer(many=True, required=False)
@@ -76,71 +87,80 @@ class EventCreateUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Event
         fields = [
-            "title",
-            "description",
-            "event_type",
-            "specialization",
-            "start_date",
-            "end_date",
-            "start_time",
-            "end_time",
-            "timezone",
-            "format",
-            "is_free",
-            "registration_fee",
-            "is_certificate_available",
-            "agenda",
-            "venue",
-            "event_link",
-            "is_featured",
-            "speakers",
-            "images",
+            "title", "description", "event_type", "specialization",
+            "start_date", "end_date", "start_time", "end_time",
+            "timezone", "format", "is_free", "registration_fee",
+            "is_certificate_available", "agenda", "venue",
+            "event_link", "is_featured", "speakers", "images",
         ]
 
+    # ---------------------------
+    # CREATE
+    # ---------------------------
+    @transaction.atomic
     def create(self, validated_data):
         request = self.context.get("request")
-
-        speakers_data = validated_data.pop("speakers", [])
+        validated_data.pop("speakers", [])
         images_data = validated_data.pop("images", [])
-
+        speakers_data = extract_speakers_from_request(request)
         event = Event.objects.create(**validated_data)
 
-        # ✅ Correct: speakers_data is already a list
-        for index, speaker in enumerate(speakers_data):
-            image = request.FILES.get(f"speaker_images_{index}")
-
+        # ✅ Speakers (DRF already parsed image correctly)
+        for speaker in speakers_data:
+            if not speaker.get("name"):
+                continue
             EventSpeaker.objects.create(
                 event=event,
                 name=speaker.get("name"),
                 title=speaker.get("title"),
                 bio=speaker.get("bio"),
-                image=image
+                image=speaker.get("image")  # ✅ direct
             )
 
+        # ✅ Event Images
         for img in images_data:
             EventImage.objects.create(event=event, image=img)
 
         return event
 
+    # ---------------------------
+    # UPDATE
+    # ---------------------------
+    @transaction.atomic
     def update(self, instance, validated_data):
-        speakers_data = validated_data.pop("speakers", None)
+        request = self.context.get("request")
+        validated_data.pop("speakers", None)
+        speakers_data = extract_speakers_from_request(request)
         images_data = validated_data.pop("images", None)
 
+        # ✅ Update basic fields safely
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        if speakers_data is not None:
+        # ✅ Replace speakers
+        if speakers_data:
             instance.speakers.all().delete()
-            for speaker in speakers_data:
-                EventSpeaker.objects.create(event=instance, **speaker)
 
+            for speaker in speakers_data:
+                if not speaker.get("name"):
+                    continue
+
+                EventSpeaker.objects.create(
+                    event=instance,
+                    name=speaker.get("name"),
+                    title=speaker.get("title"),
+                    bio=speaker.get("bio"),
+                    image=speaker.get("image")
+                )
+
+        # ✅ Append images
         if images_data is not None:
             for img in images_data:
                 EventImage.objects.create(event=instance, image=img)
 
         return instance
-
+   
 # ---------------------------
 # Response Serializers
 # ---------------------------
