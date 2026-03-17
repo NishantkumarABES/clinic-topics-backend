@@ -8,9 +8,16 @@ from apps.events.models import Event, EventSpeaker, EventImage
 # ---------------------------
 
 class EventSpeakerSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
     class Meta:
         model = EventSpeaker
         fields = ["id", "name", "title", "bio", "image"]
+    
+    def get_image_url(self, obj):
+        request = self.context.get("request")
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url if obj.image else None
 
 
 # ---------------------------
@@ -18,10 +25,15 @@ class EventSpeakerSerializer(serializers.ModelSerializer):
 # ---------------------------
 
 class EventImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
     class Meta:
         model = EventImage
         fields = ["id", "image", "created_at"]
-
+    def get_image_url(self, obj):
+        request = self.context.get("request")
+        if obj.image and request:
+            return request.build_absolute_uri(obj.image.url)
+        return obj.image.url if obj.image else None
 
 # ---------------------------
 # Main Event Serializer (Read)
@@ -30,12 +42,28 @@ class EventImageSerializer(serializers.ModelSerializer):
 
 
 class EventSerializer(serializers.ModelSerializer):
-    speakers = EventSpeakerSerializer(many=True, read_only=True)
-    images = EventImageSerializer(many=True, read_only=True)
+    speakers = serializers.SerializerMethodField()
+    images = serializers.SerializerMethodField()
 
     class Meta:
         model = Event
         fields = "__all__"
+
+    def get_speakers(self, obj):
+        request = self.context.get("request")
+        speakers = obj.speakers.all()
+        return EventSpeakerSerializer(
+            speakers, many=True, context={"request": request}
+        ).data
+
+    def get_images(self, obj):
+        request = self.context.get("request")
+        images = obj.images.all()
+        return EventImageSerializer(
+            images, many=True, context={"request": request}
+        ).data
+
+   
 
 
 # ---------------------------

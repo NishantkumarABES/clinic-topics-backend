@@ -101,7 +101,7 @@ class EventListCreateAPIView(APIView):
         paginator = self.pagination_class()
         paginated_queryset = paginator.paginate_queryset(queryset, request)
 
-        serializer = EventSerializer(paginated_queryset, many=True)
+        serializer = EventSerializer(paginated_queryset, many=True, context={"request": request})
         response_data = paginator.get_paginated_response(serializer.data).data
         return Response({
             "detail": "Events retrieved successfully",
@@ -239,7 +239,7 @@ class AdminEventListAPIView(APIView):
         paginator = EventPagination()
         paginated_queryset = paginator.paginate_queryset(queryset, request)
 
-        serializer = EventSerializer(paginated_queryset, many=True)
+        serializer = EventSerializer(paginated_queryset, many=True, context={"request": request})
         response_data = paginator.get_paginated_response(serializer.data).data
         return Response({
             "detail": "Events retrieved successfully",
