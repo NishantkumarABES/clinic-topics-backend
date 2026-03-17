@@ -142,6 +142,7 @@ class EventListCreateAPIView(APIView):
 # Retrieve + Update (PUT / PATCH)
 # -----------------------------------
 class EventRetrieveUpdateAPIView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
     permission_classes = [IsAuthenticated]
 
     def get_object(self, id):
@@ -185,7 +186,9 @@ class EventRetrieveUpdateAPIView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        serializer = EventCreateUpdateSerializer(event, data=request.data, partial=True)
+        serializer = EventCreateUpdateSerializer(
+            event, data=request.data, partial=True, context={"request": request}
+        )
         if not serializer.is_valid():
             first_error = next(iter(serializer.errors.values()))[0]
             return Response(
