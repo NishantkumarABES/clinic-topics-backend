@@ -773,54 +773,65 @@ class AdminShopBannerWriteSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         order = attrs.get("order")
-        is_active = attrs.get("is_active", True)
 
-        if is_active and order:
-            qs = ShopBanner.objects.filter(order=order, is_active=True)
+        total = ShopBanner.objects.count()
 
-            if self.instance:
-                qs = qs.exclude(id=self.instance.id)
-
-            if qs.exists():
+        if self.instance:
+            # Update case
+            if order and (order < 1 or order > total):
                 raise serializers.ValidationError(
-                    {"order": "Another active banner already uses this order."}
+                    {"order": f"Order must be between 1 and {total}"}
                 )
+        else:
+            # Create case
+            if order and (order < 1 or order > total + 1):
+                raise serializers.ValidationError(
+                    {"order": f"Order must be between 1 and {total + 1}"}
+                )
+
         return attrs
-    
+
     @transaction.atomic
     def create(self, validated_data):
-        order = validated_data.get("order", 0)
-        is_active = validated_data.get("is_active", True)
+        order = validated_data.get("order")
 
-        if is_active and order:
-            ShopBanner.objects.filter(
-                order__gte=order,
-                is_active=True
-            ).update(order=F("order") + 1)
+        total = ShopBanner.objects.count()
 
-        banner = ShopBanner.objects.create(**validated_data)
-        return banner
-    
+        # Default → add at end
+        if not order:
+            order = total + 1
+
+        # Shift all >= order
+        ShopBanner.objects.filter(order__gte=order).update(
+            order=F("order") + 1
+        )
+
+        validated_data["order"] = order
+        return ShopBanner.objects.create(**validated_data)
+
     @transaction.atomic
     def update(self, instance, validated_data):
         new_order = validated_data.get("order", instance.order)
         old_order = instance.order
 
-        if new_order != old_order:
+        if new_order == old_order:
+            return super().update(instance, validated_data)
 
-            if new_order < old_order:
-                ShopBanner.objects.filter(
-                    order__gte=new_order,
-                    order__lt=old_order,
-                    is_active=True
-                ).update(order=F("order") + 1)
+        if new_order < old_order:
+            # Move UP → shift others DOWN
+            ShopBanner.objects.filter(
+                order__gte=new_order,
+                order__lt=old_order
+            ).update(order=F("order") + 1)
 
-            else:
-                ShopBanner.objects.filter(
-                    order__gt=old_order,
-                    order__lte=new_order,
-                    is_active=True
-                ).update(order=F("order") - 1)
+        else:
+            # Move DOWN → shift others UP
+            ShopBanner.objects.filter(
+                order__gt=old_order,
+                order__lte=new_order
+            ).update(order=F("order") - 1)
+
+        validated_data["order"] = new_order
 
         return super().update(instance, validated_data)
 
