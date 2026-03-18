@@ -197,11 +197,21 @@ class RevenueAnalyticsAPIView(APIView):
 
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
+        year = request.query_params.get("year")
+        month = request.query_params.get("month")
 
+        qs = Order.objects.filter(status=OrderStatus.PAID)
+
+        # ✅ Apply filters dynamically
+        if year:
+            qs = qs.filter(created_at__year=year)
+
+        if month:
+            qs = qs.filter(created_at__month=month)
+
+        # ✅ Aggregation
         qs = (
-            Order.objects
-            .filter(status=OrderStatus.PAID)
-            .annotate(date=TruncDate("created_at"))  # ✅ group by DB date (UTC)
+            qs.annotate(date=TruncDate("created_at"))
             .values("date")
             .annotate(
                 revenue=Sum("total_amount"),
@@ -210,14 +220,15 @@ class RevenueAnalyticsAPIView(APIView):
             .order_by("date")
         )
 
-        response = []
-
-        for row in qs:
-            response.append({
+        # ✅ Response formatting
+        response = [
+            {
                 "date": row["date"].strftime("%b %d").replace(" 0", " "),
                 "revenue": float(row["revenue"] or 0),
                 "orders": int(row["orders"] or 0),
-            })
+            }
+            for row in qs
+        ]
 
         return Response(response)
 
