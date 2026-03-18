@@ -1228,15 +1228,14 @@ class AdminBannerDeleteAPIView(APIView):
     def delete(self, request, banner_id):
 
         banner = get_object_or_404(ShopBanner, id=banner_id)
-
-        # Reorder remaining banners if the deleted banner was active
-        if banner.is_active:
-            ShopBanner.objects.filter(
-                order__gt=banner.order,
-                is_active=True
-            ).update(order=F("order") - 1)
+        deleted_order = banner.order
 
         banner.delete()
+
+        # Close gap
+        ShopBanner.objects.filter(
+            order__gt=deleted_order
+        ).update(order=F("order") - 1)
 
         return Response(
             {
