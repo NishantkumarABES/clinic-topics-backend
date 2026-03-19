@@ -625,7 +625,7 @@ class AdminJobDetailView(APIView):
     def get(self, request, pk):
         job = get_object_or_404(JobPost, id=pk)
         serializer = JobDetailSerializer(job, context={"request": request})
-        return serializer.data
+        return Response(serializer.data)
 
 class AdminJobReviewView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
