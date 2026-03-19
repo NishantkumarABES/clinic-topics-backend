@@ -612,7 +612,21 @@ class AdminJobListView(APIView):
             "data": response,
             "success": True,
         })
-        
+
+class AdminJobDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(
+        responses={
+            200: JobDetailSerializer()
+        },
+        auto_schema=None,
+    )
+    def get(self, request, pk):
+        job = get_object_or_404(JobPost, id=pk)
+        serializer = JobDetailSerializer(job, context={"request": request})
+        return serializer.data
+
 class AdminJobReviewView(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 
