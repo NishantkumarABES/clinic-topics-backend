@@ -14,6 +14,7 @@ class JobListSerializer(serializers.ModelSerializer):
             "company_name",
             "workplace_type",
             "employment_type",
+            "experience",
             "job_location",
             "job_function",
             "speciality",
