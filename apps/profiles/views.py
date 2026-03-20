@@ -380,3 +380,22 @@ class AdminProfileView(APIView):
             status=status.HTTP_200_OK
         )
 
+    def delete(self, request):
+        user = request.user
+        profile = AdminProfile.objects.filter(user=user).first()
+
+        if not profile or not profile.profile_photo:
+            return Response(
+                {"detail": "No profile photo to delete"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Delete the file and clear the field
+        profile.profile_photo.delete(save=False)
+        profile.profile_photo = None
+        profile.save(update_fields=["profile_photo"])
+
+        return Response(
+            {"message": "Admin profile image deleted successfully"},
+            status=status.HTTP_200_OK
+        )
