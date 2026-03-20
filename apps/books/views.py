@@ -946,6 +946,8 @@ class AdminBookPurchaseListView(APIView):
 
     @swagger_auto_schema(auto_schema=None)
     def get(self, request):
+        order_status = request.GET.get("order_status")
+        payment_method = request.GET.get("payment_method")
 
         queryset = (
             BookPurchase.objects
@@ -971,6 +973,9 @@ class AdminBookPurchaseListView(APIView):
             
         if payment_method:
             queryset = queryset.filter(payment_method=payment_method)
+        
+        if order_status:
+            queryset = queryset.filter(order_status=order_status)
             
         # -------- Pagination --------
         paginator = self.pagination_class()

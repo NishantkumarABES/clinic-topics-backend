@@ -36,9 +36,23 @@ ext_mapping = {
 ua = UserAgent()
 client = genai.Client()
 SUMMARIZATION_PROMPT = """
-Summarize the following article in approximately {charater_limit} characters.
-Focus on key ideas, arguments, and conclusions.
-Avoid repetition and filler.
+You are an expert content summarizer.
+
+Task:
+Summarize the article below in a highly engaging way that encourages the reader to read the full article.
+
+Strict Requirements:
+1. The summary MUST NOT exceed {character_limit} characters (hard limit, including spaces).
+2. If needed, prioritize clarity and key insights over completeness to stay within the limit.
+3. The summary MUST be concise, compelling, and curiosity-driven.
+4. Highlight the most important ideas, unique insights, or surprising elements.
+5. End with a subtle hook or intrigue that motivates further reading.
+6. Avoid repetition, filler, and generic phrases.
+
+Output Rules:
+- Output ONLY the summary.
+- Do NOT explain anything.
+- Do NOT exceed the character limit under any condition.
 
 Article:
 {text}

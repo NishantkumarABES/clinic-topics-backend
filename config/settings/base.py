@@ -231,8 +231,35 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.events.tasks.update_event_statuses",
         "schedule": crontab(minute="*/15"),  # every 15 minutes
     },
+
+    "mark-expired-job-posts": {
+        "task": "apps.jobs.tasks.mark_expired_job_posts",
+        "schedule": crontab(hour=0, minute=0),  # daily at midnight
+    },
 }
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_BROKER_URL = REDIS_URL
 CELERY_RESULT_BACKEND = REDIS_URL
+
+FILE_VALIDATION = {
+    "images": {
+        "extensions": ["png", "jpg", "jpeg", "webp"],
+        "mime_types": [
+            "image/png",
+            "image/jpeg",
+            "image/webp",
+        ],
+        "max_size_mb": 5,
+    },
+    "documents": {
+        "extensions": ["pdf", "doc", "docx", "xls", "xlsx", "txt"],
+        "mime_types": [
+            "application/pdf",
+            "application/msword",
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            "text/plain",
+        ],
+        "max_size_mb": 10,
+    }
+}
