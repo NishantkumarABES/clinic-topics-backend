@@ -184,9 +184,9 @@ def summarize_tfidf(text: str, character_limit: int = 500) -> str:
     summary = " ".join(sentence for _, sentence in selected_sentences)
     return summary.strip()
 
-def summarize_openai(text, charater_limit=500):
+def summarize_openai(text, character_limit=500):
     prompt = SUMMARIZATION_PROMPT_TEMPLATE.format(
-        text=text, charater_limit=charater_limit
+        text=text, character_limit=character_limit
     )
     openai_llm = ChatOpenAI(
         model="gpt-4.1-mini-2025-04-14",
