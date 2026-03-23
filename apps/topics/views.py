@@ -46,6 +46,19 @@ class AdminTopicListPagination(PageNumberPagination):
     page_size_query_param = 'page_size'
     max_page_size = 100
 
+class AdminTopicDetailView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(
+        auto_schema=None,
+        operation_summary="Get topic details (Admin)",
+        responses={200: AdminTopicReadSerializer}
+    )
+    def get(self, request, topic_id):
+        topic = get_object_or_404(Topic, id=topic_id)
+        serializer = AdminTopicReadSerializer(topic, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class AdminTopicListCreateAPIView(APIView):
     permission_classes = [IsAdmin]
     pagination_class = AdminTopicListPagination
@@ -581,7 +594,6 @@ class DownloadTranscriptSRTAPIView(APIView):
                 {"detail": str(e), "data": None, "success": False},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
-
 
 class TopicLikeToggleAPIView(APIView):
     permission_classes = [IsAuthenticated]
