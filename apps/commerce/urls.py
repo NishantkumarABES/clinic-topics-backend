@@ -7,6 +7,7 @@ from apps.commerce.views import (
     AdminOrderDetailAPIView, AdminOrderUpdateStatusAPIView, AdminUserAddressListView, CreatePaymentOrderView, VerifyPaymentView, PaymentWebhookView, 
     CancelOrderAPIView, RetryPaymentView, AdminCreateShopCategoryAPIView, UserRefundListView, CreateRefundRequestView, AdminRefundDecisionView,
     AdminRefundListView, AdminBannerListCreateAPIView, AdminBannerUpdateAPIView, AdminBannerDeleteAPIView, AdminProductDetailAPIView,
+    AdminRefundDetailView
 )
 
 urlpatterns = [
@@ -59,6 +60,7 @@ urlpatterns = [
     path("admin/banners/<uuid:banner_id>/delete/", AdminBannerDeleteAPIView.as_view(), name="admin-delete-banner"),
     path("admin/categories/", AdminCreateShopCategoryAPIView.as_view(), name="admin-create-category"),
     path("admin/refunds/", AdminRefundListView.as_view(), name="admin-refund-list"),
+    path("admin/refunds/<uuid:refund_id>/", AdminRefundDetailView.as_view(), name="admin-refund-detail"),
     path("admin/refunds/<uuid:refund_id>/decision/", AdminRefundDecisionView.as_view(), name="admin-refund-decision"),
     
     # Admin user addresses endpoint
