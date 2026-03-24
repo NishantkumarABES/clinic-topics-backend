@@ -1000,7 +1000,7 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
     user = AdminUserSerializer(read_only=True)
     address = AdminAddressSerializer(read_only=True)
     items = AdminOrderItemSerializer(many=True, read_only=True)
-
+    items_count = serializers.SerializerMethodField()
     subtotal_amount = serializers.SerializerMethodField()
     coupon_code = serializers.CharField(source="coupon.code", read_only=True)
     coupon_discount = serializers.SerializerMethodField()
@@ -1011,6 +1011,7 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
         decimal_places=2,
         read_only=True
     )
+    payment_method = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -1028,16 +1029,24 @@ class AdminOrderDetailSerializer(serializers.ModelSerializer):
             "total_amount",
             "payment_method",
             "payment_reference",
+            "payment_meta",
             "items",
+            "items_count",
             "created_at",
             "updated_at",
         ]
+    
+    def get_items_count(self, obj):
+        return obj.items.count()
 
     def get_subtotal_amount(self, obj):
         subtotal = 0
         for item in obj.items.all():
             subtotal += item.price_at_purchase * item.quantity
         return round(subtotal, 2)
+    
+    def get_payment_method(self, obj):
+        return payment_method_display(obj.payment_method)
 
     def get_coupon_discount(self, obj):
         if not obj.coupon:
