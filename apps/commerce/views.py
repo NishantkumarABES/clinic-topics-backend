@@ -1267,6 +1267,25 @@ class AdminRefundListView(APIView):
         response_data = paginator.get_paginated_response(serializer.data).data
         return Response(response_data)
 
+class AdminRefundDetailView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(
+        operation_id="admin_refund_detail",
+        tags=["Commerce - Admin Refunds"],
+        responses={
+            200: RefundSerializer(),
+            404: NOT_FOUND_404
+        }
+    )
+    def get(self, request, refund_id):
+        refund = get_object_or_404(Refund, id=refund_id)
+        serializer = RefundSerializer(refund)
+        return Response({
+            "success": True,
+            "data": serializer.data
+        })
+
 class AdminRefundDecisionView(APIView):
     permission_classes = [IsAdmin]
 
@@ -1512,7 +1531,6 @@ class AdminUserAddressListView(APIView):
             "success": True,
             "results": serializer.data
         })
-
 
 class AdminOrderUpdateStatusAPIView(APIView):
     """Admin endpoint to update order status."""
