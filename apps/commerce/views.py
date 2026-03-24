@@ -1474,6 +1474,15 @@ class AdminOrderListAPIView(APIView):
             status=status.HTTP_201_CREATED
         )
 
+class AdminOrderDetailAPIView(APIView):
+    """Admin endpoint to get order details."""
+    permission_classes = [IsAdmin]
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request, order_id):
+        order = get_object_or_404(Order, id=order_id)
+        serializer = AdminOrderDetailSerializer(order, context={"request": request})
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
 class AdminUserAddressListView(APIView):
     """Admin endpoint to get addresses for a specific user."""
     permission_classes = [IsAdmin]
@@ -1498,18 +1507,6 @@ class AdminUserAddressListView(APIView):
             "results": serializer.data
         })
 
-class AdminOrderDetailAPIView(APIView):
-    """Admin endpoint to get order details."""
-    permission_classes = [IsAdmin]
-
-    @swagger_auto_schema(auto_schema=None)
-    def get(self, request, order_id):
-        order = get_object_or_404(Order, id=order_id)
-        serializer = AdminOrderDetailSerializer(order, context={"request": request})
-        return Response({
-            "success": True,
-            "data": serializer.data
-        })
 
 class AdminOrderUpdateStatusAPIView(APIView):
     """Admin endpoint to update order status."""
