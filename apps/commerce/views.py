@@ -1481,7 +1481,13 @@ class AdminOrderDetailAPIView(APIView):
     def get(self, request, order_id):
         order = get_object_or_404(Order, id=order_id)
         serializer = AdminOrderDetailSerializer(order, context={"request": request})
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            {
+                "success": True,
+                "data": serializer.data
+            },
+            status=status.HTTP_200_OK
+        )
 
 class AdminUserAddressListView(APIView):
     """Admin endpoint to get addresses for a specific user."""
