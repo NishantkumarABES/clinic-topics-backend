@@ -7,7 +7,7 @@ from apps.commerce.models import (
     Product, ProductImage, ProductReview, OrderItem, Cart, CartItem, Address, Coupon, Wishlist, WishlistItem, Order, OrderItem, Payment,
     ShopBanner, ShopCategoryConfig, Refund
 )
-from apps.commerce.constants import OrderStatus, PaymentStatus, RefundStatus, DiscountType
+from apps.commerce.constants import OrderStatus, PaymentStatus, RefundStatus, DiscountType, ProductCategory
 from apps.commerce.services import payment_method_display
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -22,6 +22,7 @@ class ProductListSerializer(serializers.ModelSerializer):
     discount_percentage = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True)
     max_user_quantity = serializers.IntegerField(read_only=True)
     final_price = serializers.SerializerMethodField()
+    category = serializers.CharField(read_only=True)
 
     class Meta:
         model = Product
@@ -31,7 +32,10 @@ class ProductListSerializer(serializers.ModelSerializer):
         ]
     def get_final_price(self, obj):
         return obj.get_unit_final_price()
-    
+
+    def get_category(self, obj):
+        return ProductCategory(obj.category).label if obj.category else None
+      
 class ProductDetailSerializer(serializers.ModelSerializer):
     images = ProductImageSerializer(many=True, read_only=True)
     base_price = serializers.DecimalField(source="price", max_digits=10, decimal_places=2, read_only=True)
@@ -689,7 +693,6 @@ class AdminProductReadSerializer(serializers.ModelSerializer):
     
     def get_final_price(self, obj):
         return obj.get_unit_final_price()
-
 
 class AdminProductWriteSerializer(serializers.ModelSerializer):
     images = serializers.ListField(
