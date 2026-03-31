@@ -371,6 +371,21 @@ class VerifySecondOpinionPaymentView(APIView):
                 second_opinion_request=second_opinion_request,
                 discount_amount=second_opinion_request.discount_amount
             )
+        
+        # Send notifications to all assigned doctors AFTER successful payment
+        doctor_requests = second_opinion_request.doctor_requests.all()
+
+        for dr in doctor_requests:
+            create_user_notification(
+                recipient=dr.doctor,
+                title="New Second Opinion Request",
+                message=f"You have received a new second opinion request from {second_opinion_request.patient.full_name}.",
+                data={
+                    "type": "SECOND_OPINION_REQUEST",
+                    "request_id": str(second_opinion_request.id),
+                    "doctor_request_id": str(dr.id)
+                }
+            )
 
         return Response({
             "detail": "Payment verified successfully",
