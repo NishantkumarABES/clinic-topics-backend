@@ -44,6 +44,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     final_price = serializers.SerializerMethodField()
     average_rating = serializers.SerializerMethodField()
     total_reviews = serializers.SerializerMethodField()
+    category = serializers.CharField(read_only=True)
 
     class Meta:
         model = Product
@@ -62,6 +63,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
     def get_total_reviews(self, obj):
         return obj.reviews.count()
+
+    def get_category(self, obj):
+        return ProductCategory(obj.category).label if obj.category else None
 
 class ProductReviewSerializer(serializers.ModelSerializer):
     user_name = serializers.CharField(source="user.full_name", read_only=True)
