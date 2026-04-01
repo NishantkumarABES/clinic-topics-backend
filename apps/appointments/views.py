@@ -204,7 +204,7 @@ class DoctorDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        serializer = DoctorDetailSerializer(doctor_profile)
+        serializer = DoctorDetailSerializer(doctor_profile, context={"request": request})
 
         return Response({
             "detail": "Doctor details retrieved successfully",

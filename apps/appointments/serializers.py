@@ -71,6 +71,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     average_rating = serializers.SerializerMethodField()
     total_ratings = serializers.SerializerMethodField()
     ratings = serializers.SerializerMethodField()
+    is_reviewed_by_user = serializers.SerializerMethodField()
 
     class Meta:
         model = DoctorProfile
@@ -96,6 +97,7 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
             "average_rating",
             "total_ratings",
             "ratings",
+            "is_reviewed_by_user",
         ]
 
     def get_average_rating(self, obj):
@@ -108,6 +110,12 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
     def get_ratings(self, obj):
         ratings_qs = obj.user.ratings_received.all().order_by("-created_at")
         return DoctorRatingSerializer(ratings_qs, many=True).data
+
+    def get_is_reviewed_by_user(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            return obj.user.ratings_received.filter(patient=request.user).exists()
+        return False
 
 class AppointmentCategorySerializer(serializers.ModelSerializer):
     class Meta:
