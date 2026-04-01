@@ -4,7 +4,7 @@ from apps.accounts.services import activate_user_if_eligible
 
 
 class DoctorProfileSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(source="user.full_name", read_only=True)
+    full_name = serializers.CharField(source="user.full_name")
     email = serializers.EmailField(source="user.email", read_only=True)
     phone = serializers.CharField(source="user.phone", read_only=True)
     country_code = serializers.CharField(source="user.country_code", read_only=True)
@@ -29,7 +29,7 @@ class DoctorProfileSerializer(serializers.ModelSerializer):
         return instance
 
 class PatientProfileSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(source="user.full_name", read_only=True)
+    full_name = serializers.CharField(source="user.full_name")
     email = serializers.EmailField(source="user.email", read_only=True)
     phone = serializers.CharField(source="user.phone", read_only=True)
     country_code = serializers.CharField(source="user.country_code", read_only=True)
