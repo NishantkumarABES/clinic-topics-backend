@@ -5,11 +5,11 @@ from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from apps.accounts.services import normalize_phone
-from apps.accounts.models import User, EmailOTP, AuthProvider, UserDevice
+from apps.accounts.models import User, EmailOTP, AuthProvider
 from apps.accounts.constants import UserState, UserRole, UserState, DeviceType
-from apps.accounts.services import send_doctor_invitation_email, assert_identity_available, verify_phone_otp
+from apps.accounts.services import send_doctor_invitation_email, assert_identity_available
 from apps.accounts.social_providers import social_provider_verification
-from apps.profiles.models import DoctorProfile
+from apps.profiles.models import DoctorProfile, PatientProfile
 
 class RegisterSerializer(serializers.Serializer):
     # -------- Device Fields --------
@@ -363,8 +363,20 @@ class DoctorProfileListSerializer(serializers.ModelSerializer):
     def get_average_rating(self, obj):
         return obj.average_rating()
 
+class PatientProfileListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PatientProfile
+        fields = [ 
+            'blood_group', 'address', 'medical_history', 'current_medications', 'allergies',
+            'chronic_conditions', 'previous_surgeries', 'family_medical_history',
+            'emergency_contact_name', 'emergency_contact_relationship', 'emergency_contant_country_code', 'emergency_contact_phone',
+            'insurance_provider', 'insurance_policy_number', 'insurance_coverage_details',
+            'profile_photo' 
+        ]
+            
 class UserListSerializer(serializers.ModelSerializer):
     doctor_profile = DoctorProfileListSerializer(read_only=True)
+    patient_profile = PatientProfileListSerializer(read_only=True)
 
     class Meta:
         model = User
@@ -373,7 +385,7 @@ class UserListSerializer(serializers.ModelSerializer):
             "full_name", "date_of_birth", "gender",
             "state", "is_email_verified", "is_phone_verified",
             "is_active", "created_at", "updated_at",
-            "doctor_profile",
+            "doctor_profile", "patient_profile"
         ]
         read_only_fields = fields
 
@@ -383,6 +395,10 @@ class UserListSerializer(serializers.ModelSerializer):
         # Hide doctor_profile if user is not a doctor
         if instance.role != UserRole.DOCTOR:
             data.pop("doctor_profile", None)
+
+        # Hide patient_profile if user is not a patient
+        if instance.role != UserRole.PATIENT:
+            data.pop("patient_profile", None)
 
         return data
 
