@@ -906,7 +906,7 @@ class AdminUserListView(APIView):
         by_admin = request.query_params.get("by_admin")
         ordering = request.query_params.get("ordering", "-created_at")
 
-        users = User.objects.filter(role=role)
+        users = User.objects.filter(role=role).exclude(state=UserState.DELETED)
 
         # Efficient join
         if role == UserRole.DOCTOR:
