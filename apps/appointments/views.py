@@ -1,9 +1,10 @@
 from django.db.models import Q, Avg, Count
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
-from rest_framework import status
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
@@ -212,13 +213,97 @@ class DoctorDetailView(APIView):
             "success": True
         })
 
-class AppointmentCategoryCreateView(APIView):
-    permission_classes = [IsAdmin]
+class AppointmentCategoryListCreateView(ListCreateAPIView):
+    """
+    Admin API:
+    - GET: List all categories
+    - POST: Create category
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+    queryset = AppointmentCategory.objects.all().order_by("-created_at")
+    serializer_class = AppointmentCategorySerializer
 
-    def post(self, request):
-        serializer = AppointmentCategorySerializer(data=request.data)
+    def list(self, request, *args, **kwargs):
+        queryset = self.get_queryset()
+
+        # Optional filter
+        is_active = request.query_params.get("is_active")
+        if is_active is not None:
+            queryset = queryset.filter(is_active=is_active.lower() == "true")
+
+        serializer = self.get_serializer(queryset, many=True)
+
+        return Response({
+            "detail": "Categories retrieved successfully",
+            "data": {
+                "categories": serializer.data
+            },
+            "success": True
+        })
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response({
+                "detail": "Category created successfully",
+                "data": serializer.data,
+                "success": True
+            }, status=status.HTTP_201_CREATED)
 
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            "detail": "Validation failed",
+            "data": serializer.errors,
+            "success": False
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+class AppointmentCategoryDetailView(RetrieveUpdateDestroyAPIView):
+    """
+    Admin API:
+    - GET: Retrieve single category
+    - PATCH/PUT: Update category
+    - DELETE: Delete category
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+    queryset = AppointmentCategory.objects.all()
+    serializer_class = AppointmentCategorySerializer
+    lookup_field = "id"
+
+    def retrieve(self, request, *args, **kwargs):
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+
+        return Response({
+            "detail": "Category retrieved successfully",
+            "data": serializer.data,
+            "success": True
+        })
+
+    def update(self, request, *args, **kwargs):
+        partial = kwargs.get("partial", False)
+        instance = self.get_object()
+
+        serializer = self.get_serializer(instance, data=request.data, partial=partial)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "detail": "Category updated successfully",
+                "data": serializer.data,
+                "success": True
+            })
+
+        return Response({
+            "detail": "Validation failed",
+            "data": serializer.errors,
+            "success": False
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.delete()
+
+        return Response({
+            "detail": "Category deleted successfully",
+            "data": None,
+            "success": True
+        }, status=status.HTTP_204_NO_CONTENT)
