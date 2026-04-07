@@ -208,7 +208,7 @@ class SecondOpinionRequestDetailView(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        serializer = SecondOpinionRequestDetailSerializer(second_opinion_request)
+        serializer = SecondOpinionRequestDetailSerializer(second_opinion_request, context={"request": request})
         return Response({
             "detail": "Request retrieved successfully",
             "data": serializer.data,
