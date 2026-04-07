@@ -3,7 +3,7 @@ from apps.second_opinion.views import (
     CalculateChargesView, SecondOpinionRequestListCreateView, SecondOpinionRequestDetailView, CreateSecondOpinionPaymentView,
     VerifySecondOpinionPaymentView, AvailableDoctorsListView, DoctorSecondOpinionListView, DoctorSecondOpinionDetailView,
     DoctorStartReviewView, DoctorSubmitResponseView, SubmitDoctorRatingView, ApplyCouponView, AdminCreateCouponView, AdminUpdateCouponView,
-    AdminCouponListView
+    AdminCouponListView, AdminDeleteCouponView
 )
 
 urlpatterns = [
@@ -27,12 +27,11 @@ urlpatterns = [
     path("doctor/requests/<uuid:doctor_request_id>/", DoctorSecondOpinionDetailView.as_view()),
     path("doctor/requests/<uuid:doctor_request_id>/start-review/", DoctorStartReviewView.as_view()),
     path("doctor/requests/<uuid:doctor_request_id>/submit-response/", DoctorSubmitResponseView.as_view()),
-
     path("doctor-ratings/submit/", SubmitDoctorRatingView.as_view()),
-
 
     # Admin coupon management
     path("admin/coupons/", AdminCouponListView.as_view(), name="admin-coupon-list"),
     path("admin/coupons/create/", AdminCreateCouponView.as_view(), name="admin-create-coupon"),
     path("admin/coupons/<uuid:coupon_id>/update/", AdminUpdateCouponView.as_view(), name="admin-update-coupon"),
+    path("admin/coupons/<uuid:coupon_id>/delete/", AdminDeleteCouponView.as_view(), name="admin-delete-coupon"),
 ]
