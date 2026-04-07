@@ -274,15 +274,36 @@ class SecondOpinionRequestDetailSerializer(serializers.ModelSerializer):
         read_only=True
     )
     is_paid = serializers.BooleanField(read_only=True)
+    coupon_code = serializers.CharField(read_only=True, source="applied_coupon.code")
+    discount_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
+    final_amount = serializers.DecimalField(
+        max_digits=10, decimal_places=2, read_only=True
+    )
+
 
     class Meta:
         model = SecondOpinionRequest
         fields = [
             "id", "notes", "question", "total_amount", "status",    
-            "payment_status", "is_paid", "doctor_requests",
-            "documents", "created_at", "updated_at"
+            "payment_status", "is_paid", "doctor_requests", "coupon_code",
+            "discount_amount", "final_amount","documents", "created_at", "updated_at"
         ]
+    
+    def get_coupon_code(self, obj):
+        if obj.applied_coupon:
+            return obj.applied_coupon.code
+        return None
 
+    def get_discount_amount(self, obj):
+        if obj.applied_coupon:
+            return obj.applied_coupon.calculate_discount(obj.total_amount)
+        return Decimal("0.00")
+    
+    def get_final_amount(self, obj):
+        return obj.total_amount - self.get_discount_amount(obj)
+    
 class CalculateChargesResponseSerializer(serializers.Serializer):
     """Response for charge calculation."""
     doctors = serializers.ListField(child=serializers.DictField())
