@@ -922,3 +922,30 @@ class AdminUpdateCouponView(APIView):
             "data": AdminCouponResponseSerializer(coupon).data,
             "success": True
         })
+
+class AdminDeleteCouponView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(
+        operation_summary="Delete coupon",
+        tags=["Admin - Coupons"],
+        responses={204: "No Content", 404: NOT_FOUND_404}
+    )
+    def delete(self, request, coupon_id):
+
+        try:
+            coupon = Coupon.objects.get(id=coupon_id)
+        except Coupon.DoesNotExist:
+            return Response({
+                "detail": "Coupon not found",
+                "data": None,
+                "success": False
+            }, status=404)
+
+        coupon.delete()
+
+        return Response({
+            "detail": "Coupon deleted successfully",
+            "data": None,
+            "success": True
+        }, status=status.HTTP_204_NO_CONTENT)
