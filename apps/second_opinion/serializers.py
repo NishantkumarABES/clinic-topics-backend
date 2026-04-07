@@ -274,13 +274,9 @@ class SecondOpinionRequestDetailSerializer(serializers.ModelSerializer):
         read_only=True
     )
     is_paid = serializers.BooleanField(read_only=True)
-    coupon_code = serializers.CharField(read_only=True, source="applied_coupon.code")
-    discount_amount = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
-    )
-    final_amount = serializers.DecimalField(
-        max_digits=10, decimal_places=2, read_only=True
-    )
+    coupon_code = serializers.SerializerMethodField()
+    discount_amount = serializers.SerializerMethodField()
+    final_amount = serializers.SerializerMethodField()
 
 
     class Meta:
@@ -292,17 +288,13 @@ class SecondOpinionRequestDetailSerializer(serializers.ModelSerializer):
         ]
     
     def get_coupon_code(self, obj):
-        if obj.applied_coupon:
-            return obj.applied_coupon.code
-        return None
+        return obj.coupon.code if obj.coupon else None
 
     def get_discount_amount(self, obj):
-        if obj.applied_coupon:
-            return obj.applied_coupon.calculate_discount(obj.total_amount)
-        return Decimal("0.00")
+        return obj.discount_amount or Decimal("0.00")
     
     def get_final_amount(self, obj):
-        return obj.total_amount - self.get_discount_amount(obj)
+        return obj.final_amount if obj.final_amount else obj.total_amount
     
 class CalculateChargesResponseSerializer(serializers.Serializer):
     """Response for charge calculation."""
