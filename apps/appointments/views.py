@@ -231,7 +231,7 @@ class AppointmentCategoryListCreateView(ListCreateAPIView):
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active.lower() == "true")
 
-        serializer = self.get_serializer(queryset, many=True)
+        serializer = self.get_serializer(queryset, many=True, context={"request": request})
 
         return Response({
             "detail": "Categories retrieved successfully",
