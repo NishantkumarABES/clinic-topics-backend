@@ -118,14 +118,11 @@ class DoctorDetailSerializer(serializers.ModelSerializer):
         return False
 
 class AppointmentCategorySerializer(serializers.ModelSerializer):
-    doctor_count = serializers.SerializerMethodField()
-
     class Meta:
         model = AppointmentCategory
-        fields = ["id", "key", "label", "image", "doctor_count", "is_active"]
+        fields = ["id", "key", "label", "image", "is_active"]
     
-    def get_doctor_count(self, obj):
-        return DoctorProfile.objects.filter(specialization=obj.label).count()
+
 
 #########################   Response Serializers    #########################
 

@@ -228,10 +228,34 @@ class AppointmentCategoryListCreateView(ListCreateAPIView):
 
         # Optional filter
         is_active = request.query_params.get("is_active")
+        search = request.query_params.get("search")
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active.lower() == "true")
+        
+        if search:
+            queryset = queryset.filter(
+                Q(key__icontains=search) |
+                Q(label__icontains=search)
+            )
 
-        serializer = self.get_serializer(queryset, many=True, context={"request": request})
+        # ---------- OPTIMIZED DOCTOR COUNT ----------
+        doctor_counts = (
+            DoctorProfile.objects
+            .exclude(user__state="deleted")
+            .values("specialization")
+            .annotate(count=Count("id"))
+        )
+
+        doctor_count_map = {
+            item["specialization"]: item["count"]
+            for item in doctor_counts
+        }
+        serializer = self.get_serializer(queryset, many=True)
+        data = serializer.data
+        # Inject doctor_count (override serializer)
+        for item in data:
+            item["doctor_count"] = doctor_count_map.get(item["key"], 0)
+
 
         return Response({
             "detail": "Categories retrieved successfully",
