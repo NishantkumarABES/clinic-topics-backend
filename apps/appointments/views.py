@@ -220,7 +220,7 @@ class AppointmentCategoryListCreateView(ListCreateAPIView):
     - POST: Create category
     """
     permission_classes = [IsAuthenticated, IsAdmin]
-    queryset = AppointmentCategory.objects.all().order_by("-created_at")
+    queryset = AppointmentCategory.objects.all()
     serializer_class = AppointmentCategorySerializer
 
     def list(self, request, *args, **kwargs):

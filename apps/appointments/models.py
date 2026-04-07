@@ -6,6 +6,8 @@ class AppointmentCategory(models.Model):
     image = models.ImageField(upload_to="appointment/categories/")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
 
     class Meta:
         ordering = ["key"]
