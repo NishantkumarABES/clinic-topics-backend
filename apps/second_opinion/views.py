@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
-from django.db.models import Q, Avg, Count, F, ExpressionWrapper, DurationField
+from django.db.models import Q, Avg, Count, F, ExpressionWrapper, DurationField, DateTimeField
 from django.utils import timezone
 
 from drf_yasg import openapi
@@ -789,15 +789,16 @@ class DoctorDashboardView(APIView):
 
     def get(self, request):
         doctor = request.user
-        today = timezone.now().date()
+        now = timezone.now()
+        today = now.date()
 
         queryset = SecondOpinionDoctorRequest.objects.paid().filter(
             doctor=doctor
         )
 
-        # -------------------------------
+        # -----------------------------------
         # 1. Pending Cases
-        # -------------------------------
+        # -----------------------------------
         pending_cases = queryset.filter(
             status__in=[
                 SecondOpinionStatus.SUBMITTED,
@@ -805,23 +806,28 @@ class DoctorDashboardView(APIView):
             ]
         ).count()
 
-        # -------------------------------
-        # 2. Due Today (based on created date)
-        # -------------------------------
-        due_today = queryset.filter(
-            created_at__date=today,
-            status__in=[
-                SecondOpinionStatus.SUBMITTED,
-                SecondOpinionStatus.IN_REVIEW
-            ]
+        # -----------------------------------
+        # 2. Due Today (48-hour SLA logic)
+        # -----------------------------------
+        due_expr = ExpressionWrapper(
+            F("created_at") + timedelta(hours=48),
+            output_field=DateTimeField()
+        )
+
+        due_today = queryset.annotate(
+            due_at=due_expr
+        ).filter(
+            due_at__date=today
+        ).exclude(
+            status=SecondOpinionStatus.COMPLETED
         ).count()
 
-        # -------------------------------
-        # 3. Recent Assignments
-        # -------------------------------
+        # -----------------------------------
+        # 3. Recent Assignments (TOP 3)
+        # -----------------------------------
         recent_qs = queryset.select_related(
             "second_opinion_request__patient"
-        ).order_by("-created_at")[:5]
+        ).order_by("-created_at")[:3]
 
         recent_assignments = [
             {
@@ -829,47 +835,56 @@ class DoctorDashboardView(APIView):
                 "patient_name": obj.second_opinion_request.patient.full_name,
                 "status": obj.status,
                 "submitted_at": obj.created_at,
-                "responded_at": obj.responded_at
+                "responded_at": obj.responded_at,
+                "due_at": obj.created_at + timedelta(hours=48)
             }
             for obj in recent_qs
         ]
 
-        # -------------------------------
-        # 4. Weekly Activity
-        # -------------------------------
+        # -----------------------------------
+        # Turnaround Expression (Reusable)
+        # -----------------------------------
+        turnaround_expr = ExpressionWrapper(
+            F("responded_at") - F("created_at"),
+            output_field=DurationField()
+        )
+
+        def calculate_activity(qs):
+            completed_qs = qs.filter(
+                status=SecondOpinionStatus.COMPLETED
+            )
+
+            avg_turnaround = completed_qs.annotate(
+                turnaround=turnaround_expr
+            ).aggregate(
+                avg_time=Avg("turnaround")
+            )["avg_time"]
+
+            avg_hours = (
+                avg_turnaround.total_seconds() / 3600
+                if avg_turnaround else 0
+            )
+
+            return {
+                "cases_completed": completed_qs.count(),
+                "avg_turnaround_hours": round(avg_hours, 2),
+                "pending_reviews": qs.exclude(
+                    status=SecondOpinionStatus.COMPLETED
+                ).count()
+            }
+
+        # -----------------------------------
+        # 4. Review Activity
+        # -----------------------------------
         start_of_week = today - timedelta(days=today.weekday())
 
         weekly_qs = queryset.filter(
             created_at__date__gte=start_of_week
         )
 
-        completed_qs = weekly_qs.filter(
-            status=SecondOpinionStatus.COMPLETED
-        )
-
-        # Turnaround time calculation
-        turnaround_expr = ExpressionWrapper(
-            F("responded_at") - F("created_at"),
-            output_field=DurationField()
-        )
-
-        avg_turnaround = completed_qs.annotate(
-            turnaround=turnaround_expr
-        ).aggregate(
-            avg_time=Avg("turnaround")
-        )["avg_time"]
-
-        avg_turnaround_hours = (
-            avg_turnaround.total_seconds() / 3600
-            if avg_turnaround else 0
-        )
-
         review_activity = {
-            "cases_completed": completed_qs.count(),
-            "avg_turnaround_hours": round(avg_turnaround_hours, 2),
-            "pending_reviews": weekly_qs.exclude(
-                status=SecondOpinionStatus.COMPLETED
-            ).count()
+            "this_week": calculate_activity(weekly_qs),
+            "all_time": calculate_activity(queryset)
         }
 
         return Response({
