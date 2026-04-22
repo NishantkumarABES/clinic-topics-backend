@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -6,7 +7,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.pagination import PageNumberPagination
 from django.db import transaction
-from django.db.models import Q, Avg, Count, F
+from django.db.models import Q, Avg, Count, F, ExpressionWrapper, DurationField
+from django.utils import timezone
 
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -781,6 +783,107 @@ class ApplyCouponView(APIView):
             },
             "success": True
         })
+
+class DoctorDashboardView(APIView):
+    permission_classes = [IsAuthenticated, IsDoctor]
+
+    def get(self, request):
+        doctor = request.user
+        today = timezone.now().date()
+
+        queryset = SecondOpinionDoctorRequest.objects.paid().filter(
+            doctor=doctor
+        )
+
+        # -------------------------------
+        # 1. Pending Cases
+        # -------------------------------
+        pending_cases = queryset.filter(
+            status__in=[
+                SecondOpinionStatus.SUBMITTED,
+                SecondOpinionStatus.IN_REVIEW
+            ]
+        ).count()
+
+        # -------------------------------
+        # 2. Due Today (based on created date)
+        # -------------------------------
+        due_today = queryset.filter(
+            created_at__date=today,
+            status__in=[
+                SecondOpinionStatus.SUBMITTED,
+                SecondOpinionStatus.IN_REVIEW
+            ]
+        ).count()
+
+        # -------------------------------
+        # 3. Recent Assignments
+        # -------------------------------
+        recent_qs = queryset.select_related(
+            "second_opinion_request__patient"
+        ).order_by("-created_at")[:5]
+
+        recent_assignments = [
+            {
+                "id": str(obj.id),
+                "patient_name": obj.second_opinion_request.patient.full_name,
+                "status": obj.status,
+                "submitted_at": obj.created_at,
+                "responded_at": obj.responded_at
+            }
+            for obj in recent_qs
+        ]
+
+        # -------------------------------
+        # 4. Weekly Activity
+        # -------------------------------
+        start_of_week = today - timedelta(days=today.weekday())
+
+        weekly_qs = queryset.filter(
+            created_at__date__gte=start_of_week
+        )
+
+        completed_qs = weekly_qs.filter(
+            status=SecondOpinionStatus.COMPLETED
+        )
+
+        # Turnaround time calculation
+        turnaround_expr = ExpressionWrapper(
+            F("responded_at") - F("created_at"),
+            output_field=DurationField()
+        )
+
+        avg_turnaround = completed_qs.annotate(
+            turnaround=turnaround_expr
+        ).aggregate(
+            avg_time=Avg("turnaround")
+        )["avg_time"]
+
+        avg_turnaround_hours = (
+            avg_turnaround.total_seconds() / 3600
+            if avg_turnaround else 0
+        )
+
+        review_activity = {
+            "cases_completed": completed_qs.count(),
+            "avg_turnaround_hours": round(avg_turnaround_hours, 2),
+            "pending_reviews": weekly_qs.exclude(
+                status=SecondOpinionStatus.COMPLETED
+            ).count()
+        }
+
+        return Response({
+            "detail": "Doctor dashboard data fetched successfully",
+            "data": {
+                "pending_cases": pending_cases,
+                "due_today": due_today,
+                "recent_assignments": recent_assignments,
+                "review_activity": review_activity
+            },
+            "success": True
+        })
+
+# ===================== Admin Side Views for Coupon Management =====================
 
 class AdminCouponPagination(PageNumberPagination):
     page_size = 10

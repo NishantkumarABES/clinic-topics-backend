@@ -3,7 +3,7 @@ from apps.second_opinion.views import (
     CalculateChargesView, SecondOpinionRequestListCreateView, SecondOpinionRequestDetailView, CreateSecondOpinionPaymentView,
     VerifySecondOpinionPaymentView, AvailableDoctorsListView, DoctorSecondOpinionListView, DoctorSecondOpinionDetailView,
     DoctorStartReviewView, DoctorSubmitResponseView, SubmitDoctorRatingView, ApplyCouponView, AdminCreateCouponView, AdminUpdateCouponView,
-    AdminCouponListView, AdminDeleteCouponView
+    AdminCouponListView, AdminDeleteCouponView, DoctorDashboardView
 )
 
 urlpatterns = [
@@ -23,6 +23,7 @@ urlpatterns = [
     path("payment/verify/", VerifySecondOpinionPaymentView.as_view(), name="payment-verify"),
 
     # Doctor side views
+    path("doctor/dashboard/", DoctorDashboardView.as_view()),
     path("doctor/requests/", DoctorSecondOpinionListView.as_view()),
     path("doctor/requests/<uuid:doctor_request_id>/", DoctorSecondOpinionDetailView.as_view()),
     path("doctor/requests/<uuid:doctor_request_id>/start-review/", DoctorStartReviewView.as_view()),
