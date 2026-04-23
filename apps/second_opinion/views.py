@@ -787,6 +787,24 @@ class ApplyCouponView(APIView):
 class DoctorDashboardView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
 
+    def get_priority(self, due_at, now):
+        """
+        Determine priority based on time remaining to SLA (48 hours).
+        """
+        time_left = due_at - now
+
+        if time_left.total_seconds() <= 0:
+            return "high"  # already overdue
+
+        hours_left = time_left.total_seconds() / 3600
+
+        if hours_left <= 12:
+            return "high"
+        elif hours_left <= 24:
+            return "standard"
+        else:
+            return "low"
+
     def get(self, request):
         doctor = request.user
         now = timezone.now()
@@ -829,17 +847,20 @@ class DoctorDashboardView(APIView):
             "second_opinion_request__patient"
         ).order_by("-created_at")[:3]
 
-        recent_assignments = [
-            {
+        recent_assignments = []
+        for obj in recent_qs:
+            due_at = obj.created_at + timedelta(hours=48)
+
+            recent_assignments.append({
                 "id": str(obj.id),
                 "patient_name": obj.second_opinion_request.patient.full_name,
+                "question": obj.second_opinion_request.question,  # ✅ ADDED
                 "status": obj.status,
+                "priority": self.get_priority(due_at, now),  # ✅ ADDED
                 "submitted_at": obj.created_at,
                 "responded_at": obj.responded_at,
-                "due_at": obj.created_at + timedelta(hours=48)
-            }
-            for obj in recent_qs
-        ]
+                "due_at": due_at
+            })
 
         # -----------------------------------
         # Turnaround Expression (Reusable)
