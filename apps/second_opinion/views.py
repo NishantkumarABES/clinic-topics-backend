@@ -817,11 +817,13 @@ class DoctorDashboardView(APIView):
         # -----------------------------------
         # 1. Pending Cases
         # -----------------------------------
+        pending_filter = [
+            SecondOpinionStatus.SUBMITTED,
+            SecondOpinionStatus.IN_REVIEW
+        ]
+
         pending_cases = queryset.filter(
-            status__in=[
-                SecondOpinionStatus.SUBMITTED,
-                SecondOpinionStatus.IN_REVIEW
-            ]
+            status__in=pending_filter
         ).count()
 
         # -----------------------------------
@@ -835,31 +837,37 @@ class DoctorDashboardView(APIView):
         due_today = queryset.annotate(
             due_at=due_expr
         ).filter(
-            due_at__date=today
-        ).exclude(
-            status=SecondOpinionStatus.COMPLETED
+            due_at__date=today,
+            status__in=pending_filter   # ✅ IMPORTANT FIX
         ).count()
 
         # -----------------------------------
-        # 3. Recent Assignments (TOP 3)
+        # 3. Recent Assignments (ONLY PENDING, TOP 3)
         # -----------------------------------
-        recent_qs = queryset.select_related(
+        recent_qs = queryset.filter(
+            status__in=pending_filter
+        ).select_related(
             "second_opinion_request__patient"
         ).order_by("-created_at")[:3]
 
         recent_assignments = []
         for obj in recent_qs:
-            due_at = obj.created_at + timedelta(hours=48)
+            patient = obj.second_opinion_request.patient
 
             recent_assignments.append({
                 "id": str(obj.id),
-                "patient_name": obj.second_opinion_request.patient.full_name,
-                "question": obj.second_opinion_request.question,  # ✅ ADDED
+                "patient": {
+                    "id": str(patient.id),
+                    "full_name": patient.full_name,
+                    "email": patient.email,
+                    "phone": patient.phone,
+                    "date_of_birth": patient.date_of_birth,
+                    "gender": patient.gender
+                },
+                "question": obj.second_opinion_request.question,
                 "status": obj.status,
-                "priority": self.get_priority(due_at, now),  # ✅ ADDED
-                "submitted_at": obj.created_at,
-                "responded_at": obj.responded_at,
-                "due_at": due_at
+                "consultation_fee": str(obj.consultation_fee),
+                "created_at": obj.created_at
             })
 
         # -----------------------------------
