@@ -853,9 +853,12 @@ class DoctorDashboardView(APIView):
         recent_assignments = []
         for obj in recent_qs:
             patient = obj.second_opinion_request.patient
+            due_at = obj.created_at + timedelta(hours=48)
 
             recent_assignments.append({
                 "id": str(obj.id),
+
+                # ✅ Nested patient structure
                 "patient": {
                     "id": str(patient.id),
                     "full_name": patient.full_name,
@@ -864,9 +867,19 @@ class DoctorDashboardView(APIView):
                     "date_of_birth": patient.date_of_birth,
                     "gender": patient.gender
                 },
+
+                # ✅ Core request data
                 "question": obj.second_opinion_request.question,
                 "status": obj.status,
                 "consultation_fee": str(obj.consultation_fee),
+
+                # ✅ SLA + timeline fields
+                "priority": self.get_priority(due_at, now),
+                "submitted_at": obj.created_at,
+                "responded_at": obj.responded_at,
+                "due_at": due_at,
+
+                # (optional but you included earlier)
                 "created_at": obj.created_at
             })
 
