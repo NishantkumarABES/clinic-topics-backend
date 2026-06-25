@@ -62,6 +62,29 @@ SUMMARIZATION_PROMPT_TEMPLATE = PromptTemplate(
     template=SUMMARIZATION_PROMPT,
 )
 
+TITLE_REFINEMENT_PROMPT = """
+You are an expert medical content editor and headline writer.
+
+Task:
+Rewrite the topic title below into a single, more engaging, catchy and click-worthy version
+suitable for a medical/health education feed.
+
+Strict Requirements:
+1. The refined title MUST NOT exceed {character_limit} characters (hard limit, including spaces).
+2. Keep the original medical meaning and factual accuracy. Do NOT invent facts or add clickbait that misleads.
+3. Make it concise, compelling and curiosity-driven so a reader wants to open it.
+4. Use Title Case. Do NOT wrap the result in quotes.
+5. Do NOT use emojis or hashtags.
+
+Output Rules:
+- Output ONLY the refined title on a single line.
+- Do NOT explain anything.
+- Do NOT exceed the character limit under any condition.
+
+Original title:
+{title}
+"""
+
 DEBUG_MODE = False
 
 
@@ -145,6 +168,32 @@ def summarizer(text: str, charater_limit: int = 500) -> str:
         model="gemini-2.5-flash", contents=prompt
     )
     return response.text.strip()
+
+def refine_title(title: str, character_limit: int = 150) -> str:
+    """Use OpenAI to rewrite a topic title into a more engaging, catchy version.
+
+    Keeps the medical meaning intact and respects the character limit. Falls back
+    to the original title if the model returns nothing usable.
+    """
+    cleaned = (title or "").strip()
+    if not cleaned:
+        raise ValueError("Title cannot be empty")
+
+    prompt = TITLE_REFINEMENT_PROMPT.format(title=cleaned, character_limit=character_limit)
+    openai_llm = ChatOpenAI(
+        model="gpt-4.1-mini-2025-04-14",
+        api_key=os.environ.get("OPENAI_API_KEY"),
+        temperature=0.6, max_tokens=256,
+        max_retries=2, timeout=120,
+    )
+    refined = (openai_llm.invoke(prompt).content or "").strip().strip('"').strip()
+
+    if not refined:
+        return cleaned
+    # Enforce the hard character limit defensively in case the model overshoots.
+    if len(refined) > character_limit:
+        refined = refined[:character_limit].rstrip()
+    return refined
 
 def summarize_tfidf(text: str, character_limit: int = 500) -> str:
     if not text or character_limit <= 0:
