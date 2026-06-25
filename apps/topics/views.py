@@ -12,12 +12,12 @@ from django.core.files.storage import default_storage
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
-from apps.topics.services import inshort_generator, check_transcription_status, start_transcription
+from apps.topics.services import inshort_generator, check_transcription_status, start_transcription, refine_title
 from apps.topics.models import Topic, TopicComment, TopicLike
 from apps.topics.serializers import (
     TopicListSerializer, TopicDetailSerializer, ArticleExtractionSerializer, CleanupImagesSerializer, AdminTopicReadSerializer,
     AdminTopicWriteSerializer, DoctorTopicCreateSerializer, TopicCreateSuccessResponseSerializer, TopicFeedItemSerializer,
-    TopicCommentSerializer, TopicCommentCreateSerializer
+    TopicCommentSerializer, TopicCommentCreateSerializer, TitleRefinementSerializer
 )
 from apps.notifications.services import create_admin_notification
 from apps.topics.services import TopicImageService
@@ -208,6 +208,46 @@ class ExtractArticleDataView(generics.CreateAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
    
+class RefineTitleView(generics.CreateAPIView):
+    serializer_class = TitleRefinementSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+    swagger_schema = None
+
+    @swagger_auto_schema(
+        auto_schema=None,
+        request_body=TitleRefinementSerializer,
+        responses={200: "Success"}
+    )
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        title = serializer.validated_data["title"]
+
+        try:
+            refined = refine_title(title)
+            return Response(
+                {
+                    "detail": "Title refined successfully",
+                    "data": {
+                        "original_title": title,
+                        "refined_title": refined,
+                    },
+                    "success": True
+                },
+                status=status.HTTP_200_OK,
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc), "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:
+            return Response(
+                {"detail": "Could not refine the title. Please try again.", "data": None, "success": False},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
 class CleanupUnwantedImages(APIView):
     permission_classes = [IsAuthenticated, IsAdmin]
 

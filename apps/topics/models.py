@@ -7,6 +7,7 @@ from django.core.exceptions import ValidationError
 class Topic(TimeStampedUUIDModel):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.TextField()
+    title_color = models.CharField(max_length=9, blank=True, null=True)  # hex color for the title, e.g. #1f2937
     description = models.TextField(blank=True, null=True)
 
     author = models.ForeignKey(

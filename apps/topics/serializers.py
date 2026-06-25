@@ -70,6 +70,7 @@ class AdminTopicReadSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "title",
+            "title_color",
             "description",
             "image",
             "source_url",
@@ -117,6 +118,7 @@ class AdminTopicWriteSerializer(serializers.ModelSerializer):
         model = Topic
         fields = [
             "title",
+            "title_color",
             "description",
             "image_url",
             "image_file",
@@ -154,6 +156,9 @@ class AdminTopicWriteSerializer(serializers.ModelSerializer):
 
 class ArticleExtractionSerializer(serializers.Serializer):
     url = serializers.URLField()
+
+class TitleRefinementSerializer(serializers.Serializer):
+    title = serializers.CharField(max_length=150, trim_whitespace=True)
 
 class CleanupImagesSerializer(serializers.Serializer):
     image_urls = serializers.ListField(
