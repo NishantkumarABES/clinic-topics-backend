@@ -119,6 +119,40 @@ class TopicImageService:
         
     
     @staticmethod
+    def get_image_bytes(image_url: str) -> tuple[bytes, str]:
+        """Return (content, content_type) for an image so the admin UI can edit it
+        without hitting CORS. Our own bucket/CDN serves topic images without
+        CORS headers, so the browser can display them but cannot read their pixels
+        for cropping. Reading them server-side and re-serving them same-origin
+        sidesteps that entirely.
+
+        Prefers our own storage (no extra network hop); falls back to a plain
+        server-side fetch for genuinely remote URLs (e.g. not-yet-promoted
+        extracted images on another host).
+        """
+        if not image_url:
+            raise ValueError("URL cannot be empty")
+        if image_url.startswith("//"):
+            image_url = "https:" + image_url
+
+        key = TopicImageService.extract_image_path(image_url)
+        if default_storage.exists(key):
+            with default_storage.open(key, "rb") as f:
+                content = f.read()
+            ext = os.path.splitext(key)[1].lstrip(".").lower()
+            content_type = next(
+                (ct for ct, e in ext_mapping.items() if e == ext), "image/jpeg"
+            )
+            return content, content_type
+
+        resp = requests.get(image_url, timeout=20, headers={"User-Agent": ua.random})
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[0].strip()
+        if not content_type.startswith("image/"):
+            raise ValueError("URL did not return an image")
+        return resp.content, content_type
+
+    @staticmethod
     def promote_image_to_topic(image_url: str) -> str:
         image_key = TopicImageService.extract_image_path(image_url)
         print(f"Promoting image from temp: {image_key}")
