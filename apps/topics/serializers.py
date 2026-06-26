@@ -296,6 +296,7 @@ class TopicFeedItemSerializer(serializers.ModelSerializer):
             "type",
             "id",
             "title",
+            "title_color",
             "description",
             "publishing_time",
             "publish_status",
