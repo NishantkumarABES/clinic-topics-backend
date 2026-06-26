@@ -287,6 +287,36 @@ class CleanupUnwantedImages(APIView):
             status=status.HTTP_200_OK,
         )
 
+class TopicImageProxyView(APIView):
+    """Serve a topic image's bytes through our own origin so the admin can edit
+    (crop / resize) it. Our bucket/CDN returns images without CORS headers, so a
+    browser-side fetch is blocked; proxying the bytes here makes the request
+    same-origin and CORS-free.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema(auto_schema=None)
+    def get(self, request):
+        from django.http import HttpResponse
+
+        image_url = request.query_params.get("url")
+        if not image_url:
+            return Response(
+                {"detail": "url query parameter is required", "success": False},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            content, content_type = TopicImageService.get_image_bytes(image_url)
+        except Exception as exc:
+            return Response(
+                {"detail": f"Unable to load image: {exc}", "success": False},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        response = HttpResponse(content, content_type=content_type)
+        response["Cache-Control"] = "private, max-age=300"
+        return response
+
 class DoctorTopicCreateAPIView(APIView):
     permission_classes = [IsAuthenticated, IsDoctor]
     parser_classes = [MultiPartParser, FormParser]
