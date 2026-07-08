@@ -178,9 +178,10 @@ class ExtractArticleDataView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
 
         url = serializer.validated_data["url"]
+        mood = serializer.validated_data.get("mood")
 
         try:
-            summary, title, image_keys = inshort_generator(url)
+            summary, title, image_keys = inshort_generator(url, mood=mood)
             image_urls = [
                 default_storage.url(k)
                 for k in image_keys
@@ -223,9 +224,10 @@ class RefineTitleView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
 
         title = serializer.validated_data["title"]
+        mood = serializer.validated_data.get("mood")
 
         try:
-            refined = refine_title(title)
+            refined = refine_title(title, mood=mood)
             return Response(
                 {
                     "detail": "Title refined successfully",

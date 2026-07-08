@@ -13,6 +13,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from moviepy.editor import VideoFileClip
 
 from apps.topics.models import Topic, TopicTranscription
+from apps.topics.constants import build_mood_instruction
 from external.sonix.service import sonix_client, SonixAPIError
 
 try:
@@ -53,12 +54,12 @@ Output Rules:
 - Output ONLY the summary.
 - Do NOT explain anything.
 - Do NOT exceed the character limit under any condition.
-
+{mood_instruction}
 Article:
 {text}
 """
 SUMMARIZATION_PROMPT_TEMPLATE = PromptTemplate(
-    input_variables=["text", "charater_limit"],
+    input_variables=["text", "character_limit", "mood_instruction"],
     template=SUMMARIZATION_PROMPT,
 )
 
@@ -80,7 +81,7 @@ Output Rules:
 - Output ONLY the refined title on a single line.
 - Do NOT explain anything.
 - Do NOT exceed the character limit under any condition.
-
+{mood_instruction}
 Original title:
 {title}
 """
@@ -196,24 +197,33 @@ def process_article(url: str):
     all_image_links = [img.get("src") for img in soup.find_all("img")]
     return article_text, article_title, all_image_links
 
-def summarizer(text: str, charater_limit: int = 500) -> str:
-    prompt = SUMMARIZATION_PROMPT.format(text=text, charater_limit=charater_limit)
+def summarizer(text: str, character_limit: int = 500, mood=None) -> str:
+    prompt = SUMMARIZATION_PROMPT.format(
+        text=text,
+        character_limit=character_limit,
+        mood_instruction=build_mood_instruction(mood),
+    )
     response = client.models.generate_content(
         model="gemini-2.5-flash", contents=prompt
     )
     return response.text.strip()
 
-def refine_title(title: str, character_limit: int = 150) -> str:
+def refine_title(title: str, character_limit: int = 150, mood=None) -> str:
     """Use OpenAI to rewrite a topic title into a more engaging, catchy version.
 
     Keeps the medical meaning intact and respects the character limit. Falls back
-    to the original title if the model returns nothing usable.
+    to the original title if the model returns nothing usable. ``mood`` injects a
+    tone/writing-style instruction into the prompt (Neutral = default style).
     """
     cleaned = (title or "").strip()
     if not cleaned:
         raise ValueError("Title cannot be empty")
 
-    prompt = TITLE_REFINEMENT_PROMPT.format(title=cleaned, character_limit=character_limit)
+    prompt = TITLE_REFINEMENT_PROMPT.format(
+        title=cleaned,
+        character_limit=character_limit,
+        mood_instruction=build_mood_instruction(mood),
+    )
     openai_llm = ChatOpenAI(
         model="gpt-4.1-mini-2025-04-14",
         api_key=os.environ.get("OPENAI_API_KEY"),
@@ -267,9 +277,11 @@ def summarize_tfidf(text: str, character_limit: int = 500) -> str:
     summary = " ".join(sentence for _, sentence in selected_sentences)
     return summary.strip()
 
-def summarize_openai(text, character_limit=500):
+def summarize_openai(text, character_limit=500, mood=None):
     prompt = SUMMARIZATION_PROMPT_TEMPLATE.format(
-        text=text, character_limit=character_limit
+        text=text,
+        character_limit=character_limit,
+        mood_instruction=build_mood_instruction(mood),
     )
     openai_llm = ChatOpenAI(
         model="gpt-4.1-mini-2025-04-14",
@@ -280,11 +292,11 @@ def summarize_openai(text, character_limit=500):
     response = openai_llm.invoke(prompt).content
     return response.strip()
 
-def inshort_generator(url: str) -> str:
+def inshort_generator(url: str, mood=None) -> str:
     article_text, article_title, image_links = process_article(url)
     temp_image_urls = TopicImageService.download_images_to_temp(image_links)
     try:
-        summary = summarize_openai(article_text)
+        summary = summarize_openai(article_text, mood=mood)
     except Exception as e:
         print(e)
         summary = summarize_tfidf(article_text)
