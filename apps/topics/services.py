@@ -13,7 +13,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from moviepy.editor import VideoFileClip
 
 from apps.topics.models import Topic, TopicTranscription
-from apps.topics.constants import build_mood_instruction
+from apps.topics.constants import build_mood_instruction, Mood
 from external.sonix.service import sonix_client, SonixAPIError
 
 try:
@@ -300,6 +300,13 @@ def inshort_generator(url: str, mood=None) -> str:
     except Exception as e:
         print(e)
         summary = summarize_tfidf(article_text)
+    # Apply the selected mood to the scraped title so the extracted title already
+    # reflects the chosen tone. Neutral keeps the original scraped title as-is.
+    if article_title and mood and str(mood) != str(Mood.NEUTRAL):
+        try:
+            article_title = refine_title(article_title, mood=mood)
+        except Exception as e:
+            print(e)
     return summary, article_title, temp_image_urls
 
 
