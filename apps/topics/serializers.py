@@ -4,6 +4,7 @@ from django.core.files.storage import default_storage
 from rest_framework import serializers
 from django.utils.timezone import now
 from apps.topics.models import Topic, TopicComment
+from apps.topics.constants import Mood
 from apps.topics.services import TopicImageService
 from apps.topics.services import generate_thumbnail_moviepy
 
@@ -156,9 +157,15 @@ class AdminTopicWriteSerializer(serializers.ModelSerializer):
 
 class ArticleExtractionSerializer(serializers.Serializer):
     url = serializers.URLField()
+    mood = serializers.ChoiceField(
+        choices=Mood.choices, required=False, default=Mood.NEUTRAL
+    )
 
 class TitleRefinementSerializer(serializers.Serializer):
     title = serializers.CharField(max_length=150, trim_whitespace=True)
+    mood = serializers.ChoiceField(
+        choices=Mood.choices, required=False, default=Mood.NEUTRAL
+    )
 
 class CleanupImagesSerializer(serializers.Serializer):
     image_urls = serializers.ListField(
